@@ -1,0 +1,20 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "MITM: Launch server",
+            "type": "python",
+            "request": "launch",
+            "module": "sssekai",
+            "cwd": "${workspaceFolder}",
+            "args": [
+                "-p",
+                "8888",
+                "--mode",
+                "upstream:http://127.0.0.1:8080/",
+                "-q"
+            ],
+            "justMyCode": false
+        }
+    ]
+}
