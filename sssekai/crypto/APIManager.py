@@ -17,8 +17,8 @@ def encrypt_aes_cbc(data : bytes, key, iv, pad=PKCS7_pad) -> bytes:
 
 SEKAI_APIMANAGER_KEY = b"g2fcC0ZczN9MTJ61"
 SEKAI_APIMANAGER_IV = b"msx3IV0i9XE5uYZ1"
-def sekai_api_encrypt(data : bytes) -> bytes:
+def encrypt(data : bytes) -> bytes:
     return encrypt_aes_cbc(data,SEKAI_APIMANAGER_KEY,SEKAI_APIMANAGER_IV, PKCS7_pad)
 
-def sekai_api_decrypt(data : bytes) -> bytes:
+def decrypt(data : bytes) -> bytes:
     return decrypt_aes_cbc(data,SEKAI_APIMANAGER_KEY,SEKAI_APIMANAGER_IV, PKCS7_unpad)

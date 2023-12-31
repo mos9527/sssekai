@@ -1,3 +1,6 @@
 __pycache__
 logs
 logs_bin
+build
+dist
+*.egg-info

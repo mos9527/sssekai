@@ -1,14 +1,14 @@
 import sys,os
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-import setuptools, librespot_dl
+import setuptools, sssekai
 
 with open("README.md", "r", encoding="utf-8") as fh:
     long_description = fh.read()
 
 setuptools.setup(
     name="sssekai",
-    version=librespot_dl.__version__,
+    version=sssekai.__version__,
     author="greats3an",
     author_email="greats3an@gmail.com",
     description="",
@@ -21,7 +21,7 @@ setuptools.setup(
         "License :: OSI Approved :: Apache Software License",
         "Operating System :: OS Independent",
     ],
-    install_requires=["msgpack"],
-    entry_points={"console_scripts": ["librespot-dl = librespot_dl.__main__:__main__"]},
+    install_requires=["msgpack","pycryptodome"],
+    entry_points={"console_scripts": ["sssekai = sssekai.__main__:__main__"]},
     python_requires=">=3.8",
 )

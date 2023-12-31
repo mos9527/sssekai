@@ -1,6 +1,6 @@
 import json
 from mitmproxy import http
-from crypto import sekai_api_encrypt, sekai_api_decrypt
+from crypto.APIManager import encrypt, decrypt
 from msgpack import unpackb, packb
 import datetime, copy
 
@@ -25,7 +25,7 @@ class APIIntereceptor:
                 prefix = 'response'
             try:
                 print(">>> %s <<<" % prefix.upper())
-                decrypted_body = sekai_api_decrypt(data)
+                decrypted_body = decrypt(data)
                 body = unpackb(decrypted_body)
                 print("::",flow.request.url)
                 with open('logs/%s_%s.json' % (prefix,APIIntereceptor.file_id(flow)),'w',encoding='utf-8') as f:
@@ -50,7 +50,7 @@ class APIIntereceptor:
                     print('! Intercepted Live request')
                     body['musicId'] = 1 # Tell Your World
                     body['musicDifficultyId'] = 4 # Expert
-                flow.request.content = sekai_api_encrypt(packb(body))
+                flow.request.content = encrypt(packb(body))
 
     def response(self, flow : http.HTTPFlow):
         if self.filter(flow):
@@ -70,7 +70,7 @@ class APIIntereceptor:
                         
                         for stat in body['userMusics'][-1]['userMusicDifficultyStatuses']:
                             stat['musicDifficultyStatus'] = 'available'
-                    flow.response.content = sekai_api_encrypt(packb(body))            
+                    flow.response.content = encrypt(packb(body))            
 
 addons = [
     APIIntereceptor()
