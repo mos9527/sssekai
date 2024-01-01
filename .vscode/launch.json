@@ -2,6 +2,15 @@
     "version": "0.2.0",
     "configurations": [
         {
+            "name": "Python: ABCache test",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/abcache.test.py",
+            "cwd": "${workspaceFolder}",
+            "console": "integratedTerminal",
+            "justMyCode": true
+        },
+        {
             "name": "MITM: Launch server",
             "type": "python",
             "request": "launch",
@@ -15,6 +24,6 @@
                 "-q"
             ],
             "justMyCode": false
-        }
+        },
     ]
 }
