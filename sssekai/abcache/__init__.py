@@ -1,60 +1,56 @@
-from io import BytesIO
 from os import path, remove, makedirs, stat
 from typing import List, Mapping
 from dataclasses import dataclass, asdict
-from aria2p.client import Client
-from requests import get as http_get
+from requests import get as http_get, Session
 from logging import getLogger
 from json import dump, load
-from time import sleep
+from concurrent.futures import ThreadPoolExecutor
 logger = getLogger('sssekai.abcache')
 
-import aria2p
 from sssekai.crypto.APIManager import decrypt
-from sssekai.crypto.AssetBundle import decrypt as ab_decrypt, decrypt_headaer_inplace
+from sssekai.crypto.AssetBundle import decrypt_headaer_inplace, SEKAI_AB_MAGIC
 from msgpack import unpackb
-import hashlib,mmap
+from tqdm import tqdm
 DEFAULT_CACHE_DIR = '~/.sssekai/abcache'
 # 2.6.1
 SEKAI_CDN = 'https://lf16-mkovscdn-sg.bytedgame.com/obj/sf-game-alisg/gdl_app_5245/'
 SEKAI_AB_BASE_PATH = 'AssetBundle/2.6.0/Release/online/'
 SEKAI_AB_INDEX_PATH = SEKAI_AB_BASE_PATH + 'android21/AssetBundleInfo.json'
 
-class Aria2Downloader(aria2p.API):
+class ThreadpoolDownloader(ThreadPoolExecutor):
+    session : Session
+    progress : tqdm
+
+    def download(self, url, fname, length):
+        try:
+            resp = self.session.get(url,stream=True)
+            resp.raise_for_status()
+            makedirs(path.dirname(fname),exist_ok=True)
+            with open(fname, 'wb') as f:
+                magic = next(resp.iter_content(4))
+                if magic == SEKAI_AB_MAGIC:
+                    header = next(resp.iter_content(128))            
+                    self.progress.update(128)
+                    f.write(decrypt_headaer_inplace(bytearray(header)))
+                else:
+                    f.write(magic)                
+                for chunk in resp.iter_content(65536):
+                    self.progress.update(len(chunk))
+                    f.write(chunk)  
+        except Exception as e:
+            logger.error('While downloading %s : %s' % (url,e))
+    def add_link(self, url, fname, length):
+        self.progress.total += length
+        return self.submit(self.download, url, fname, length)
     def __init__(self) -> None:
-        super().__init__(aria2p.Client(
-            host="http://127.0.0.1",
-            port=6800,
-            secret=""
-        ))
+        self.session = Session()
+        self.progress = tqdm(bar_format="{desc}: {percentage:.1f}%|{bar}| {n_fmt}/{total_fmt} {rate_fmt} {elapsed}<{remaining}", total=0,unit='B', unit_scale=True, unit_divisor=1024,desc="Downloading")
+        super().__init__() # workers = processor count * 5
 
-    def add_link_simple(self, uri, save_to):
-        options = aria2p.Options(self, {})
-        options.dir = path.dirname(save_to)
-        options.out = path.basename(save_to)
-        options.file_allocation = 'none' 
-        # don't prealloc. allowing the file size to be exploited to check whether the download's
-        # completed        
-        self.add(
-            uri,
-            options=options
-        )
-
-    def wait_for_downloads(self):        
-        all_done = False
-        logger.info('Waiting for downloads to complete')
-        while not all_done:
-            all_done = True
-            for i in self.get_downloads():
-                if i.status == 'active':
-                    all_done = False
-                    break
-            sleep(1)
-        
 class AbCacheConfig:
     cache_dir : str # absolute path to cache directory
-    downloader : Aria2Downloader
-    def __init__(self, downloader : Aria2Downloader, cache_dir: str = DEFAULT_CACHE_DIR) -> None:
+    downloader : ThreadpoolDownloader
+    def __init__(self, downloader : ThreadpoolDownloader, cache_dir: str = DEFAULT_CACHE_DIR) -> None:
         self.cache_dir = path.expanduser(cache_dir)
         self.cache_dir = path.abspath(self.cache_dir)
         self.downloader = downloader
@@ -76,7 +72,7 @@ class AbCacheEntry(dict):
 
     def up_to_date(self, config: AbCacheConfig, other) -> bool:
         fsize = self.get_file_size(config)     
-        return self.hash == AbCacheEntry(**other).hash and self.fileSize <= fsize # fsize may be fileSize + 4
+        return self.hash == other.hash and self.fileSize <= fsize # fsize may be fileSize + 4
     
     def get_file_size(self, config: AbCacheConfig):
         if self.get_file_exists(config):
@@ -114,38 +110,45 @@ class AbCache:
             cache.bundles[k] = AbCacheEntry(**v)
         return cache
 
-    def update_cahce_entry(self, entry : AbCacheEntry, new_entry : AbCacheEntry = None) -> None:
+    def update_cahce_entry(self, entry : AbCacheEntry, new_entry : AbCacheEntry = None):
         if new_entry:
-            entry = AbCacheEntry(new_entry)
-        self.config.downloader.add_link_simple(
+            entry = new_entry
+        return self.config.downloader.add_link(
             SEKAI_CDN + SEKAI_AB_BASE_PATH + entry.downloadPath,
-            path.join(self.config.cache_dir, entry.bundleName)
+            entry.get_file_path(self.config),
+            entry.fileSize
         )
                 
     def update_cahce_index(self):
         logger.info('Downloading AssetBundleInfo.json')
         dl = AbCache.download_cache_index()
-        all_keys = sorted([k for k in dl.bundles.keys()] + [k for k in self.index.bundles.keys()])
+        all_keys = sorted(list({k for k in dl.bundles.keys()}.union({k for k in self.index.bundles.keys()})))
+        update_count = 0
         for k in all_keys:
             if k in dl.bundles and k in self.index.bundles:
                 # update
                 if not dl.bundles[k].up_to_date(self.config, self.index.bundles[k]):
-                    logger.info('Updating bundle %s', k)
+                    logger.debug('Updating bundle %s', k)
                     self.update_cahce_entry(self.index.bundles[k], dl.bundles[k])
+                    update_count+=1
                 else:
                     logger.info('Bundle %s is up to date' % k)
             elif k in dl.bundles: 
                 # append
-                logger.info('Adding bundle %s', k)
+                logger.debug('Adding bundle %s', k)
                 self.index.bundles[k] = dl.bundles[k]
                 self.update_cahce_entry(self.index.bundles[k])
+                update_count+=1
             else: 
                 # removal
-                logger.info('Removing bundle %s', k)
+                logger.debug('Removing bundle %s', k)
                 if path.exists(self.index.bundles[k].get_file_path(self.config)):
                     remove(self.index.bundles[k].get_file_path(self.config))
                 del self.index.bundles[k]
-            self.save()
+        self.save()
+        logger.info('All have been dispatched. Need %d updates' % update_count)
+        self.config.downloader.shutdown(wait=True)
+        logger.info('AssetBundles are now up-to-date')
     
     def __init__(self, config : AbCacheConfig) -> None:
         self.config = config
@@ -165,4 +168,6 @@ class AbCache:
     def load(self):
         with open(path.join(self.config.cache_dir, 'abindex.json'),'r',encoding='utf-8') as f:
             self.index = AbCacheIndex(**load(f))
+            for k,v in self.index.bundles.items():
+                self.index.bundles[k] = AbCacheEntry(**v)
             logger.info("Loaded %d entries from cache index" % len(self.index.bundles))

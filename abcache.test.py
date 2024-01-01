@@ -1,4 +1,4 @@
-from sssekai.abcache import AbCache, AbCacheConfig, AbCacheEntry, AbCacheIndex, Aria2Downloader
+from sssekai.abcache import AbCache, AbCacheConfig, AbCacheEntry, AbCacheIndex, ThreadpoolDownloader
 import coloredlogs
 from logging import basicConfig
 coloredlogs.install(
@@ -10,8 +10,8 @@ basicConfig(
     level='INFO', format="[%(levelname).4s] %(name)s %(message)s"
 )
 
-downloader = Aria2Downloader()
+downloader = ThreadpoolDownloader()
 cache = AbCache(AbCacheConfig(downloader))
 cache.update_cahce_index()
-downloader.wait_for_downloads()
+downloader.shutdown(wait=True)
 cache.save()
