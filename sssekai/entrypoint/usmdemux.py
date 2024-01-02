@@ -1,5 +1,5 @@
 from sssekai.crypto.AssetBundle import SEKAI_AB_MAGIC
-from os import path,remove
+from os import path,remove,makedirs
 def main_usmdemux(args):
     import UnityPy
     from UnityPy.enums import ClassIDType
@@ -20,13 +20,15 @@ def main_usmdemux(args):
         tree = movieInfo.read_typetree()
         usm_name = tree['movieBundleDatas'][0]['usmFileName'][:-len('.bytes')]
         print('USM: %s' % usm_name)
-        usm_temp = path.join(args.outdir,usm_name)
+        usm_folder = path.join(args.outdir,usm_name)
+        makedirs(usm_folder,exist_ok=True)
+        usm_temp = path.join(usm_folder,usm_name + '.tmp')
         with open(usm_temp,'wb') as usmstream:
             for data in tree['movieBundleDatas']:
                 usm = data['usmFileName'][:-len('.bytes')]
                 usm = datas[usm]
                 usmstream.write(usm.script)
         usm = Usm.open(usm_temp,encoding='shift-jis')
-        usm.demux(args.outdir)
+        usm.demux(args.outdir,usm_name)
         remove(usm_temp)
-        print('Saved to %s/' % usm_temp)
+        print('Saved to %s/' % usm_folder)
