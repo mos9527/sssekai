@@ -141,7 +141,7 @@ class AbCache:
             if k in dl.bundles and k in self.index.bundles:
                 # update
                 if not dl.bundles[k].up_to_date(self.config, self.index.bundles[k]):
-                    logger.debug('Updating bundle %s', k)
+                    logger.info('Updating bundle %s', k)
                     self.update_cahce_entry(self.index.bundles[k], dl.bundles[k])
                     update_count+=1
                 else:
@@ -149,13 +149,13 @@ class AbCache:
                     pass
             elif k in dl.bundles: 
                 # append
-                logger.debug('Adding bundle %s', k)
+                logger.info('Adding bundle %s', k)
                 self.index.bundles[k] = dl.bundles[k]
                 self.update_cahce_entry(self.index.bundles[k])
                 update_count+=1
             else: 
                 # removal
-                logger.debug('Removing bundle %s', k)
+                logger.info('Removing bundle %s', k)
                 if path.exists(self.index.bundles[k].get_file_path(self.config)):
                     remove(self.index.bundles[k].get_file_path(self.config))
                 del self.index.bundles[k]

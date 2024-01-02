@@ -1,9 +1,11 @@
+import codecs
 import sys, os
 import argparse
 from sssekai.entrypoint.apidecrypt import main_apidecrypt
 from sssekai.entrypoint.abdecrypt import main_abdecrypt
 from sssekai.entrypoint.mitm import main_mitm
 from sssekai.entrypoint.usmdemux import main_usmdemux
+from sssekai.entrypoint.abcache import main_abcache, DEFAULT_CACHE_DIR
 def __main__():
     import coloredlogs
     from logging import basicConfig
@@ -16,7 +18,7 @@ def __main__():
         level='INFO', format="[%(levelname).4s] %(name)s %(message)s"
     )
     
-    parser = argparse.ArgumentParser(description='SSSekai 世界计划缤纷舞台！ feat. 初音未来 （台服） MOD 工具', formatter_class=argparse.RawTextHelpFormatter)
+    parser = argparse.ArgumentParser(description='SSSekai Proejct SEKAI feat. Hatsune Miku (TW Android) Tools', formatter_class=argparse.RawTextHelpFormatter)
     subparsers = parser.add_subparsers(title='subcommands', description='valid subcommands', help='additional help')
     # apidecrypt
     apidecrypt_parser = subparsers.add_parser('apidecrypt', help='''API crypto dumper
@@ -35,11 +37,20 @@ These can be found at /sdcard/Android/data/com.hermes.mk.asia/files/data/
     abdecrypt_parser.set_defaults(func=main_abdecrypt)
     # usmdemux
     usmdemux_parser = subparsers.add_parser('usmdemux', help='''Demux Sekai USM Video in a AssetBundle
-NOTE: The AssetBundle MUST NOT be obfuscated. If so, debofuscate it with [abdecrypt] first
+NOTE: The AssetBundle MUST NOT BE OBFUSCATED. If so, debofuscate it with [abdecrypt] first
 ''')
     usmdemux_parser.add_argument('infile', type=str, help='input file')
     usmdemux_parser.add_argument('outdir', type=str, help='output directory')
     usmdemux_parser.set_defaults(func=main_usmdemux)
+    # abcache
+    abcache_parser = subparsers.add_parser('abcache', help='''Sekai AssetBundle local cache
+Downloads/Updates *ALL* PJSK TW assets to local devices.
+NOTE: The assets can take quite a lot of space (est. 27GB) so be prepared
+NOTE: The AssetBundles cached are NOT OBFUSCATED. They can be used as is by various Unity ripping tools (and sssekai by extension).''')
+    abcache_parser.add_argument('--cache-dir', type=str, help='cache directory',default=DEFAULT_CACHE_DIR)
+    abcache_parser.add_argument('--skip-update',action='store_true',help='skip all updates and use cached assets as is.')
+    abcache_parser.add_argument('--open', action='store_true',help='open cache directory. this will skip all updates.')
+    abcache_parser.set_defaults(func=main_abcache)
     # mitm
     mitm_parser = subparsers.add_parser('mitm', help='Run Sekai API MITM proxy (WIP)')
     mitm_parser.set_defaults(func=main_mitm)
