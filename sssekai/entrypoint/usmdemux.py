@@ -29,6 +29,6 @@ def main_usmdemux(args):
                 usm = datas[usm]
                 usmstream.write(usm.script)
         usm = Usm.open(usm_temp,encoding='shift-jis')
-        usm.demux(args.outdir,usm_name)
+        usm.demux(path.join(args.outdir,usm_name),usm_name)
         remove(usm_temp)
         print('Saved to %s/' % usm_folder)
