@@ -1,7 +1,6 @@
 # sssekai
-这里是 https://mos9527.github.io/tags/project-sekai/ 的仓库
 ```
-usage: __main__.py [-h] {apidecrypt,abdecrypt,mitm} ...
+usage: __main__.py [-h] {apidecrypt,abdecrypt,usmdemux,mitm} ...
 
 SSSekai 世界计划缤纷舞台！ feat. 初音未来 （台服） MOD 工具
 
@@ -11,7 +10,7 @@ options:
 subcommands:
   valid subcommands
 
-  {apidecrypt,abdecrypt,mitm}
+  {apidecrypt,abdecrypt,usmdemux,mitm}
                         additional help
     apidecrypt          API crypto dumper
                         This crypto applies to:
@@ -19,5 +18,7 @@ subcommands:
                             - AssetBundleInfo (can be found at /sdcard/Android/data/com.hermes.mk.asia/files/data/AssetBundleInfo)
     abdecrypt           Decrypt Sekai AssetBundle
                         These can be found at /sdcard/Android/data/com.hermes.mk.asia/files/data/
+    usmdemux            Demux Sekai USM Video in a AssetBundle
+                        NOTE: The AssetBundle MUST NOT be obfuscated. If so, debofuscate it with [abdecrypt] first
     mitm                Run Sekai API MITM proxy (WIP)
 ```

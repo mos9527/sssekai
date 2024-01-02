@@ -2,6 +2,18 @@
     "version": "0.2.0",
     "configurations": [
         {
+            "name": "Python: usmdemux",
+            "type": "python",
+            "request": "launch",
+            "module": "sssekai",
+            "args": [
+                "usmdemux",
+                "C:\\Users\\mos9527\\.sssekai\\abcache\\title_screen\\anniversary_2nd_bg",
+                "C:\\Users\\mos9527\\Desktop\\Cache"
+            ],
+            "justMyCode": true
+        },
+        {
             "name": "Python: ABCache test",
             "type": "python",
             "request": "launch",

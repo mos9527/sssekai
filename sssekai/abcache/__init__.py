@@ -4,6 +4,7 @@ from dataclasses import dataclass, asdict
 from requests import get as http_get, Session
 from logging import getLogger
 from json import dump, load
+from pathlib import Path
 from concurrent.futures import ThreadPoolExecutor
 logger = getLogger('sssekai.abcache')
 
@@ -22,23 +23,28 @@ class ThreadpoolDownloader(ThreadPoolExecutor):
     progress : tqdm
 
     def download(self, url, fname, length):
-        try:
-            resp = self.session.get(url,stream=True)
-            resp.raise_for_status()
-            makedirs(path.dirname(fname),exist_ok=True)
-            with open(fname, 'wb') as f:
-                magic = next(resp.iter_content(4))
-                if magic == SEKAI_AB_MAGIC:
-                    header = next(resp.iter_content(128))            
-                    self.progress.update(128)
-                    f.write(decrypt_headaer_inplace(bytearray(header)))
-                else:
-                    f.write(magic)                
-                for chunk in resp.iter_content(65536):
-                    self.progress.update(len(chunk))
-                    f.write(chunk)  
-        except Exception as e:
-            logger.error('While downloading %s : %s' % (url,e))
+        RETRIES = 1
+        for _ in range(0,RETRIES):
+            try:
+                resp = self.session.get(url,stream=True)
+                resp.raise_for_status()
+                makedirs(path.dirname(fname),exist_ok=True)
+                with open(fname, 'wb') as f:
+                    magic = next(resp.iter_content(4))
+                    if magic == SEKAI_AB_MAGIC:
+                        header = next(resp.iter_content(128))            
+                        self.progress.update(128)
+                        f.write(decrypt_headaer_inplace(bytearray(header)))
+                    else:
+                        f.write(magic)                
+                    for chunk in resp.iter_content(65536):
+                        self.progress.update(len(chunk))
+                        f.write(chunk)
+                    return
+            except Exception as e:
+                logger.error('While downloading %s : %s. Retrying' % (url,e))
+        if _ == RETRIES - 1:
+            logger.critical('Did not download %s' % url)
     def add_link(self, url, fname, length):
         self.progress.total += length
         return self.submit(self.download, url, fname, length)
@@ -89,7 +95,14 @@ class AbCacheEntry(dict):
 class AbCacheIndex(dict):
     version : str
     bundles : Mapping[str, AbCacheEntry]
-
+    def get_bundle_by_abcache_path(self, config: AbCacheConfig, fpath) -> AbCacheEntry | None:
+        # "C:\Users\mos9527\.sssekai\abcache\title_screen\anniversary_2nd_bg"
+        fpath = Path(fpath)
+        cpath = Path(config.cache_dir)
+        assert fpath.is_relative_to(cpath), "File provided is not inside the cache"
+        relpath = fpath.relative_to(cpath).as_posix()
+        return self.bundles.get(relpath,None)
+    
 class AbCache:
     config : AbCacheConfig
     index : AbCacheIndex
@@ -132,7 +145,8 @@ class AbCache:
                     self.update_cahce_entry(self.index.bundles[k], dl.bundles[k])
                     update_count+=1
                 else:
-                    logger.info('Bundle %s is up to date' % k)
+                    logger.debug('Bundle %s is up to date' % k)
+                    pass
             elif k in dl.bundles: 
                 # append
                 logger.debug('Adding bundle %s', k)
@@ -145,8 +159,9 @@ class AbCache:
                 if path.exists(self.index.bundles[k].get_file_path(self.config)):
                     remove(self.index.bundles[k].get_file_path(self.config))
                 del self.index.bundles[k]
+        logger.info('Saving AssetBundle index')
         self.save()
-        logger.info('All have been dispatched. Need %d updates' % update_count)
+        logger.info('...Saved. Need %d updates' % update_count)
         self.config.downloader.shutdown(wait=True)
         logger.info('AssetBundles are now up-to-date')
     
@@ -163,7 +178,7 @@ class AbCache:
     def save(self):
         with open(path.join(self.config.cache_dir, 'abindex.json'),'w',encoding='utf-8') as f:
             dump(asdict(self.index), f, indent=4, ensure_ascii=False)
-            # logger.info("Saved %d entries to cache index" % len(self.index.bundles))
+            logger.info("Saved %d entries to cache index" % len(self.index.bundles))
 
     def load(self):
         with open(path.join(self.config.cache_dir, 'abindex.json'),'r',encoding='utf-8') as f:
