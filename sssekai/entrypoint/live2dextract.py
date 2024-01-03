@@ -8,6 +8,7 @@ logger = getLogger(__name__)
 def main_live2dextract(args):
     with open(args.infile,'rb') as f:
         from UnityPy.enums import ClassIDType
+        makedirs(args.outdir,exist_ok=True)
         env = load_assetbundle(f)
         monobehaviors = dict()
         textures = dict()
@@ -49,9 +50,10 @@ def main_live2dextract(args):
                 textures[name_wo_ext].image.save(out_name)
         # Animations are serialized into AnimationClip
         if not args.no_anim:
+            from sssekai.unity.constant.SekaiLive2DParamNames import NAMES_CRC_TBL
             for clipName, clip in animations.items():
                 logger.info('Extracting Animation %s' % clipName)
-                data = animation_clip_to_live2d_motion3(clip)  
+                data = animation_clip_to_live2d_motion3(clip, NAMES_CRC_TBL)  
                 # https://til.simonwillison.net/python/json-floating-point
                 def round_floats(o):
                     if isinstance(o, float):
