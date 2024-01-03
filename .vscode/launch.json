@@ -2,10 +2,23 @@
     "version": "0.2.0",
     "configurations": [
         {
+            "name": "Python: Convert Sekai Character Mesh",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/sssekai/scripts/blender_mesh_importer.py",
+            "cwd": "${workspaceFolder}",
+            "console": "integratedTerminal",
+            "args": [
+                "C:\\Users\\mos9527\\.sssekai\\abcache\\live_pv\\model\\character\\body\\21\\0001\\ladies_s"
+            ],
+            "justMyCode": false
+        },        
+        {
             "name": "Python: Dump Live2D Model Parameter names",
             "type": "python",
             "request": "launch",
             "program": "${workspaceFolder}/sssekai/scripts/dump_moc3_assets.py",
+            "cwd": "${workspaceFolder}",
             "console": "integratedTerminal",
             "args": [
                 "C:\\Users\\mos9527\\.sssekai\\abcache\\live2d\\model"
