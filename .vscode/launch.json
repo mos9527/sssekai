@@ -2,6 +2,17 @@
     "version": "0.2.0",
     "configurations": [
         {
+            "name": "Python: Dump Live2D Model Parameter names",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/sssekai/scripts/dump_moc3_assets.py",
+            "console": "integratedTerminal",
+            "args": [
+                "C:\\Users\\mos9527\\.sssekai\\abcache\\live2d\\model"
+            ],
+            "justMyCode": false
+        },
+        {
             "name": "Python: usmdemux",
             "type": "python",
             "request": "launch",
@@ -14,12 +25,15 @@
             "justMyCode": true
         },
         {
-            "name": "Python: ABCache test",
+            "name": "Python: live2dextract",
             "type": "python",
             "request": "launch",
-            "program": "${workspaceFolder}/abcache.test.py",
-            "cwd": "${workspaceFolder}",
-            "console": "integratedTerminal",
+            "module": "sssekai",
+            "args": [
+                "live2dextract",
+                "C:\\Users\\mos9527\\.sssekai\\abcache\\live2d\\motion\\21miku_motion_base",
+                "C:\\Users\\mos9527\\Desktop\\Cache"
+            ],
             "justMyCode": true
         },
         {

@@ -1,0 +1,2 @@
+import UnityPy
+SEKAI_UNITY_VERSION = '2020.3.21f1'
