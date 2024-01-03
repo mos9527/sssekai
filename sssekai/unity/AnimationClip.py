@@ -59,7 +59,7 @@ def animation_clip_to_live2d_motion3(animationClip: AnimationClip, pathTable : d
             if target == 'Parameters': target = 'Parameter'
             if target == 'Parts': target = 'PartOpacity'
         else:
-            logger.warning('Faield to bind %s to any Live2D path' % path)
+            logger.warning('Failed to bind path CRC %s to any Live2D path' % path)
             return 'PartOpacity', str(path)
         return target, track
     
