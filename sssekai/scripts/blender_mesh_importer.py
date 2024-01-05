@@ -159,6 +159,7 @@ def import_mesh(name : str, data: Mesh, skinned : bool = False, bone_path_tbl : 
         Tuple[bpy.types.Mesh, bpy.types.Object]: Created mesh and its parent object
     '''
     print('* Importing Mesh', data.name, 'Skinned=', skinned)
+    bpy.ops.object.mode_set(mode='OBJECT')
     mesh = bpy.data.meshes.new(name=data.name)
     obj = bpy.data.objects.new(name, mesh)
     bpy.context.collection.objects.link(obj)
@@ -181,17 +182,21 @@ def import_mesh(name : str, data: Mesh, skinned : bool = False, bone_path_tbl : 
         # Animations uses the hash to identify the bone
         # so this has to be stored in the metadata as well
         mesh[KEY_BONE_NAME_HASH_TBL] = json.dumps(group_name_hash_tbl,ensure_ascii=False)
-    # Vertex position & vertex normal
+    # Vertex position & vertex normal (pre-assign)
     for vtx in range(0, data.m_VertexCount):        
         vert = bm.verts.new(swizzle_vector3(
             data.m_Vertices[vtx * vtxFloats], # x,y,z
             data.m_Vertices[vtx * vtxFloats + 1],
             data.m_Vertices[vtx * vtxFloats + 2]            
         ))
+        # Blender always generates normals automatically
+        # Custom normals needs a bit more work
+        # See below for normals_split... calls
+        # XXX why is this flipped?
         vert.normal = swizzle_vector3(
-            data.m_Normals[vtx * normalFloats],
-            data.m_Normals[vtx * normalFloats + 1],
-            data.m_Normals[vtx * normalFloats + 2]
+            -1 * data.m_Normals[vtx * normalFloats],
+            -1 * data.m_Normals[vtx * normalFloats + 1],
+            -1 * data.m_Normals[vtx * normalFloats + 2]
         )
         if deform_layer:
             for i in range(4):
@@ -204,7 +209,6 @@ def import_mesh(name : str, data: Mesh, skinned : bool = False, bone_path_tbl : 
         face = bm.faces.new([bm.verts[data.m_Indices[idx + j]] for j in range(3)])
         face.smooth = True
     bm.to_mesh(mesh)
-    bm.free()
     # UV Map
     uv_layer = mesh.uv_layers.new()
     mesh.uv_layers.active = uv_layer
@@ -219,6 +223,15 @@ def import_mesh(name : str, data: Mesh, skinned : bool = False, bone_path_tbl : 
     for vtx in range(0, data.m_VertexCount):
         color = [data.m_Colors[vtx * colorFloats + i] for i in range(colorFloats)]
         vertex_color.data[vtx].color = color
+    # Assign vertex normals
+    mesh.create_normals_split()
+    normals = [(0,0,0) for l in mesh.loops]
+    for i, loop in enumerate(mesh.loops):
+        normal = bm.verts[loop.vertex_index].normal
+        normal.normalize()
+        normals[i] = normal
+    mesh.normals_split_custom_set(normals)
+    mesh.use_auto_smooth = True   
     # Blend Shape / Shape Keys
     if data.m_Shapes.channels:
         obj.shape_key_add(name="Basis")
@@ -235,6 +248,7 @@ def import_mesh(name : str, data: Mesh, skinned : bool = False, bone_path_tbl : 
                     targetVtx.co += swizzle_vector(morpedVtx.vertex)
         # Like boneHash, do the same thing with blend shapes
         mesh[KEY_SHAPEKEY_NAME_HASH_TBL] = json.dumps(keyshape_hash_tbl,ensure_ascii=False)
+    bm.free()      
     return mesh, obj
 
 def import_armature(name : str, data : Armature):
