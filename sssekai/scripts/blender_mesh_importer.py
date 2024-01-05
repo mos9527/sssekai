@@ -1,3 +1,6 @@
+# Config
+SHADER_BLEND_FILE = r'C:\Users\mos9527\sssekai\sssekai\scripts\assets\SekaiShaderStandalone.blend'
+PYTHON_PACKAGES_PATH = r'C:\Users\mos9527\AppData\Local\Programs\Python\Python310\Lib\site-packages'
 try:
     import bpy
     import bmesh
@@ -30,10 +33,9 @@ def get_name_hash(name : str):
 # The tables stored in the mesh's Custom Properties. Used by the animation importer.
 KEY_BONE_NAME_HASH_TBL = 'sssekai_bone_name_hash_tbl' # Bone *full path hash* to bone name (Vertex Group name in blender lingo)
 KEY_SHAPEKEY_NAME_HASH_TBL = 'sssekai_shapekey_name_hash_tbl' # ShapeKey name hash to ShapeKey names
-
 # HACK: to get blender to use the system's python packges
 import sys
-sys.path.append(r'C:\Users\mos9527\AppData\Local\Programs\Python\Python310\Lib\site-packages')
+sys.path.append(PYTHON_PACKAGES_PATH)
 from UnityPy import Environment, config
 from UnityPy.enums import ClassIDType
 from UnityPy.classes import Mesh, SkinnedMeshRenderer, MeshRenderer, GameObject, Transform, Texture2D, Material
@@ -327,11 +329,13 @@ def import_material(name : str,data : Material):
     Returns:
         bpy.types.Material: Created material        
     '''
-    material = bpy.data.materials.new(name=name)
-    material.use_nodes = True
-    # XXX Placeholder shader. Needs to be replaced with a custom one
-    bsdf = material.node_tree.nodes["Principled BSDF"]
-
+    if not 'SekaiShader' in bpy.data.materials:
+        print('! No SekaiShader found. Importing from source.')
+        with bpy.data.libraries.load(SHADER_BLEND_FILE, link=False) as (data_from, data_to):
+            data_to.materials = data_from.materials
+            print('! Loaded shader blend file.')
+    material = bpy.data.materials["SekaiShader"].copy()
+    material.name = name
     def setup_texnode(ppTexture):
         texCoord = material.node_tree.nodes.new('ShaderNodeTexCoord')
         uvRemap = material.node_tree.nodes.new('ShaderNodeMapping')
@@ -345,10 +349,13 @@ def import_material(name : str,data : Material):
         material.node_tree.links.new(texCoord.outputs['UV'], uvRemap.inputs['Vector'])
         material.node_tree.links.new(uvRemap.outputs['Vector'], texNode.inputs['Vector'])
         return texNode
+    sekaiShader = material.node_tree.nodes['Group']
     mainTex = setup_texnode(data.m_SavedProperties.m_TexEnvs['_MainTex'])
     shadowTex = setup_texnode(data.m_SavedProperties.m_TexEnvs['_ShadowTex'])
     valueTex = setup_texnode(data.m_SavedProperties.m_TexEnvs['_ValueTex'])
-    material.node_tree.links.new(mainTex.outputs['Color'], bsdf.inputs['Base Color'])    
+    material.node_tree.links.new(mainTex.outputs['Color'], sekaiShader.inputs[0])
+    material.node_tree.links.new(shadowTex.outputs['Color'], sekaiShader.inputs[1])
+    material.node_tree.links.new(valueTex.outputs['Color'], sekaiShader.inputs[2])
     return material
 
 for mesh_go in static_mesh_gameobjects:
