@@ -3,13 +3,16 @@ SHADER_BLEND_FILE = r'C:\Users\mos9527\sssekai\sssekai\scripts\assets\SekaiShade
 PYTHON_PACKAGES_PATH = r'C:\Users\mos9527\AppData\Local\Programs\Python\Python310\Lib\site-packages'
 try:
     import bpy
+    import bpy_extras
     import bmesh
     from mathutils import Matrix, Quaternion as BlenderQuaternion, Vector
+    BLENDER = True
 except ImportError:
     # Stubs for debugging outside blender's python
     class Matrix: pass
     class BlenderQuaternion: pass
     class Vector:pass
+    BLENDER = False
 # From Unity / Direct3D / RenderMan (Left handed) to Blender / OpenGL coord system (Right handed)
 def swizzle_vector3(X,Y,Z):
     return Vector((X,Z,Y))
@@ -25,7 +28,6 @@ import tempfile
 from typing import List, Dict, Tuple
 from collections import defaultdict
 from dataclasses import dataclass
-
 import zlib
 # Used for bone path (boneName) and blend shape name inverse hashing
 def get_name_hash(name : str):
@@ -36,15 +38,15 @@ KEY_SHAPEKEY_NAME_HASH_TBL = 'sssekai_shapekey_name_hash_tbl' # ShapeKey name ha
 # HACK: to get blender to use the system's python packges
 import sys
 sys.path.append(PYTHON_PACKAGES_PATH)
+# UnityPy deps
 from UnityPy import Environment, config
 from UnityPy.enums import ClassIDType
 from UnityPy.classes import Mesh, SkinnedMeshRenderer, MeshRenderer, GameObject, Transform, Texture2D, Material
 from UnityPy.math import Vector3, Quaternion as UnityQuaternion
-
+# SSSekai deps
 from sssekai.unity import SEKAI_UNITY_VERSION # XXX: expandusr does not work in Blender Python!
 config.FALLBACK_UNITY_VERSION = SEKAI_UNITY_VERSION
 from sssekai.unity.AssetBundle import load_assetbundle
-
 @dataclass
 class Bone:
     name : str
@@ -72,7 +74,6 @@ class Bone:
         yield from dfs(root or self)        
     # Extra
     boneObj = None # Blender Bone
-
 @dataclass
 class Armature:
     name : str
@@ -86,65 +87,67 @@ class Armature:
         return self.bone_path_hash_tbl[get_name_hash(path)]
     def get_bone_by_name(self, name : str):
         return self.bone_name_tbl[name]
+def load_unity_env(env : Environment):
+    '''(Partially) Loads the UnityPy Environment for further processing
 
-# TODO: File import dialog
-ab_path = r'C:\Users\mos9527\.sssekai\abcache\live_pv\model\character\body\21\0001\ladies_s'
-ab_file = open(ab_path, 'rb')
-env = load_assetbundle(ab_file)
+    Args:
+        env (Environment): UnityPy Environment
 
-# Collect all static meshes and skinned meshes's *root transform* object
-# UnityPy does not construct the Bone Hierarchy so we have to do it ourselves
-static_mesh_gameobjects : List[GameObject] = list() # No extra care needed
-transform_roots = []
-for asset in env.assets:
-    for obj in asset.get_objects():
-        data = obj.read()
-        if obj.type == ClassIDType.GameObject and getattr(data,'m_MeshRenderer',None):
-            static_mesh_gameobjects.append(data)
-        if obj.type == ClassIDType.Transform:
-            if hasattr(data,'m_Children') and not data.m_Father.path_id:
-                transform_roots.append(data)
-
-# Collect all skinned meshes as Armature[s]
-# Note that Mesh maybe reused across Armatures, but we don't care...for now
-armatures : Dict[str,Armature] = dict()
-for root in transform_roots:
-    armature = Armature(root.m_GameObject.read().m_Name)
-    armature.bone_path_hash_tbl = dict()
-    armature.bone_name_tbl = dict()
-    def dfs(root : Transform, parent : Bone = None):
-        gameObject = root.m_GameObject.read()
-        name = gameObject.m_Name        
-        if getattr(gameObject,'m_SkinnedMeshRenderer',None):
-            armature.skinned_mesh_gameobject = gameObject
-        path_from_root = ''
-        if parent and parent.global_path:
-            path_from_root = parent.global_path + '/' + name
-        elif parent:
-            path_from_root = name
-        bone = Bone(
-            name,
-            root.m_LocalPosition,
-            root.m_LocalRotation,
-            root.m_LocalScale,
-            list(),
-            path_from_root
-        )
-        armature.bone_name_tbl[name] = bone
-        armature.bone_path_hash_tbl[get_name_hash(path_from_root)] = bone
-        if not parent:
-            armature.root = bone
-        else:
-            parent.children.append(bone)
-        for child in root.m_Children:
-            dfs(child.read(), bone)
-    dfs(root)    
-    if armature.skinned_mesh_gameobject:
-        armatures[armature.name] = armature
-
+    Returns:
+        Tuple[List[GameObject], Dict[str,Armature]]: Static Mesh GameObjects and Armatures
+    '''
+    # Collect all static meshes and skinned meshes's *root transform* object
+    # UnityPy does not construct the Bone Hierarchy so we have to do it ourselves
+    static_mesh_gameobjects : List[GameObject] = list() # No extra care needed
+    transform_roots = []
+    for asset in env.assets:
+        for obj in asset.get_objects():
+            data = obj.read()
+            if obj.type == ClassIDType.GameObject and getattr(data,'m_MeshRenderer',None):
+                static_mesh_gameobjects.append(data)
+            if obj.type == ClassIDType.Transform:
+                if hasattr(data,'m_Children') and not data.m_Father.path_id:
+                    transform_roots.append(data)
+    # Collect all skinned meshes as Armature[s]
+    # Note that Mesh maybe reused across Armatures, but we don't care...for now
+    armatures = []
+    for root in transform_roots:
+        armature = Armature(root.m_GameObject.read().m_Name)
+        armature.bone_path_hash_tbl = dict()
+        armature.bone_name_tbl = dict()
+        def dfs(root : Transform, parent : Bone = None):
+            gameObject = root.m_GameObject.read()
+            name = gameObject.m_Name        
+            if getattr(gameObject,'m_SkinnedMeshRenderer',None):
+                armature.skinned_mesh_gameobject = gameObject
+            path_from_root = ''
+            if parent and parent.global_path:
+                path_from_root = parent.global_path + '/' + name
+            elif parent:
+                path_from_root = name
+            bone = Bone(
+                name,
+                root.m_LocalPosition,
+                root.m_LocalRotation,
+                root.m_LocalScale,
+                list(),
+                path_from_root
+            )
+            armature.bone_name_tbl[name] = bone
+            armature.bone_path_hash_tbl[get_name_hash(path_from_root)] = bone
+            if not parent:
+                armature.root = bone
+            else:
+                parent.children.append(bone)
+            for child in root.m_Children:
+                dfs(child.read(), bone)
+        dfs(root)    
+        if armature.skinned_mesh_gameobject:
+            armatures.append(armature)
+    return static_mesh_gameobjects, armatures
 def import_mesh(name : str, data: Mesh, skinned : bool = False, bone_path_tbl : Dict[str,Bone] = None):
     '''Imports the mesh data into blender.
-    
+
     Takes care of the following:
     - Vertices (Position + Normal) and indices (Trig Faces)
     - UV Map
@@ -252,7 +255,6 @@ def import_mesh(name : str, data: Mesh, skinned : bool = False, bone_path_tbl : 
         mesh[KEY_SHAPEKEY_NAME_HASH_TBL] = json.dumps(keyshape_hash_tbl,ensure_ascii=False)
     bm.free()      
     return mesh, obj
-
 def import_armature(name : str, data : Armature):
     '''Imports the Armature data generated into blender
 
@@ -298,7 +300,6 @@ def import_armature(name : str, data : Armature):
                 bbone.tail = child.global_transform.translation
     bpy.ops.object.mode_set(mode='OBJECT')
     return armature, obj
-
 def import_texture(name : str, data : Texture2D):
     '''Imports Texture2D assets into blender
 
@@ -317,9 +318,9 @@ def import_texture(name : str, data : Texture2D):
         img.name = name
         print('* Imported Texture', name)
         return img
-
 def import_material(name : str,data : Material):
-    '''Imports Material assets into blender
+    '''Imports Material assets into blender. 
+    A custom shader / material block is imported from the SekaiShaderStandalone.blend file.
     
 
     Args:
@@ -358,23 +359,41 @@ def import_material(name : str,data : Material):
     material.node_tree.links.new(valueTex.outputs['Color'], sekaiShader.inputs[2])
     return material
 
-for mesh_go in static_mesh_gameobjects:
-    mesh_rnd : MeshRenderer = mesh_go.m_MeshRenderer.read()
-    mesh_data : Mesh = mesh_rnd.m_Mesh.read()    
-    mesh, obj = import_mesh(mesh_go.name, mesh_data,False)    
-    print('* Created Static Mesh', mesh_data.name)
+class SSSekaiBlenderMeshImportOperator(bpy.types.Operator, bpy_extras.io_utils.ImportHelper):
+    bl_idname = "sssekai.import_mesh"
+    bl_label = "SSSekai Mesh Importer"
+    filename_ext = "*.*"
+    def execute(self, context):
+        ab_file = open(self.filepath, 'rb')
+        print('* Loading', self.filepath)
+        env = load_assetbundle(ab_file)
+        static_mesh_gameobjects, armatures = load_unity_env(env)
 
-for name, armature in armatures.items():
-    mesh_rnd : SkinnedMeshRenderer = armature.skinned_mesh_gameobject.m_SkinnedMeshRenderer.read()
-    mesh_data : Mesh = mesh_rnd.m_Mesh.read()
-    armInst, armObj = import_armature('%s_Armature' % armature.name ,armature)
-    mesh, obj = import_mesh(armature.name, mesh_data,True, armature.bone_path_hash_tbl)
-    obj.parent = armObj
-    obj.modifiers.new('Armature', 'ARMATURE').object = armObj
-    for ppmat in mesh_rnd.m_Materials:
-        material : Material = ppmat.read()
-        asset = import_material(material.name, material)
-        obj.data.materials.append(asset)
-        print('* Created Material', material.name)
-    print('* Created Armature', name, 'for Skinned Mesh', mesh_data.name)    
-    break
+        for mesh_go in static_mesh_gameobjects:
+            mesh_rnd : MeshRenderer = mesh_go.m_MeshRenderer.read()
+            mesh_data : Mesh = mesh_rnd.m_Mesh.read()    
+            mesh, obj = import_mesh(mesh_go.name, mesh_data,False)    
+            print('* Created Static Mesh', mesh_data.name)
+
+        for armature in armatures:
+            mesh_rnd : SkinnedMeshRenderer = armature.skinned_mesh_gameobject.m_SkinnedMeshRenderer.read()
+            mesh_data : Mesh = mesh_rnd.m_Mesh.read()
+            armInst, armObj = import_armature('%s_Armature' % armature.name ,armature)
+            mesh, obj = import_mesh(armature.name, mesh_data,True, armature.bone_path_hash_tbl)
+            obj.parent = armObj
+            obj.modifiers.new('Armature', 'ARMATURE').object = armObj
+            for ppmat in mesh_rnd.m_Materials:
+                material : Material = ppmat.read()
+                asset = import_material(material.name, material)
+                obj.data.materials.append(asset)
+                print('* Created Material', material.name)
+            print('* Created Armature', armature.name, 'for Skinned Mesh', mesh_data.name)    
+        
+        return {'FINISHED'}
+
+if __name__ == "__main__":
+    if BLENDER:
+        bpy.utils.register_class(SSSekaiBlenderMeshImportOperator)
+        def import_func(self, context):
+            self.layout.operator(SSSekaiBlenderMeshImportOperator.bl_idname, text="SSSekai Mesh Importer")
+        bpy.types.TOPBAR_MT_file_import.append(import_func)
