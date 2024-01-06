@@ -1,11 +1,14 @@
 # Config
 SHADER_BLEND_FILE = r'C:\Users\mos9527\sssekai\sssekai\scripts\assets\SekaiShaderStandalone.blend'
 PYTHON_PACKAGES_PATH = r'C:\Users\mos9527\AppData\Local\Programs\Python\Python310\Lib\site-packages'
+import sys,os
 try:
     import bpy
     import bpy_extras
     import bmesh
     from mathutils import Matrix, Quaternion as BlenderQuaternion, Vector
+    # HACK: to get blender to use the system's python packges
+    sys.path.append(PYTHON_PACKAGES_PATH)    
     BLENDER = True
 except ImportError:
     # Stubs for debugging outside blender's python
@@ -22,7 +25,6 @@ def swizzle_quaternion4(X,Y,Z,W):
     return BlenderQuaternion((W,-X,-Z,-Y))
 def swizzle_quaternion(quat):
     return swizzle_quaternion4(quat.X, quat.Y, quat.Z, quat.W)
-import os
 import json
 import tempfile
 from typing import List, Dict, Tuple
@@ -35,9 +37,6 @@ def get_name_hash(name : str):
 # The tables stored in the mesh's Custom Properties. Used by the animation importer.
 KEY_BONE_NAME_HASH_TBL = 'sssekai_bone_name_hash_tbl' # Bone *full path hash* to bone name (Vertex Group name in blender lingo)
 KEY_SHAPEKEY_NAME_HASH_TBL = 'sssekai_shapekey_name_hash_tbl' # ShapeKey name hash to ShapeKey names
-# HACK: to get blender to use the system's python packges
-import sys
-sys.path.append(PYTHON_PACKAGES_PATH)
 # UnityPy deps
 from UnityPy import Environment, config
 from UnityPy.enums import ClassIDType
@@ -45,6 +44,7 @@ from UnityPy.classes import Mesh, SkinnedMeshRenderer, MeshRenderer, GameObject,
 from UnityPy.math import Vector3, Quaternion as UnityQuaternion
 # SSSekai deps
 from sssekai.unity import SEKAI_UNITY_VERSION # XXX: expandusr does not work in Blender Python!
+from sssekai.unity.AnimationClip import read_animation_clip
 config.FALLBACK_UNITY_VERSION = SEKAI_UNITY_VERSION
 from sssekai.unity.AssetBundle import load_assetbundle
 @dataclass
@@ -87,8 +87,9 @@ class Armature:
         return self.bone_path_hash_tbl[get_name_hash(path)]
     def get_bone_by_name(self, name : str):
         return self.bone_name_tbl[name]
-def load_unity_env(env : Environment):
-    '''(Partially) Loads the UnityPy Environment for further processing
+
+def search_env_meshes(env : Environment):
+    '''(Partially) Loads the UnityPy Environment for further Mesh processing
 
     Args:
         env (Environment): UnityPy Environment
@@ -359,37 +360,55 @@ def import_material(name : str,data : Material):
     material.node_tree.links.new(valueTex.outputs['Color'], sekaiShader.inputs[2])
     return material
 
-class SSSekaiBlenderMeshImportOperator(bpy.types.Operator, bpy_extras.io_utils.ImportHelper):
-    bl_idname = "sssekai.import_mesh"
-    bl_label = "SSSekai Mesh Importer"
-    filename_ext = "*.*"
-    def execute(self, context):
-        ab_file = open(self.filepath, 'rb')
-        print('* Loading', self.filepath)
-        env = load_assetbundle(ab_file)
-        static_mesh_gameobjects, armatures = load_unity_env(env)
+if BLENDER:
+    class SSSekaiBlenderMeshImportOperator(bpy.types.Operator, bpy_extras.io_utils.ImportHelper):
+        bl_idname = "sssekai.import_mesh"
+        bl_label = "SSSekai Mesh Importer"
+        filename_ext = "*.*"
+        def execute(self, context):
+            ab_file = open(self.filepath, 'rb')
+            print('* Loading', self.filepath)
+            env = load_assetbundle(ab_file)
+            static_mesh_gameobjects, armatures = search_env_meshes(env)
 
-        for mesh_go in static_mesh_gameobjects:
-            mesh_rnd : MeshRenderer = mesh_go.m_MeshRenderer.read()
-            mesh_data : Mesh = mesh_rnd.m_Mesh.read()    
-            mesh, obj = import_mesh(mesh_go.name, mesh_data,False)    
-            print('* Created Static Mesh', mesh_data.name)
+            for mesh_go in static_mesh_gameobjects:
+                mesh_rnd : MeshRenderer = mesh_go.m_MeshRenderer.read()
+                mesh_data : Mesh = mesh_rnd.m_Mesh.read()    
+                mesh, obj = import_mesh(mesh_go.name, mesh_data,False)    
+                print('* Created Static Mesh', mesh_data.name)
 
-        for armature in armatures:
-            mesh_rnd : SkinnedMeshRenderer = armature.skinned_mesh_gameobject.m_SkinnedMeshRenderer.read()
-            mesh_data : Mesh = mesh_rnd.m_Mesh.read()
-            armInst, armObj = import_armature('%s_Armature' % armature.name ,armature)
-            mesh, obj = import_mesh(armature.name, mesh_data,True, armature.bone_path_hash_tbl)
-            obj.parent = armObj
-            obj.modifiers.new('Armature', 'ARMATURE').object = armObj
-            for ppmat in mesh_rnd.m_Materials:
-                material : Material = ppmat.read()
-                asset = import_material(material.name, material)
-                obj.data.materials.append(asset)
-                print('* Created Material', material.name)
-            print('* Created Armature', armature.name, 'for Skinned Mesh', mesh_data.name)    
-        
-        return {'FINISHED'}
+            for armature in armatures:
+                mesh_rnd : SkinnedMeshRenderer = armature.skinned_mesh_gameobject.m_SkinnedMeshRenderer.read()
+                mesh_data : Mesh = mesh_rnd.m_Mesh.read()
+                armInst, armObj = import_armature('%s_Armature' % armature.name ,armature)
+                mesh, obj = import_mesh(armature.name, mesh_data,True, armature.bone_path_hash_tbl)
+                obj.parent = armObj
+                obj.modifiers.new('Armature', 'ARMATURE').object = armObj
+                for ppmat in mesh_rnd.m_Materials:
+                    material : Material = ppmat.read()
+                    asset = import_material(material.name, material)
+                    obj.data.materials.append(asset)
+                    print('* Created Material', material.name)
+                print('* Created Armature', armature.name, 'for Skinned Mesh', mesh_data.name)    
+            
+            return {'FINISHED'}
+
+def search_env_animations(env : Environment):
+    '''Searches the Environment for AnimationClips
+
+    Args:
+        env (Environment): UnityPy Environment
+
+    Returns:
+        List[AnimationClip]: AnimationClips
+    '''
+    animations = []
+    for asset in env.assets:
+        for obj in asset.get_objects():
+            data = obj.read()
+            if obj.type == ClassIDType.AnimationClip:
+                animations.append(data)
+    return animations
 
 if __name__ == "__main__":
     if BLENDER:
@@ -397,3 +416,11 @@ if __name__ == "__main__":
         def import_func(self, context):
             self.layout.operator(SSSekaiBlenderMeshImportOperator.bl_idname, text="SSSekai Mesh Importer")
         bpy.types.TOPBAR_MT_file_import.append(import_func)
+    else:
+        from sssekai.unity.constant.CommonPathNames import NAMES_CRC_TBL
+        ab = load_assetbundle(open(r"C:\Users\mos9527\.sssekai\abcache\live_pv\timeline\0001\character",'rb'))
+        animations = search_env_animations(ab)
+        for animation in animations:
+            clip = read_animation_clip(animation)
+            pass
+        

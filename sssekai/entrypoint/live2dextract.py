@@ -1,9 +1,106 @@
 from sssekai.unity.AssetBundle import load_assetbundle
-from sssekai.unity.AnimationClip import animation_clip_to_live2d_motion3
+from sssekai.unity.AnimationClip import read_animation_clip
+from UnityPy.classes import AnimationClip
 from os import path,remove,makedirs
 from logging import getLogger
 import json
 logger = getLogger(__name__)
+
+# Thanks! https://github.com/Perfare/UnityLive2DExtractor/blob/master/UnityLive2DExtractor/CubismMotion3Converter.cs
+def animation_clip_to_live2d_motion3(animationClip: AnimationClip, pathTable : dict) -> dict:
+    '''Convert Unity AnimationClip to Live2D Motion3 format
+
+    Args:
+        animationClip (AnimationClip): animationClip
+        pathTable (dict): CRC32 to Live2D path table
+
+    Returns:
+        dict: Live2D Motion3 data
+    '''
+    motion = {
+            'Version': 3,
+            'Meta': {
+                "Name":animationClip.m_Name,
+                "Duration":animationClip.m_MuscleClip.m_StopTime,
+                "Fps":animationClip.m_SampleRate,
+                "Loop":True,
+                "AreBeziersRestricted":True,
+                "CurveCount":0,
+                "UserDataCount":0,
+                "TotalPointCount":0,
+                "TotalSegmentCount":0,
+                "TotalUserDataSize":0
+            },
+            'Curves': [],
+            'UserData': []
+        }
+    animationTracks = read_animation_clip(animationClip)
+    motion['Meta']['CurveCount'] = len(animationTracks)
+    for track in animationTracks:
+        segments = list()
+        segments.append(0)
+        segments.append(track.Curve[0].value)
+        curveIndex = 1
+        while curveIndex < len(track.Curve):
+            curve = track.Curve[curveIndex]
+            preCurve = track.Curve[curveIndex - 1]
+            if (abs(curve.time - preCurve.time - 0.01) < 0.0001): 
+                nextCurve = track.Curve[curveIndex + 1]
+                if (nextCurve.value == curve.value):
+                    segments.append(3) # InverseSteppedSegment
+                    segments.append(nextCurve.time)
+                    segments.append(nextCurve.value)
+                    motion['Meta']['TotalPointCount'] += 1
+                    motion['Meta']['TotalSegmentCount'] += 1
+                    curveIndex += 1
+                    continue
+            if (curve.inSlope == float('+inf')):
+                segments.append(2) # SteppedSegment
+                segments.append(curve.time)
+                segments.append(curve.value)
+                motion['Meta']['TotalPointCount'] += 1
+            elif (preCurve.outSlope == 0 and abs(curve.inSlope) < 0.0001):
+                segments.append(0) # LinearSegment
+                segments.append(curve.time)
+                segments.append(curve.value)
+                motion['Meta']['TotalPointCount'] += 1
+            else:
+                tangentLength = (curve.time - preCurve.time) / 3
+                segments.append(1) # BezierSegment
+                segments.append(preCurve.time + tangentLength)
+                segments.append(preCurve.outSlope * tangentLength + preCurve.value)
+                segments.append(curve.time - tangentLength)
+                segments.append(curve.value - curve.inSlope * tangentLength)
+                segments.append(curve.time)
+                segments.append(curve.value)
+                motion['Meta']['TotalPointCount'] += 3
+            motion['Meta']['TotalSegmentCount'] += 1
+            curveIndex+=1
+        path = track.Path
+        if path in pathTable:
+            target, id = pathTable[path].split('/')
+            if target == 'Parameters': target = 'Parameter'
+            if target == 'Parts': target = 'PartOpacity'
+        else:
+            logger.warning('Failed to bind path CRC %s to any Live2D path' % path)
+            target,id = 'PartOpacity', str(path)
+        motion['Curves'].append(
+            {
+                'Target' : target,
+                'Id': id,
+                'Segments': segments
+            }
+        )    
+    for event in animationClip.m_Events:
+        motion['UserData'].append(
+            {
+                'time' : event.time,
+                'value': event.data
+            }
+        )
+        motion['Meta']['UserDataCount'] += 1
+        motion['Meta']['TotalUserDataSize'] += len(event.data)
+    return motion
 
 def main_live2dextract(args):
     with open(args.infile,'rb') as f:
@@ -50,7 +147,7 @@ def main_live2dextract(args):
                 textures[name_wo_ext].image.save(out_name)
         # Animations are serialized into AnimationClip
         if not args.no_anim:
-            from sssekai.unity.constant.SekaiLive2DParamNames import NAMES_CRC_TBL
+            from sssekai.unity.constant.SekaiLive2DPathNames import NAMES_CRC_TBL
             for clipName, clip in animations.items():
                 logger.info('Extracting Animation %s' % clipName)
                 data = animation_clip_to_live2d_motion3(clip, NAMES_CRC_TBL)  
