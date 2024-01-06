@@ -6,7 +6,7 @@ try:
     import bpy
     import bpy_extras
     import bmesh
-    from mathutils import Matrix, Quaternion as BlenderQuaternion, Vector
+    from mathutils import Matrix, Quaternion as BlenderQuaternion, Vector, Euler
     # HACK: to get blender to use the system's python packges
     sys.path.append(PYTHON_PACKAGES_PATH)    
     BLENDER = True
@@ -21,6 +21,10 @@ def swizzle_vector3(X,Y,Z):
     return Vector((X,Z,Y))
 def swizzle_vector(vec):
     return swizzle_vector3(vec.X, vec.Y, vec.Z)
+def swizzle_euler3(X,Y,Z):
+    return Euler((X,Z,Y))
+def swizzle_euler(euler):
+    return swizzle_euler3(euler.X, euler.Y, euler.Z)
 def swizzle_quaternion4(X,Y,Z,W):
     return BlenderQuaternion((W,-X,-Z,-Y))
 def swizzle_quaternion(quat):
@@ -44,7 +48,7 @@ from UnityPy.classes import Mesh, SkinnedMeshRenderer, MeshRenderer, GameObject,
 from UnityPy.math import Vector3, Quaternion as UnityQuaternion
 # SSSekai deps
 from sssekai.unity import SEKAI_UNITY_VERSION # XXX: expandusr does not work in Blender Python!
-from sssekai.unity.AnimationClip import read_animation_clip
+from sssekai.unity.AnimationClip import Track, read_animation, Animation, TransformType
 config.FALLBACK_UNITY_VERSION = SEKAI_UNITY_VERSION
 from sssekai.unity.AssetBundle import load_assetbundle
 @dataclass
@@ -67,10 +71,10 @@ class Bone:
             Vector3(1,1,1)
         )
     def dfs_generator(self, root = None):
-        def dfs(bone : Bone, parent : Bone = None):
-            yield parent, bone
+        def dfs(bone : Bone, parent : Bone = None, depth = 0):
+            yield parent, bone, depth
             for child in bone.children:
-                yield from dfs(child, bone)
+                yield from dfs(child, bone, depth + 1)
         yield from dfs(root or self)        
     # Extra
     boneObj = None # Blender Bone
@@ -87,7 +91,9 @@ class Armature:
         return self.bone_path_hash_tbl[get_name_hash(path)]
     def get_bone_by_name(self, name : str):
         return self.bone_name_tbl[name]
-
+    def debug_print_bone_hierarchy(self):
+        for parent, child, depth in self.root.dfs_generator():
+            print('\t' * depth, child.name)
 def search_env_meshes(env : Environment):
     '''(Partially) Loads the UnityPy Environment for further Mesh processing
 
@@ -101,14 +107,13 @@ def search_env_meshes(env : Environment):
     # UnityPy does not construct the Bone Hierarchy so we have to do it ourselves
     static_mesh_gameobjects : List[GameObject] = list() # No extra care needed
     transform_roots = []
-    for asset in env.assets:
-        for obj in asset.get_objects():
-            data = obj.read()
-            if obj.type == ClassIDType.GameObject and getattr(data,'m_MeshRenderer',None):
-                static_mesh_gameobjects.append(data)
-            if obj.type == ClassIDType.Transform:
-                if hasattr(data,'m_Children') and not data.m_Father.path_id:
-                    transform_roots.append(data)
+    for obj in env.objects:
+        data = obj.read()
+        if obj.type == ClassIDType.GameObject and getattr(data,'m_MeshRenderer',None):
+            static_mesh_gameobjects.append(data)
+        if obj.type == ClassIDType.Transform:
+            if hasattr(data,'m_Children') and not data.m_Father.path_id:
+                transform_roots.append(data)
     # Collect all skinned meshes as Armature[s]
     # Note that Mesh maybe reused across Armatures, but we don't care...for now
     armatures = []
@@ -146,6 +151,23 @@ def search_env_meshes(env : Environment):
         if armature.skinned_mesh_gameobject:
             armatures.append(armature)
     return static_mesh_gameobjects, armatures
+def search_env_animations(env : Environment):
+    '''Searches the Environment for AnimationClips
+
+    Args:
+        env (Environment): UnityPy Environment
+
+    Returns:
+        List[AnimationClip]: AnimationClips
+    '''
+    animations = []
+    for asset in env.assets:
+        for obj in asset.get_objects():
+            data = obj.read()
+            if obj.type == ClassIDType.AnimationClip:
+                animations.append(data)
+    return animations
+
 def import_mesh(name : str, data: Mesh, skinned : bool = False, bone_path_tbl : Dict[str,Bone] = None):
     '''Imports the mesh data into blender.
 
@@ -177,17 +199,15 @@ def import_mesh(name : str, data: Mesh, skinned : bool = False, bone_path_tbl : 
     # Bone Indices + Bone Weights
     deform_layer = None
     if skinned:
-        group_name_hash_tbl = dict()
         for boneHash in data.m_BoneNameHashes:
             # boneHash is the CRC32 hash of the full bone path
             # i.e Position/Hips/Spine/Spine1/Spine2/Neck/Head
-            group_name = bone_path_tbl[boneHash].name
-            group_name_hash_tbl[boneHash] = group_name           
+            group_name = bone_path_tbl[boneHash].name   
             obj.vertex_groups.new(name=group_name)
         deform_layer = bm.verts.layers.deform.new()
         # Animations uses the hash to identify the bone
         # so this has to be stored in the metadata as well
-        mesh[KEY_BONE_NAME_HASH_TBL] = json.dumps(group_name_hash_tbl,ensure_ascii=False)
+        mesh[KEY_BONE_NAME_HASH_TBL] = json.dumps({k:v.name for k,v in bone_path_tbl.items()},ensure_ascii=False)
     # Vertex position & vertex normal (pre-assign)
     for vtx in range(0, data.m_VertexCount):        
         vert = bm.verts.new(swizzle_vector3(
@@ -207,6 +227,8 @@ def import_mesh(name : str, data: Mesh, skinned : bool = False, bone_path_tbl : 
         if deform_layer:
             for i in range(4):
                 skin = data.m_Skin[vtx]
+                if skin.weight[i] == 0:
+                    break # Weight is sorted
                 vertex_group_index = skin.boneIndex[i]
                 vert[deform_layer][vertex_group_index] = skin.weight[i]
     bm.verts.ensure_lookup_table()
@@ -251,7 +273,7 @@ def import_mesh(name : str, data: Mesh, skinned : bool = False, bone_path_tbl : 
                 for morphedVtxIndex in range(shape.firstVertex,shape.firstVertex + shape.vertexCount):
                     morpedVtx = data.m_Shapes.vertices[morphedVtxIndex]
                     targetVtx : bpy.types.ShapeKeyPoint = shape_key.data[morpedVtx.index]
-                    targetVtx.co += swizzle_vector(morpedVtx.vertex)
+                    targetVtx.co += swizzle_vector(morpedVtx.vertex)                    
         # Like boneHash, do the same thing with blend shapes
         mesh[KEY_SHAPEKEY_NAME_HASH_TBL] = json.dumps(keyshape_hash_tbl,ensure_ascii=False)
     bm.free()      
@@ -284,20 +306,24 @@ def import_armature(name : str, data : Armature):
             # Build global transforms
             # I think using the inverse of m_BindPose could work too
             # but I kinda missed it until I implemented all this so...
-            for parent, child in bone.dfs_generator():
+            for parent, child, _ in bone.dfs_generator():
                 if parent:
                     child.global_transform = parent.global_transform @ child.to_trs_matrix()
                 else:
                     child.global_transform = child.to_trs_matrix()
             # Build bone hierarchy in blender
-            for parent, child in bone.dfs_generator():
+            for parent, child, _ in bone.dfs_generator():
                 bbone = armature.edit_bones.new(child.name)
-                bbone.use_relative_parent = False
+                bbone.use_local_location = False
+                bbone.use_relative_parent = False                
                 bbone.use_connect = True
+                bbone.use_deform = True
                 child.boneObj = bbone               
                 if parent:
                     bbone.head = parent.global_transform.translation
                     bbone.parent = parent.boneObj
+                else:
+                    bbone.head = child.global_transform.translation + Vector((0,0,0.01)) # Otherwise the bone disappears!
                 bbone.tail = child.global_transform.translation
     bpy.ops.object.mode_set(mode='OBJECT')
     return armature, obj
@@ -360,6 +386,74 @@ def import_material(name : str,data : Material):
     material.node_tree.links.new(valueTex.outputs['Color'], sekaiShader.inputs[2])
     return material
 
+def check_is_object_sssekai_imported_armature(arm_obj):
+    assert arm_obj.type == 'ARMATURE', "Please select an armature"
+    mesh_obj = arm_obj.children[0]
+    mesh = mesh_obj.data
+    assert KEY_BONE_NAME_HASH_TBL in mesh or KEY_SHAPEKEY_NAME_HASH_TBL in mesh, "This armature is not imported by SSSekai."
+
+def import_animation(name : str, data : Animation):
+    arm_obj = bpy.context.active_object
+    mesh_obj = arm_obj.children[0]
+    mesh = mesh_obj.data    
+    bone_table = json.loads(mesh[KEY_BONE_NAME_HASH_TBL]) if KEY_BONE_NAME_HASH_TBL in mesh else dict()
+    shapekey_table = json.loads(mesh[KEY_SHAPEKEY_NAME_HASH_TBL]) if KEY_SHAPEKEY_NAME_HASH_TBL in mesh else dict()
+    print('* Importing Animation', name)
+    bpy.ops.object.mode_set(mode='POSE')
+    arm_obj.animation_data_clear()
+    arm_obj.animation_data_create()
+    def time_to_frame(time : float):
+        return int(time * bpy.context.scene.render.fps) + 1
+    def debug_format_trs_matrix(mat: Matrix):
+        t,r,s = mat.decompose()
+        return 'T: %s R: %s S: %s' % (t,r.to_euler(),s)
+    def get_global_matrix(bone : bpy.types.PoseBone):
+        return bone.bone.matrix_local    
+    def get_local_matrix(bone : bpy.types.PoseBone):
+        m_global = get_global_matrix(bone)
+        m_parent_global = get_global_matrix(bone.parent)
+        m_local = m_global @ m_parent_global.inverted_safe()
+        return m_local
+    def to_pose_quaternion(bone : bpy.types.PoseBone, quat : BlenderQuaternion):
+        return get_local_matrix(bone).to_quaternion().inverted() @ quat
+    def to_pose_translation(bone : bpy.types.PoseBone, vec : Vector):
+        return vec - get_local_matrix(bone).to_translation()
+    def to_pose_euler(bone : bpy.types.PoseBone, euler : Euler):
+        euler0 = get_local_matrix(bone).to_euler()
+        return Euler((euler.x - euler0.x, euler.y - euler0.y, euler.z - euler0.z))
+    def to_pose_scale(bone : bpy.types.PoseBone, scale : Vector):
+        scale0 = get_local_matrix(bone).to_scale()
+        return Vector((scale.x / scale0.x, scale.y / scale0.y, scale.z / scale0.z))
+    # Transform (Bones)
+    for transformType, tracks in data.TransformTracks.items():
+        for boneHash, track in tracks.items():
+            boneHash = str(boneHash) # json keys are always strings
+            bone = arm_obj.pose.bones[bone_table[str(boneHash)]]
+            if not boneHash in bone_table:
+                print('! Discarding bone', boneHash, 'because it is not in the bone table. Results may be incorrect.')
+                continue
+            else:
+                # print('* Bone %s Rotation Curves: %d Translation Curves: %d Scaling Curves: %d' % (bone.name, len(track.Curve), len(track.Curve), len(track.Curve)))
+                pass
+            if transformType == TransformType.Rotation:
+                bone.rotation_mode = 'QUATERNION'
+                for keyframe in track.Curve:
+                    bone.rotation_quaternion = to_pose_quaternion(bone, swizzle_quaternion(keyframe.value))
+                    bone.keyframe_insert(data_path='rotation_quaternion', frame=time_to_frame(keyframe.time))
+            if transformType == TransformType.Translation:
+                for keyframe in track.Curve:
+                    bone.location = to_pose_translation(bone, swizzle_vector(keyframe.value))
+                    bone.keyframe_insert(data_path='location', frame=time_to_frame(keyframe.time))
+            if transformType == TransformType.Scaling:
+                for keyframe in track.Curve:
+                    bone.scale = to_pose_scale(bone, swizzle_vector(keyframe.value))
+                    bone.keyframe_insert(data_path='scale', frame=time_to_frame(keyframe.time))
+            if transformType == TransformType.EulerRotation:
+                bone.rotation_mode = 'XYZ'
+                for keyframe in track.Curve:
+                    rotation = to_pose_euler(bone, swizzle_euler(keyframe.value))
+                    bone.keyframe_insert(data_path='rotation_euler',frame=time_to_frame(keyframe.time))
+
 if BLENDER:
     class SSSekaiBlenderMeshImportOperator(bpy.types.Operator, bpy_extras.io_utils.ImportHelper):
         bl_idname = "sssekai.import_mesh"
@@ -391,24 +485,7 @@ if BLENDER:
                     print('* Created Material', material.name)
                 print('* Created Armature', armature.name, 'for Skinned Mesh', mesh_data.name)    
             
-            return {'FINISHED'}
-
-def search_env_animations(env : Environment):
-    '''Searches the Environment for AnimationClips
-
-    Args:
-        env (Environment): UnityPy Environment
-
-    Returns:
-        List[AnimationClip]: AnimationClips
-    '''
-    animations = []
-    for asset in env.assets:
-        for obj in asset.get_objects():
-            data = obj.read()
-            if obj.type == ClassIDType.AnimationClip:
-                animations.append(data)
-    return animations
+            return {'FINISHED'}    
 
 if __name__ == "__main__":
     if BLENDER:
@@ -416,11 +493,17 @@ if __name__ == "__main__":
         def import_func(self, context):
             self.layout.operator(SSSekaiBlenderMeshImportOperator.bl_idname, text="SSSekai Mesh Importer")
         bpy.types.TOPBAR_MT_file_import.append(import_func)
-    else:
-        from sssekai.unity.constant.CommonPathNames import NAMES_CRC_TBL
-        ab = load_assetbundle(open(r"C:\Users\mos9527\.sssekai\abcache\live_pv\timeline\0001\character",'rb'))
-        animations = search_env_animations(ab)
-        for animation in animations:
-            print('* Reading AnimationClip', animation.name)
-            clip = read_animation_clip(animation)
-            pass
+    # ---- TESTING ----
+    if BLENDER:
+        arm_obj = bpy.context.active_object
+        check_is_object_sssekai_imported_armature(arm_obj)    
+    ab = load_assetbundle(open(r"C:\Users\mos9527\Desktop\Anim\Anim_Data\sharedassets0.assets",'rb'))
+    animations = search_env_animations(ab)
+    for animation in animations:
+        if 'motion' in animation.name:
+            print('* Reading AnimationClip:', animation.name)
+            print('* Byte size (compressed):',animation.byte_size)
+            clip = read_animation(animation)          
+            import_animation(animation.name, clip)
+            break
+

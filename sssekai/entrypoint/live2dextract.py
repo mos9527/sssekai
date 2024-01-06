@@ -1,5 +1,5 @@
 from sssekai.unity.AssetBundle import load_assetbundle
-from sssekai.unity.AnimationClip import read_animation_clip
+from sssekai.unity.AnimationClip import read_animation
 from UnityPy.classes import AnimationClip
 from os import path,remove,makedirs
 from logging import getLogger
@@ -34,8 +34,8 @@ def animation_clip_to_live2d_motion3(animationClip: AnimationClip, pathTable : d
             'Curves': [],
             'UserData': []
         }
-    animation = read_animation_clip(animationClip)
-    floatCurves = animation.floatCurves
+    animation = read_animation(animationClip)
+    floatCurves = animation.FloatTracks
     motion['Meta']['CurveCount'] = len(floatCurves)
     for track in floatCurves.values():
         segments = list()

@@ -37,17 +37,17 @@ class Track:
         self.Curve.append(keyframe)
 
 class Animation:
-    floatCurves : Dict[int, Track]
-    transformCurves : Dict[TransformType ,Dict[int, Track]]
+    FloatTracks : Dict[int, Track] # crc hash - Track
+    TransformTracks : Dict[TransformType ,Dict[int, Track]] # TransformType - crc hash - Track
     def __init__(self) -> None:
-        self.floatCurves = dict()
-        self.transformCurves = dict()
-        self.transformCurves[TransformType.EulerRotation] = dict()
-        self.transformCurves[TransformType.Rotation] = dict()
-        self.transformCurves[TransformType.Translation] = dict()
-        self.transformCurves[TransformType.Scaling] = dict()
+        self.FloatTracks = dict()
+        self.TransformTracks = dict()
+        self.TransformTracks[TransformType.EulerRotation] = dict()
+        self.TransformTracks[TransformType.Rotation] = dict()
+        self.TransformTracks[TransformType.Translation] = dict()
+        self.TransformTracks[TransformType.Scaling] = dict()
 
-def read_animation_clip(animationClip: AnimationClip) -> Animation:
+def read_animation(animationClip: AnimationClip) -> Animation:
     '''Reads AnimationClip data and converts it to a list of Tracks
 
     Args:
@@ -62,14 +62,14 @@ def read_animation_clip(animationClip: AnimationClip) -> Animation:
     animationTracks = Animation()
 
     def get_transform_track(key : int, type : TransformType):
-        if not key in animationTracks.transformCurves[type]:
-            animationTracks.transformCurves[type][key] = Track()
-        return animationTracks.transformCurves[type][key]
+        if not key in animationTracks.TransformTracks[type]:
+            animationTracks.TransformTracks[type][key] = Track()
+        return animationTracks.TransformTracks[type][key]
 
     def get_float_track(key : int | str) -> Track:
-        if not key in animationTracks.floatCurves:
-            animationTracks.floatCurves[key] = Track()
-        return animationTracks.floatCurves[key]
+        if not key in animationTracks.FloatTracks:
+            animationTracks.FloatTracks[key] = Track()
+        return animationTracks.FloatTracks[key]
 
     def add_float_curve_data(binding, time, value, inSlope, outSlope, coeff):
         track = get_float_track(binding.path)
@@ -101,7 +101,6 @@ def read_animation_clip(animationClip: AnimationClip) -> Animation:
             i += 1
         return i
 
-    paths = set()
     for frame in streamedFrames:
         curveIndex = 0
         while curveIndex < len(frame.keyList):
@@ -118,9 +117,7 @@ def read_animation_clip(animationClip: AnimationClip) -> Animation:
                 add_transform_curve_data(binding, frame.time, curveData)
             else:
                 add_float_curve_data(binding, frame.time, curveKey.value,getattr(curveKey,'inSlope',0),curveKey.outSlope,curveKey.coeff) 
-                curveIndex = get_next_curve_index(curveIndex, frame.keyList)   
-            paths.add(binding.path)
-    pass
+                curveIndex = get_next_curve_index(curveIndex, frame.keyList)
   
     m_DenseClip = m_Clip.m_DenseClip
     streamCount = m_Clip.m_StreamedClip.curveCount
