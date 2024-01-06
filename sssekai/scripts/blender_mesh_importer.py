@@ -421,6 +421,6 @@ if __name__ == "__main__":
         ab = load_assetbundle(open(r"C:\Users\mos9527\.sssekai\abcache\live_pv\timeline\0001\character",'rb'))
         animations = search_env_animations(ab)
         for animation in animations:
+            print('* Reading AnimationClip', animation.name)
             clip = read_animation_clip(animation)
             pass
-        

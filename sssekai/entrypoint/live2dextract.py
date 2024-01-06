@@ -34,9 +34,10 @@ def animation_clip_to_live2d_motion3(animationClip: AnimationClip, pathTable : d
             'Curves': [],
             'UserData': []
         }
-    animationTracks = read_animation_clip(animationClip)
-    motion['Meta']['CurveCount'] = len(animationTracks)
-    for track in animationTracks:
+    animation = read_animation_clip(animationClip)
+    floatCurves = animation.floatCurves
+    motion['Meta']['CurveCount'] = len(floatCurves)
+    for track in floatCurves.values():
         segments = list()
         segments.append(0)
         segments.append(track.Curve[0].value)
