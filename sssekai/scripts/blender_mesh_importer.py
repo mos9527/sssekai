@@ -23,8 +23,12 @@ def swizzle_vector(vec):
     return swizzle_vector3(vec.X, vec.Y, vec.Z)
 def swizzle_euler3(X,Y,Z):
     return Euler((X,Z,Y))
-def swizzle_euler(euler):
-    return swizzle_euler3(euler.X, euler.Y, euler.Z)
+def swizzle_euler(euler, isDegrees = True):
+    PIDIV180 = 3.141592653589793 / 180
+    if isDegrees:
+        return swizzle_euler3(euler.X * PIDIV180, euler.Y * PIDIV180, euler.Z * PIDIV180)
+    else:
+        return swizzle_euler3(euler.X, euler.Y, euler.Z)
 def swizzle_quaternion4(X,Y,Z,W):
     return BlenderQuaternion((W,-X,-Z,-Y))
 def swizzle_quaternion(quat):
@@ -41,6 +45,7 @@ def get_name_hash(name : str):
 # The tables stored in the mesh's Custom Properties. Used by the animation importer.
 KEY_BONE_NAME_HASH_TBL = 'sssekai_bone_name_hash_tbl' # Bone *full path hash* to bone name (Vertex Group name in blender lingo)
 KEY_SHAPEKEY_NAME_HASH_TBL = 'sssekai_shapekey_name_hash_tbl' # ShapeKey name hash to ShapeKey names
+BINDPOSE_MATRIX_TBL = 'sssekai_bindpose_matrix_tbl' # Bone name to bind pose matrix
 # UnityPy deps
 from UnityPy import Environment, config
 from UnityPy.enums import ClassIDType
@@ -294,6 +299,8 @@ def import_armature(name : str, data : Armature):
     '''
     armature = bpy.data.armatures.new(name)
     armature.display_type = 'STICK'
+    armature.relation_line_position = 'HEAD'
+
     obj = bpy.data.objects.new(name, armature)
     bpy.context.collection.objects.link(obj)
     bpy.context.view_layer.objects.active = obj
@@ -303,6 +310,7 @@ def import_armature(name : str, data : Armature):
         bone : Bone
         if bone.name == 'Position':
             print('* Found valid armature root', bone.name, 'at', bone.global_path, 'with', len(bone.children), 'children')
+            bone.global_transform = Matrix.Identity(4)
             # Build global transforms
             # I think using the inverse of m_BindPose could work too
             # but I kinda missed it until I implemented all this so...
@@ -316,8 +324,9 @@ def import_armature(name : str, data : Armature):
                 bbone = armature.edit_bones.new(child.name)
                 bbone.use_local_location = False
                 bbone.use_relative_parent = False                
-                bbone.use_connect = True
+                bbone.use_connect = False
                 bbone.use_deform = True
+                bbone[BINDPOSE_MATRIX_TBL] = [v for col in child.to_trs_matrix() for v in col]
                 child.boneObj = bbone               
                 if parent:
                     bbone.head = parent.global_transform.translation
@@ -399,6 +408,10 @@ def import_animation(name : str, data : Animation):
     bone_table = json.loads(mesh[KEY_BONE_NAME_HASH_TBL]) if KEY_BONE_NAME_HASH_TBL in mesh else dict()
     shapekey_table = json.loads(mesh[KEY_SHAPEKEY_NAME_HASH_TBL]) if KEY_SHAPEKEY_NAME_HASH_TBL in mesh else dict()
     print('* Importing Animation', name)
+    bpy.ops.object.mode_set(mode='EDIT')    
+    local_transform_table = dict()
+    for bone in arm_obj.data.edit_bones:
+        local_transform_table[bone.name] = Matrix(tuple(bone[BINDPOSE_MATRIX_TBL][n:n+4] for n in range(0, 16, 4)))
     bpy.ops.object.mode_set(mode='POSE')
     arm_obj.animation_data_clear()
     arm_obj.animation_data_create()
@@ -406,14 +419,9 @@ def import_animation(name : str, data : Animation):
         return int(time * bpy.context.scene.render.fps) + 1
     def debug_format_trs_matrix(mat: Matrix):
         t,r,s = mat.decompose()
-        return 'T: %s R: %s S: %s' % (t,r.to_euler(),s)
-    def get_global_matrix(bone : bpy.types.PoseBone):
-        return bone.bone.matrix_local    
+        return 'T: %s R: %s Q: %s S: %s' % (t,r.to_euler(),r,s)
     def get_local_matrix(bone : bpy.types.PoseBone):
-        m_global = get_global_matrix(bone)
-        m_parent_global = get_global_matrix(bone.parent)
-        m_local = m_global @ m_parent_global.inverted_safe()
-        return m_local
+        return local_transform_table[bone.name]
     def to_pose_quaternion(bone : bpy.types.PoseBone, quat : BlenderQuaternion):
         return get_local_matrix(bone).to_quaternion().inverted() @ quat
     def to_pose_translation(bone : bpy.types.PoseBone, vec : Vector):
@@ -435,6 +443,8 @@ def import_animation(name : str, data : Animation):
             else:
                 # print('* Bone %s Rotation Curves: %d Translation Curves: %d Scaling Curves: %d' % (bone.name, len(track.Curve), len(track.Curve), len(track.Curve)))
                 pass
+            if bone.name == 'Neck':
+                print(bone.name,'local',debug_format_trs_matrix(get_local_matrix(bone)))
             if transformType == TransformType.Rotation:
                 bone.rotation_mode = 'QUATERNION'
                 for keyframe in track.Curve:
@@ -451,7 +461,8 @@ def import_animation(name : str, data : Animation):
             if transformType == TransformType.EulerRotation:
                 bone.rotation_mode = 'XYZ'
                 for keyframe in track.Curve:
-                    rotation = to_pose_euler(bone, swizzle_euler(keyframe.value))
+                    bone.rotation_euler = to_pose_euler(bone, swizzle_euler(keyframe.value))
+                    print(bone.name, bone.rotation_euler, keyframe.time, keyframe.value, swizzle_euler(keyframe.value), get_local_matrix(bone).to_euler())
                     bone.keyframe_insert(data_path='rotation_euler',frame=time_to_frame(keyframe.time))
 
 if BLENDER:
@@ -497,13 +508,14 @@ if __name__ == "__main__":
     if BLENDER:
         arm_obj = bpy.context.active_object
         check_is_object_sssekai_imported_armature(arm_obj)    
-    ab = load_assetbundle(open(r"C:\Users\mos9527\Desktop\Anim\Anim_Data\sharedassets0.assets",'rb'))
-    animations = search_env_animations(ab)
-    for animation in animations:
-        if 'motion' in animation.name:
-            print('* Reading AnimationClip:', animation.name)
-            print('* Byte size (compressed):',animation.byte_size)
-            clip = read_animation(animation)          
-            import_animation(animation.name, clip)
-            break
-
+    with open(r"C:\Users\mos9527\Desktop\Anim\Anim_Data\sharedassets0.assets",'rb') as f:
+        ab = load_assetbundle(f)
+        animations = search_env_animations(ab)
+        for animation in animations:
+            print('* Found AnimationClip:', animation.name)
+            if 'ezmotion' in animation.name:
+                print('* Reading AnimationClip:', animation.name)
+                print('* Byte size (compressed):',animation.byte_size)
+                clip = read_animation(animation)  
+                import_animation(animation.name, clip)
+                break
