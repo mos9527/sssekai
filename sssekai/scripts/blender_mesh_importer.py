@@ -16,21 +16,23 @@ except ImportError:
     class BlenderQuaternion: pass
     class Vector:pass
     BLENDER = False
-# From Unity / Direct3D / RenderMan (Left handed) to Blender / OpenGL coord system (Right handed)
+# Coordinate System | Forward |  Up  |  Left
+# Unity:   LH, Y Up |   Z     |   Y  |   X
+# Blender: RH, Z Up |  -Y     |   Z  |  -X
 def swizzle_vector3(X,Y,Z):
-    return Vector((X,Z,Y))
+    return Vector((-X,-Z,Y))
 def swizzle_vector(vec):
     return swizzle_vector3(vec.X, vec.Y, vec.Z)
 def swizzle_euler3(X,Y,Z):
-    return Euler((X,Z,Y))
+    return Euler((X,Y,Z))
 def swizzle_euler(euler, isDegrees = True):
     PIDIV180 = 3.141592653589793 / 180
-    if isDegrees:
+    if isDegrees:  
         return swizzle_euler3(euler.X * PIDIV180, euler.Y * PIDIV180, euler.Z * PIDIV180)
     else:
         return swizzle_euler3(euler.X, euler.Y, euler.Z)
 def swizzle_quaternion4(X,Y,Z,W):
-    return BlenderQuaternion((W,-X,-Z,-Y))
+    return BlenderQuaternion((W,X,Z,-Y)) # conjugate (W,-X,-Z,Y)
 def swizzle_quaternion(quat):
     return swizzle_quaternion4(quat.X, quat.Y, quat.Z, quat.W)
 import json
@@ -410,11 +412,15 @@ def import_animation(name : str, data : Animation):
     print('* Importing Animation', name)
     bpy.ops.object.mode_set(mode='EDIT')    
     local_transform_table = dict()
+    global_transform_table = dict()
     for bone in arm_obj.data.edit_bones:
         local_transform_table[bone.name] = Matrix(tuple(bone[BINDPOSE_MATRIX_TBL][n:n+4] for n in range(0, 16, 4)))
+        global_transform_table[bone.name] = bone.matrix
     bpy.ops.object.mode_set(mode='POSE')
     arm_obj.animation_data_clear()
     arm_obj.animation_data_create()
+    bpy.context.scene.render.fps = int(data.Framerate)
+    print('* Blender FPS:', bpy.context.scene.render.fps)
     def time_to_frame(time : float):
         return int(time * bpy.context.scene.render.fps) + 1
     def debug_format_trs_matrix(mat: Matrix):
@@ -423,7 +429,12 @@ def import_animation(name : str, data : Animation):
     def get_local_matrix(bone : bpy.types.PoseBone):
         return local_transform_table[bone.name]
     def to_pose_quaternion(bone : bpy.types.PoseBone, quat : BlenderQuaternion):
-        return get_local_matrix(bone).to_quaternion().inverted() @ quat
+        g_rot = global_transform_table[bone.name].to_quaternion()
+        l_rot = get_local_matrix(bone).to_quaternion()
+        p_l_rot = get_local_matrix(bone.parent).to_quaternion() if bone.parent else BlenderQuaternion()
+        pre_quat = g_rot.inverted() @ p_l_rot # To parent's space
+        post_quat = l_rot.inverted() @ p_l_rot.inverted() @ g_rot # Back to pose space
+        return pre_quat @ quat @ post_quat
     def to_pose_translation(bone : bpy.types.PoseBone, vec : Vector):
         return vec - get_local_matrix(bone).to_translation()
     def to_pose_euler(bone : bpy.types.PoseBone, euler : Euler):
@@ -433,7 +444,7 @@ def import_animation(name : str, data : Animation):
         scale0 = get_local_matrix(bone).to_scale()
         return Vector((scale.x / scale0.x, scale.y / scale0.y, scale.z / scale0.z))
     # Transform (Bones)
-    for transformType, tracks in data.TransformTracks.items():
+    def add_transform(transformType, tracks):
         for boneHash, track in tracks.items():
             boneHash = str(boneHash) # json keys are always strings
             bone = arm_obj.pose.bones[bone_table[str(boneHash)]]
@@ -443,12 +454,11 @@ def import_animation(name : str, data : Animation):
             else:
                 # print('* Bone %s Rotation Curves: %d Translation Curves: %d Scaling Curves: %d' % (bone.name, len(track.Curve), len(track.Curve), len(track.Curve)))
                 pass
-            if bone.name == 'Neck':
-                print(bone.name,'local',debug_format_trs_matrix(get_local_matrix(bone)))
             if transformType == TransformType.Rotation:
                 bone.rotation_mode = 'QUATERNION'
                 for keyframe in track.Curve:
                     bone.rotation_quaternion = to_pose_quaternion(bone, swizzle_quaternion(keyframe.value))
+                    print(time_to_frame(keyframe.time),bone.name, bone.rotation_quaternion, keyframe.time, keyframe.value, swizzle_quaternion(keyframe.value), get_local_matrix(bone).to_quaternion())
                     bone.keyframe_insert(data_path='rotation_quaternion', frame=time_to_frame(keyframe.time))
             if transformType == TransformType.Translation:
                 for keyframe in track.Curve:
@@ -462,9 +472,16 @@ def import_animation(name : str, data : Animation):
                 bone.rotation_mode = 'XYZ'
                 for keyframe in track.Curve:
                     bone.rotation_euler = to_pose_euler(bone, swizzle_euler(keyframe.value))
-                    print(bone.name, bone.rotation_euler, keyframe.time, keyframe.value, swizzle_euler(keyframe.value), get_local_matrix(bone).to_euler())
+                    print(time_to_frame(keyframe.time),bone.name, bone.rotation_euler, keyframe.time, keyframe.value, swizzle_euler(keyframe.value), get_local_matrix(bone).to_euler())
                     bone.keyframe_insert(data_path='rotation_euler',frame=time_to_frame(keyframe.time))
-
+    if TransformType.Translation in data.TransformTracks:
+        add_transform(TransformType.Translation, data.TransformTracks[TransformType.Translation])
+    if TransformType.Rotation in data.TransformTracks:
+        add_transform(TransformType.Rotation, data.TransformTracks[TransformType.Rotation])
+    if TransformType.EulerRotation in data.TransformTracks:
+        add_transform(TransformType.EulerRotation, data.TransformTracks[TransformType.EulerRotation])
+    if TransformType.Scaling in data.TransformTracks:
+        add_transform(TransformType.Scaling, data.TransformTracks[TransformType.Scaling])
 if BLENDER:
     class SSSekaiBlenderMeshImportOperator(bpy.types.Operator, bpy_extras.io_utils.ImportHelper):
         bl_idname = "sssekai.import_mesh"
@@ -513,7 +530,7 @@ if __name__ == "__main__":
         animations = search_env_animations(ab)
         for animation in animations:
             print('* Found AnimationClip:', animation.name)
-            if 'ezmotion' in animation.name:
+            if 'ezmot' in animation.name:
                 print('* Reading AnimationClip:', animation.name)
                 print('* Byte size (compressed):',animation.byte_size)
                 clip = read_animation(animation)  

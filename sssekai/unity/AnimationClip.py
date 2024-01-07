@@ -39,7 +39,9 @@ class Track:
 class Animation:
     FloatTracks : Dict[int, Track] # crc hash - Track
     TransformTracks : Dict[TransformType ,Dict[int, Track]] # TransformType - crc hash - Track
+    Framerate : int
     def __init__(self) -> None:
+        self.Framerate = 60
         self.FloatTracks = dict()
         self.TransformTracks = dict()
         self.TransformTracks[TransformType.EulerRotation] = dict()
@@ -60,7 +62,7 @@ def read_animation(animationClip: AnimationClip) -> Animation:
     streamedFrames = m_Clip.m_StreamedClip.ReadData()
     m_ClipBindingConstant = animationClip.m_ClipBindingConstant
     animationTracks = Animation()
-
+    animationTracks.Framerate = animationClip.m_SampleRate
     def get_transform_track(key : int, type : TransformType):
         if not key in animationTracks.TransformTracks[type]:
             animationTracks.TransformTracks[type][key] = Track()
