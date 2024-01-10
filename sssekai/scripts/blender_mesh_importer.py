@@ -410,79 +410,91 @@ def import_animation(name : str, data : Animation):
     bone_table = json.loads(mesh[KEY_BONE_NAME_HASH_TBL]) if KEY_BONE_NAME_HASH_TBL in mesh else dict()
     shapekey_table = json.loads(mesh[KEY_SHAPEKEY_NAME_HASH_TBL]) if KEY_SHAPEKEY_NAME_HASH_TBL in mesh else dict()
     print('* Importing Animation', name)
-    bpy.ops.object.mode_set(mode='EDIT')    
-    # Note: The transforms are all done in the bone's parent space
+    bpy.ops.object.mode_set(mode='EDIT')           
     local_space_mat = dict()
     arm_space_mat = dict()
     for bone in arm_obj.data.edit_bones:
         local_space_mat[bone.name] = Matrix(tuple(bone[BINDPOSE_MATRIX_TBL][n:n+4] for n in range(0, 16, 4)))
-        arm_space_mat[bone.name] = bone.matrix        
-    bpy.ops.object.mode_set(mode='POSE')
-    arm_obj.animation_data_clear()
-    arm_obj.animation_data_create()
-    bpy.context.scene.render.fps = int(data.Framerate)
-    print('* Blender FPS:', bpy.context.scene.render.fps)
+        arm_space_mat[bone.name] = bone.matrix       
     def time_to_frame(time : float):
         return int(time * bpy.context.scene.render.fps) + 1
     def debug_format_trs_matrix(mat: Matrix):
         t,r,s = mat.decompose()
-        return 'T: %s R: %s Q: %s S: %s' % (t,r.to_euler(),r,s)   
+        return 'T: %s R: %s Q: %s S: %s' % (t,r.to_euler(),r,s)
+    def local_to_pose_space(bone : bpy.types.PoseBone, mat : Matrix):
+        g_mat = arm_space_mat[bone.name]
+        l_mat = local_space_mat[bone.name]
+        p_l_mat = local_space_mat[bone.parent.name] if bone.parent else Matrix.Identity(4)
+        pre_mat = g_mat.inverted() @ p_l_mat # Into parent local space
+        post_mat = l_mat.inverted() @ p_l_mat.inverted() @ g_mat # Out of parent local space to pose space
+        return pre_mat @ mat @ post_mat
     def to_pose_quaternion(bone : bpy.types.PoseBone, quat : BlenderQuaternion):
-        g_mat = arm_space_mat[bone.name]
-        result = g_mat @ quat.to_matrix().to_4x4() @ g_mat.inverted()
-        g_parent_rot = arm_space_mat[bone.parent.name].to_quaternion() if bone.parent else BlenderQuaternion()
-        return result.to_quaternion() @ g_parent_rot.inverted() 
+        result = local_to_pose_space(bone, quat.to_matrix().to_4x4())
+        return result.to_quaternion()
     def to_pose_translation(bone : bpy.types.PoseBone, vec : Vector):
-        g_mat = arm_space_mat[bone.name]
-        g_trans = g_mat.to_translation()
-        result = g_mat @ Matrix.Translation(vec) @ g_mat.inverted()
-        g_p_trans = arm_space_mat[bone.parent.name].to_translation() if bone.parent else Vector()        
-        return result.to_translation() + g_trans - g_p_trans
-    # XXX: These shouldn't work
-    def to_pose_euler(bone : bpy.types.PoseBone, euler : Euler):
-        euler0 = local_space_mat[bone.name].to_euler()
-        return Euler((euler.x - euler0.x, euler.y - euler0.y, euler.z - euler0.z))
-    def to_pose_scale(bone : bpy.types.PoseBone, scale : Vector):
-        scale0 = local_space_mat[bone.name].to_scale()
-        return Vector((scale.x / scale0.x, scale.y / scale0.y, scale.z / scale0.z))
-    # Transform (Bones)
-    def add_transform(transformType, tracks):
-        for boneHash, track in tracks.items():
-            boneHash = str(boneHash) # json keys are always strings
-            bone = arm_obj.pose.bones[bone_table[str(boneHash)]]
-            if not boneHash in bone_table:
-                print('! Discarding bone', boneHash, 'because it is not in the bone table. Results may be incorrect.')
-                continue
-            else:
-                # print('* Bone %s Rotation Curves: %d Translation Curves: %d Scaling Curves: %d' % (bone.name, len(track.Curve), len(track.Curve), len(track.Curve)))
-                pass
-            if transformType == TransformType.Rotation:
-                bone.rotation_mode = 'QUATERNION'
-                for keyframe in track.Curve:
-                    bone.rotation_quaternion = to_pose_quaternion(bone, swizzle_quaternion(keyframe.value))                    
-                    bone.keyframe_insert(data_path='rotation_quaternion', frame=time_to_frame(keyframe.time))
-            if transformType == TransformType.Translation:
-                for keyframe in track.Curve:
-                    bone.location = to_pose_translation(bone, swizzle_vector(keyframe.value))
-                    print('<%s translation local %s pose %s>' % (bone.name, swizzle_vector(keyframe.value), bone.location))
-                    bone.keyframe_insert(data_path='location', frame=time_to_frame(keyframe.time))
-            if transformType == TransformType.Scaling:
-                for keyframe in track.Curve:
-                    bone.scale = to_pose_scale(bone, swizzle_vector(keyframe.value))
-                    bone.keyframe_insert(data_path='scale', frame=time_to_frame(keyframe.time))
-            if transformType == TransformType.EulerRotation:
-                bone.rotation_mode = 'XYZ'
-                for keyframe in track.Curve:
-                    bone.rotation_euler = to_pose_euler(bone, swizzle_euler(keyframe.value))                    
-                    bone.keyframe_insert(data_path='rotation_euler',frame=time_to_frame(keyframe.time))
-    if TransformType.Translation in data.TransformTracks:
-        add_transform(TransformType.Translation, data.TransformTracks[TransformType.Translation])
-    if TransformType.Rotation in data.TransformTracks:
-        add_transform(TransformType.Rotation, data.TransformTracks[TransformType.Rotation])
-    if TransformType.EulerRotation in data.TransformTracks:
-        add_transform(TransformType.EulerRotation, data.TransformTracks[TransformType.EulerRotation])
-    if TransformType.Scaling in data.TransformTracks:
-        add_transform(TransformType.Scaling, data.TransformTracks[TransformType.Scaling])
+        result = local_to_pose_space(bone, Matrix.Translation(vec))
+        return result.to_translation()
+    def to_pose_euler(bone : bpy.types.PoseBone, euler : Euler):    
+        result = local_to_pose_space(bone, euler.to_matrix().to_4x4())
+        return result.to_euler()
+    # Reset the pose 
+    bpy.ops.object.mode_set(mode='POSE')
+    bpy.ops.pose.select_all(action='SELECT')
+    bpy.ops.pose.transforms_clear()
+    bpy.ops.pose.select_all(action='DESELECT')    
+    arm_obj.animation_data_clear()
+    # Set the fps. Otherwise keys may get lost!
+    bpy.context.scene.render.fps = int(data.Framerate)
+    print('* Blender FPS:', bpy.context.scene.render.fps)
+    arm_obj.animation_data_create()
+    # Setup actions
+    action = bpy.data.actions.new(name)
+    arm_obj.animation_data.action = action
+    for bone_hash, track in data.TransformTracks[TransformType.Rotation].items():
+        # Quaternion rotations
+        bone_name = bone_table[str(bone_hash)]
+        bone = arm_obj.pose.bones[bone_name]
+        fcurve_W = action.fcurves.new(data_path='pose.bones["%s"].rotation_quaternion' % bone_name,index=0)
+        fcurve_X = action.fcurves.new(data_path='pose.bones["%s"].rotation_quaternion' % bone_name,index=1)
+        fcurve_Y = action.fcurves.new(data_path='pose.bones["%s"].rotation_quaternion' % bone_name,index=2)
+        fcurve_Z = action.fcurves.new(data_path='pose.bones["%s"].rotation_quaternion' % bone_name,index=3)
+        for keyframe in track.Curve:
+            frame = time_to_frame(keyframe.time)
+            value = to_pose_quaternion(bone, swizzle_quaternion(keyframe.value))
+            fcurve_W.keyframe_points.insert(frame, value.w)
+            fcurve_X.keyframe_points.insert(frame, value.x)
+            fcurve_Y.keyframe_points.insert(frame, value.y)
+            fcurve_Z.keyframe_points.insert(frame, value.z)
+    for bone_hash, track in data.TransformTracks[TransformType.EulerRotation].items():
+        # Euler rotations
+        bone_name = bone_table[str(bone_hash)]
+        bone = arm_obj.pose.bones[bone_name]
+        fcurve_X = action.fcurves.new(data_path='pose.bones["%s"].rotation_euler' % bone_name,index=0)
+        fcurve_Y = action.fcurves.new(data_path='pose.bones["%s"].rotation_euler' % bone_name,index=1)
+        fcurve_Z = action.fcurves.new(data_path='pose.bones["%s"].rotation_euler' % bone_name,index=2)
+        for keyframe in track.Curve:
+            frame = time_to_frame(keyframe.time)
+            value = to_pose_euler(bone, swizzle_euler(keyframe.value))
+            fcurve_X.keyframe_points.insert(frame, value.x)
+            fcurve_Y.keyframe_points.insert(frame, value.y)
+            fcurve_Z.keyframe_points.insert(frame, value.z)  
+    for bone_hash, track in data.TransformTracks[TransformType.Translation].items():
+        # Translations
+        bone_name = bone_table[str(bone_hash)]
+        bone = arm_obj.pose.bones[bone_name]
+        fcurve_X = action.fcurves.new(data_path='pose.bones["%s"].location' % bone_name,index=0)
+        fcurve_Y = action.fcurves.new(data_path='pose.bones["%s"].location' % bone_name,index=1)
+        fcurve_Z = action.fcurves.new(data_path='pose.bones["%s"].location' % bone_name,index=2)
+        for keyframe in track.Curve:
+            frame = time_to_frame(keyframe.time)
+            value = to_pose_translation(bone, swizzle_vector(keyframe.value))
+            if bone_name == 'Hip':
+                print('local',debug_format_trs_matrix(local_space_mat[bone.name]), 'anim',swizzle_vector(keyframe.value), 'pose', value)
+            fcurve_X.keyframe_points.insert(frame, value.x)
+            fcurve_Y.keyframe_points.insert(frame, value.y)
+            fcurve_Z.keyframe_points.insert(frame, value.z)            
+    # Scale is ignored for now
+    # ...
 if BLENDER:
     class SSSekaiBlenderMeshImportOperator(bpy.types.Operator, bpy_extras.io_utils.ImportHelper):
         bl_idname = "sssekai.import_mesh"
