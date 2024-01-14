@@ -1,7 +1,7 @@
 # Config
-SHADER_BLEND_FILE = r'C:\Users\mos9527\sssekai\sssekai\scripts\assets\SekaiShaderStandalone.blend'
-PYTHON_PACKAGES_PATH = r'C:\Users\mos9527\AppData\Local\Programs\Python\Python310\Lib\site-packages'
-import sys,os
+SHADER_BLEND_FILE = r'C:\Users\Huang\sssekai\sssekai\scripts\assets\SekaiShaderStandalone.blend'
+PYTHON_PACKAGES_PATH = r'C:\Users\Huang\AppData\Local\Programs\Python\Python310\Lib\site-packages'
+import sys,os,math
 try:
     import bpy
     import bpy_extras
@@ -12,6 +12,7 @@ try:
     BLENDER = True
 except ImportError:
     # Stubs for debugging outside blender's python
+    # pip install fake-bpy-module
     class Matrix: pass
     class BlenderQuaternion: pass
     class Vector:pass
@@ -19,16 +20,15 @@ except ImportError:
 # Coordinate System | Forward |  Up  |  Left
 # Unity:   LH, Y Up |   Z     |   Y  |   X
 # Blender: RH, Z Up |  -Y     |   Z  |  -X
-def swizzle_vector3(X,Y,Z):
+def swizzle_vector3(X,Y,Z):    
     return Vector((-X,-Z,Y))
 def swizzle_vector(vec):
     return swizzle_vector3(vec.X, vec.Y, vec.Z)
 def swizzle_euler3(X,Y,Z):
-    return Euler((X,Y,Z))
+    return Euler((X,Z,-Y),'XYZ')
 def swizzle_euler(euler, isDegrees = True):
-    PIDIV180 = 3.141592653589793 / 180
     if isDegrees:  
-        return swizzle_euler3(euler.X * PIDIV180, euler.Y * PIDIV180, euler.Z * PIDIV180)
+        return swizzle_euler3(math.radians(euler.X),math.radians(euler.Y),math.radians(euler.Z))
     else:
         return swizzle_euler3(euler.X, euler.Y, euler.Z)
 def swizzle_quaternion4(X,Y,Z,W):
@@ -58,6 +58,7 @@ from sssekai.unity import SEKAI_UNITY_VERSION # XXX: expandusr does not work in 
 from sssekai.unity.AnimationClip import Track, read_animation, Animation, TransformType
 config.FALLBACK_UNITY_VERSION = SEKAI_UNITY_VERSION
 from sssekai.unity.AssetBundle import load_assetbundle
+import math
 @dataclass
 class Bone:
     name : str
@@ -324,18 +325,18 @@ def import_armature(name : str, data : Armature):
             # Build bone hierarchy in blender
             for parent, child, _ in bone.dfs_generator():
                 bbone = armature.edit_bones.new(child.name)
-                bbone.use_local_location = False
+                bbone.use_local_location = True
                 bbone.use_relative_parent = False                
                 bbone.use_connect = False
                 bbone.use_deform = True
                 bbone[BINDPOSE_MATRIX_TBL] = [v for col in child.to_trs_matrix() for v in col]
                 child.boneObj = bbone               
                 if parent:
-                    bbone.head = parent.global_transform.translation
+                    bbone.tail = parent.global_transform.translation
                     bbone.parent = parent.boneObj
                 else:
-                    bbone.head = child.global_transform.translation + Vector((0,0,0.01)) # Otherwise the bone disappears!
-                bbone.tail = child.global_transform.translation
+                    bbone.tail = child.global_transform.translation + Vector((0,0,0.01)) # Otherwise the bone disappears!
+                bbone.head = child.global_transform.translation
     bpy.ops.object.mode_set(mode='OBJECT')
     return armature, obj
 def import_texture(name : str, data : Texture2D):
@@ -398,11 +399,10 @@ def import_material(name : str,data : Material):
     return material
 
 def check_is_object_sssekai_imported_armature(arm_obj):
-    assert arm_obj.type == 'ARMATURE', "Please select an armature"
+    assert arm_obj and arm_obj.type == 'ARMATURE', "Please select an armature"
     mesh_obj = arm_obj.children[0]
     mesh = mesh_obj.data
     assert KEY_BONE_NAME_HASH_TBL in mesh or KEY_SHAPEKEY_NAME_HASH_TBL in mesh, "This armature is not imported by SSSekai."
-
 def import_animation(name : str, data : Animation):
     arm_obj = bpy.context.active_object
     mesh_obj = arm_obj.children[0]
@@ -436,7 +436,7 @@ def import_animation(name : str, data : Animation):
         return result.to_translation()
     def to_pose_euler(bone : bpy.types.PoseBone, euler : Euler):    
         result = local_to_pose_space(bone, euler.to_matrix().to_4x4())
-        return result.to_euler()
+        return result.to_euler('ZYX', euler)
     # Reset the pose 
     bpy.ops.object.mode_set(mode='POSE')
     bpy.ops.pose.select_all(action='SELECT')
@@ -454,6 +454,7 @@ def import_animation(name : str, data : Animation):
         # Quaternion rotations
         bone_name = bone_table[str(bone_hash)]
         bone = arm_obj.pose.bones[bone_name]
+        bone.rotation_mode = 'QUATERNION'
         fcurve_W = action.fcurves.new(data_path='pose.bones["%s"].rotation_quaternion' % bone_name,index=0)
         fcurve_X = action.fcurves.new(data_path='pose.bones["%s"].rotation_quaternion' % bone_name,index=1)
         fcurve_Y = action.fcurves.new(data_path='pose.bones["%s"].rotation_quaternion' % bone_name,index=2)
@@ -461,6 +462,10 @@ def import_animation(name : str, data : Animation):
         for keyframe in track.Curve:
             frame = time_to_frame(keyframe.time)
             value = to_pose_quaternion(bone, swizzle_quaternion(keyframe.value))
+            if bone_name == 'Right_Ankle':
+                print('!!!!')
+                print(swizzle_quaternion(keyframe.value))
+                print(local_space_mat[bone_name].to_quaternion())
             fcurve_W.keyframe_points.insert(frame, value.w)
             fcurve_X.keyframe_points.insert(frame, value.x)
             fcurve_Y.keyframe_points.insert(frame, value.y)
@@ -469,12 +474,15 @@ def import_animation(name : str, data : Animation):
         # Euler rotations
         bone_name = bone_table[str(bone_hash)]
         bone = arm_obj.pose.bones[bone_name]
+        bone.rotation_mode = 'XYZ'
         fcurve_X = action.fcurves.new(data_path='pose.bones["%s"].rotation_euler' % bone_name,index=0)
         fcurve_Y = action.fcurves.new(data_path='pose.bones["%s"].rotation_euler' % bone_name,index=1)
         fcurve_Z = action.fcurves.new(data_path='pose.bones["%s"].rotation_euler' % bone_name,index=2)
         for keyframe in track.Curve:
             frame = time_to_frame(keyframe.time)
-            value = to_pose_euler(bone, swizzle_euler(keyframe.value))
+            swizzled_value = swizzle_euler(keyframe.value)
+            value = to_pose_euler(bone, swizzled_value)
+            local_value = local_space_mat[bone.name].to_quaternion()
             fcurve_X.keyframe_points.insert(frame, value.x)
             fcurve_Y.keyframe_points.insert(frame, value.y)
             fcurve_Z.keyframe_points.insert(frame, value.z)  
@@ -488,8 +496,6 @@ def import_animation(name : str, data : Animation):
         for keyframe in track.Curve:
             frame = time_to_frame(keyframe.time)
             value = to_pose_translation(bone, swizzle_vector(keyframe.value))
-            if bone_name == 'Hip':
-                print('local',debug_format_trs_matrix(local_space_mat[bone.name]), 'anim',swizzle_vector(keyframe.value), 'pose', value)
             fcurve_X.keyframe_points.insert(frame, value.x)
             fcurve_Y.keyframe_points.insert(frame, value.y)
             fcurve_Z.keyframe_points.insert(frame, value.z)            
@@ -538,12 +544,12 @@ if __name__ == "__main__":
     if BLENDER:
         arm_obj = bpy.context.active_object
         check_is_object_sssekai_imported_armature(arm_obj)    
-    with open(r"C:\Users\mos9527\Desktop\Anim\Anim_Data\sharedassets0.assets",'rb') as f:
+    with open(r"F:\Sekai\live_pv\timeline\0001\character",'rb') as f:
         ab = load_assetbundle(f)
         animations = search_env_animations(ab)
         for animation in animations:
             print('* Found AnimationClip:', animation.name)
-            if '_00' in animation.name:
+            if 'motion_0001' in animation.name:
                 print('* Reading AnimationClip:', animation.name)
                 print('* Byte size (compressed):',animation.byte_size)
                 clip = read_animation(animation)  
