@@ -44,8 +44,8 @@
             "module": "sssekai",
             "args": [
                 "live2dextract",
-                "C:\\Users\\mos9527\\.sssekai\\abcache\\live2d\\motion\\21miku_motion_base",
-                "C:\\Users\\mos9527\\Desktop\\Cache"
+                "F:\\Sekai\\live2d\\motion\\21miku_motion_base",
+                "C:\\Users\\Huang\\Desktop\\Cache"
             ],
             "justMyCode": true
         },

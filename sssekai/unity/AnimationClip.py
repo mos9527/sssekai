@@ -37,8 +37,8 @@ class Track:
         self.Curve.append(keyframe)
 
 class Animation:
-    FloatTracks : Dict[int, Track] # crc hash - Track
-    TransformTracks : Dict[TransformType ,Dict[int, Track]] # TransformType - crc hash - Track
+    FloatTracks : Dict[int, Dict[int,Track]] # Path crc hash - Attribute crc hash - Track
+    TransformTracks : Dict[TransformType ,Dict[int, Track]] # TransformType - Path crc hash - Track
     Framerate : int
     def __init__(self) -> None:
         self.Framerate = 60
@@ -63,18 +63,20 @@ def read_animation(animationClip: AnimationClip) -> Animation:
     m_ClipBindingConstant = animationClip.m_ClipBindingConstant
     animationTracks = Animation()
     animationTracks.Framerate = animationClip.m_SampleRate
-    def get_transform_track(key : int, type : TransformType):
-        if not key in animationTracks.TransformTracks[type]:
-            animationTracks.TransformTracks[type][key] = Track()
-        return animationTracks.TransformTracks[type][key]
+    def get_transform_track(path : int, type : TransformType): # TransformType is attribute. transposed since there are only TRS
+        if not path in animationTracks.TransformTracks[type]:
+            animationTracks.TransformTracks[type][path] = Track()
+        return animationTracks.TransformTracks[type][path]
 
-    def get_float_track(key : int | str) -> Track:
-        if not key in animationTracks.FloatTracks:
-            animationTracks.FloatTracks[key] = Track()
-        return animationTracks.FloatTracks[key]
+    def get_float_track(path : int, attribute : int = 0) -> Track:
+        if not path in animationTracks.FloatTracks:
+            animationTracks.FloatTracks[path] = dict()
+        if not attribute in animationTracks.FloatTracks[path]:
+            animationTracks.FloatTracks[path][attribute] = Track()
+        return animationTracks.FloatTracks[path][attribute]
 
     def add_float_curve_data(binding, time, value, inSlope, outSlope, coeff):
-        track = get_float_track(binding.path)
+        track = get_float_track(binding.path, binding.attribute)
         track.Attribute = binding.attribute
         track.Path = binding.path
         track.add_keyframe(KeyFrame(time,value, inSlope, outSlope, coeff))
