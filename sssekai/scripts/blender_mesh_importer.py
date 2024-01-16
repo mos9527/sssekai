@@ -412,13 +412,12 @@ def check_is_object_sssekai_imported_armature(arm_obj):
     mesh_obj = arm_obj.children[0]
     mesh = mesh_obj.data
     assert KEY_BONE_NAME_HASH_TBL in mesh or KEY_SHAPEKEY_NAME_HASH_TBL in mesh, "This armature is not imported by SSSekai."
-def import_animation(name : str, data : Animation):
-    arm_obj = bpy.context.active_object
+
+def import_armature_animation(arm_obj : bpy.types.Object, name : str, data : Animation):
     mesh_obj = arm_obj.children[0]
     mesh = mesh_obj.data    
-    bone_table = json.loads(mesh[KEY_BONE_NAME_HASH_TBL]) if KEY_BONE_NAME_HASH_TBL in mesh else dict()
-    shapekey_table = json.loads(mesh[KEY_SHAPEKEY_NAME_HASH_TBL]) if KEY_SHAPEKEY_NAME_HASH_TBL in mesh else dict()
     print('* Importing Animation', name)
+    bone_table = json.loads(mesh[KEY_BONE_NAME_HASH_TBL]) if KEY_BONE_NAME_HASH_TBL in mesh else dict()
     bpy.ops.object.mode_set(mode='EDIT')
     # Collect bone space <-> local space matrices
     local_space_trans_rot = dict() # i.e. parent space
@@ -454,7 +453,7 @@ def import_animation(name : str, data : Animation):
         etrans, erot = local_space_trans_rot[bone.name]
         erot_inv = erot.conjugated()
         result = erot_inv @ euler.to_quaternion()
-        result = result.to_euler('XYZ')
+        result = result.to_euler('XYZ') # XXX make compatible for euler interpolation
         return result
     # Reset the pose 
     bpy.ops.object.mode_set(mode='POSE')
@@ -560,7 +559,7 @@ if __name__ == "__main__":
     if BLENDER:
         arm_obj = bpy.context.active_object
         check_is_object_sssekai_imported_armature(arm_obj)    
-    with open(r"C:\Users\Huang\Desktop\Anim\Anim_Data\sharedassets0.assets",'rb') as f:
+    with open(r"F:\Sekai\live_pv\timeline\0001\character",'rb') as f:
         ab = load_assetbundle(f)
         animations = search_env_animations(ab)
         for animation in animations:
@@ -569,5 +568,5 @@ if __name__ == "__main__":
                 print('* Reading AnimationClip:', animation.name)
                 print('* Byte size (compressed):',animation.byte_size)
                 clip = read_animation(animation)  
-                import_animation(animation.name, clip)
+                import_armature_animation(bpy.context.active_object, animation.name, clip)
                 break
