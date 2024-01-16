@@ -2,6 +2,7 @@
 SHADER_BLEND_FILE = r'C:\Users\Huang\sssekai\sssekai\scripts\assets\SekaiShaderStandalone.blend'
 PYTHON_PACKAGES_PATH = r'C:\Users\Huang\AppData\Local\Programs\Python\Python310\Lib\site-packages'
 import sys,os,math
+
 try:
     import bpy
     import bpy_extras
@@ -59,6 +60,7 @@ from sssekai.unity import SEKAI_UNITY_VERSION # XXX: expandusr does not work in 
 from sssekai.unity.AnimationClip import Track, read_animation, Animation, TransformType
 config.FALLBACK_UNITY_VERSION = SEKAI_UNITY_VERSION
 from sssekai.unity.AssetBundle import load_assetbundle
+from sssekai.unity.constant.CommonPathNames import BLENDSHAPES_UNK_CRC
 import math
 
 # region Types
@@ -418,6 +420,8 @@ if BLENDER:
 
 # region Animation Asset Importer
 if BLENDER:
+    def time_to_frame(time : float):
+        return int(time * bpy.context.scene.render.fps) + 1    
     def import_fcurve(action : bpy.types.Action, data_path : str , values : list, frames : list, num_curves : int = 1):
         '''Imports an Fcurve into an action
 
@@ -428,11 +432,14 @@ if BLENDER:
             frames (list): frame indices. size must be that of values
             num_curves (int, optional): number of curves. e.g. with quaternion (W,X,Y,Z) you'd want 4. Defaults to 1.
         '''
+        valueIterable = type(values[0])
+        valueIterable = valueIterable != float and valueIterable != int
+        assert valueIterable or (not valueIterable and num_curves == 1), "Cannot import multiple curves for non-iterable values"
         fcurve = [action.fcurves.new(data_path=data_path, index=i) for i in range(num_curves)]
         curve_data = [0] * (len(frames) * 2)
         for i in range(num_curves):
             curve_data[::2] = frames
-            curve_data[1::2] = [v[i] for v in values]
+            curve_data[1::2] = [v[i] if valueIterable else v for v in values]
             fcurve[i].keyframe_points.add(len(frames))
             fcurve[i].keyframe_points.foreach_set('co', curve_data)
             fcurve[i].update()
@@ -484,12 +491,10 @@ if BLENDER:
         bpy.ops.pose.select_all(action='SELECT')
         bpy.ops.pose.transforms_clear()
         bpy.ops.pose.select_all(action='DESELECT')    
-        dest_arma.animation_data_clear()
         # Set the fps. Otherwise keys may get lost!
         bpy.context.scene.render.fps = int(data.Framerate)
         print('* Blender FPS set to:', bpy.context.scene.render.fps)
-        def time_to_frame(time : float):
-            return int(time * bpy.context.scene.render.fps) + 1
+        dest_arma.animation_data_clear()
         dest_arma.animation_data_create()
         # Setup actions
         action = bpy.data.actions.new(name)
@@ -528,8 +533,18 @@ if BLENDER:
     def import_keyshape_animation(name : str, data : Animation, dest_mesh : bpy.types.Object):
         mesh = dest_mesh.data
         assert KEY_SHAPEKEY_NAME_HASH_TBL in mesh, "ShapeKey table not found. Invalid mesh!"
+        print(list(data.FloatTracks.keys()))
+        assert BLENDSHAPES_UNK_CRC in data.FloatTracks, "No blend shape animation found!"
         print('* Importing Keyshape animation', name)
         keyshape_table = json.loads(mesh[KEY_SHAPEKEY_NAME_HASH_TBL])
+        action = bpy.data.actions.new(name)
+        mesh.shape_keys.animation_data_clear()
+        mesh.shape_keys.animation_data_create()        
+        mesh.shape_keys.animation_data.action = action
+        for attrCRC, track in data.FloatTracks[BLENDSHAPES_UNK_CRC].items():
+            bsName = keyshape_table[str(attrCRC)]
+            import_fcurve(action,'key_blocks["%s"].value' % bsName, [keyframe.value / 100.0 for keyframe in track.Curve], [time_to_frame(keyframe.time) for keyframe in track.Curve])
+        print('* Imported Keyshape animation', name)
 # endregion
 
 # region Entrypoint
@@ -579,9 +594,6 @@ if __name__ == "__main__":
             self.layout.operator(SSSekaiBlenderMeshImportOperator.bl_idname, text="SSSekai Mesh Importer")
         bpy.types.TOPBAR_MT_file_import.append(import_func)
     # ---- TESTING ----
-    if BLENDER:
-        arm_obj = bpy.context.active_object
-        check_is_object_sssekai_imported_armature(arm_obj)    
     with open(r"F:\Sekai\live_pv\timeline\0001\character",'rb') as f:
         ab = load_assetbundle(f)
         animations = search_env_animations(ab)
@@ -593,6 +605,6 @@ if __name__ == "__main__":
                 print('* Loading...')
                 clip = read_animation(animation)  
                 print('* Importing...')
-                pass
+                import_keyshape_animation(animation.name, clip, bpy.context.active_object)
                 break
 # endregion
