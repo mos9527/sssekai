@@ -416,10 +416,10 @@ def check_is_object_sssekai_imported_armature(arm_obj):
 def import_armature_animation(arm_obj : bpy.types.Object, name : str, data : Animation):
     mesh_obj = arm_obj.children[0]
     mesh = mesh_obj.data    
-    print('* Importing Animation', name)
+    print('* Importing Armature animation', name)
     bone_table = json.loads(mesh[KEY_BONE_NAME_HASH_TBL]) if KEY_BONE_NAME_HASH_TBL in mesh else dict()
     bpy.ops.object.mode_set(mode='EDIT')
-    # Collect bone space <-> local space matrices
+    # Collect bone space <-> local space transforms
     local_space_trans_rot = dict() # i.e. parent space
     for bone in arm_obj.data.edit_bones: # Must be done in edit mode
         local_space_trans_rot[bone.name] = (Vector(bone[KEY_BINDPOSE_TRANS]), BlenderQuaternion(bone[KEY_BINDPOSE_QUAT]))
@@ -463,7 +463,7 @@ def import_armature_animation(arm_obj : bpy.types.Object, name : str, data : Ani
     arm_obj.animation_data_clear()
     # Set the fps. Otherwise keys may get lost!
     bpy.context.scene.render.fps = int(data.Framerate)
-    print('* Blender FPS:', bpy.context.scene.render.fps)
+    print('* Blender FPS set to:', bpy.context.scene.render.fps)
     def time_to_frame(time : float):
         return int(time * bpy.context.scene.render.fps) + 1
     arm_obj.animation_data_create()
@@ -471,6 +471,7 @@ def import_armature_animation(arm_obj : bpy.types.Object, name : str, data : Ani
     action = bpy.data.actions.new(name)
     arm_obj.animation_data.action = action
     # https://github.com/KhronosGroup/glTF-Blender-IO/issues/76
+    # Batch the keyframes to load *way* faster otherwise
     def add_fcurve(data_path, values, frames, num_curves):
         fcurve = [action.fcurves.new(data_path=data_path, index=i) for i in range(num_curves)]
         curve_data = [0] * (len(frames) * 2)
@@ -479,6 +480,7 @@ def import_armature_animation(arm_obj : bpy.types.Object, name : str, data : Ani
             curve_data[1::2] = [v[i] for v in values]
             fcurve[i].keyframe_points.add(len(frames))
             fcurve[i].keyframe_points.foreach_set('co', curve_data)
+            fcurve[i].update()
     for bone_hash, track in data.TransformTracks[TransformType.Rotation].items():
         # Quaternion rotations
         # TODO: Ensure minimum rotation path (i.e. neighboring quats dots > 0)
@@ -503,8 +505,8 @@ def import_armature_animation(arm_obj : bpy.types.Object, name : str, data : Ani
         values = [to_pose_translation(bone, swizzle_vector(keyframe.value)) for keyframe in track.Curve]
         frames = [time_to_frame(keyframe.time) for keyframe in track.Curve]
         add_fcurve('pose.bones["%s"].location' % bone_name, values, frames, 3)       
-    # Scale is ignored for now
-    # ...
+    # No scale.
+    print('* Imported Armature animation', name)
 if BLENDER:
     class SSSekaiBlenderMeshImportOperator(bpy.types.Operator, bpy_extras.io_utils.ImportHelper):
         bl_idname = "sssekai.import_mesh"
@@ -548,7 +550,7 @@ if __name__ == "__main__":
     if BLENDER:
         arm_obj = bpy.context.active_object
         check_is_object_sssekai_imported_armature(arm_obj)    
-    with open(r"C:\Users\Huang\Desktop\Anim\Anim_Data\sharedassets0.assets",'rb') as f:
+    with open(r"F:\Sekai\live_pv\timeline\0001\character",'rb') as f:
         ab = load_assetbundle(f)
         animations = search_env_animations(ab)
         for animation in animations:
@@ -556,6 +558,8 @@ if __name__ == "__main__":
             if 'motion_0001' in animation.name:
                 print('* Reading AnimationClip:', animation.name)
                 print('* Byte size (compressed):',animation.byte_size)
+                print('* Loading...')
                 clip = read_animation(animation)  
+                print('* Importing...')
                 import_armature_animation(bpy.context.active_object, animation.name, clip)
                 break
