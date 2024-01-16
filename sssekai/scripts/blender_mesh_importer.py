@@ -470,50 +470,39 @@ def import_armature_animation(arm_obj : bpy.types.Object, name : str, data : Ani
     # Setup actions
     action = bpy.data.actions.new(name)
     arm_obj.animation_data.action = action
+    # https://github.com/KhronosGroup/glTF-Blender-IO/issues/76
+    def add_fcurve(data_path, values, frames, num_curves):
+        fcurve = [action.fcurves.new(data_path=data_path, index=i) for i in range(num_curves)]
+        curve_data = [0] * (len(frames) * 2)
+        for i in range(num_curves):
+            curve_data[::2] = frames
+            curve_data[1::2] = [v[i] for v in values]
+            fcurve[i].keyframe_points.add(len(frames))
+            fcurve[i].keyframe_points.foreach_set('co', curve_data)
     for bone_hash, track in data.TransformTracks[TransformType.Rotation].items():
         # Quaternion rotations
-        # TODO: Ensure minimum rotation path (i.e. negiboring quats dots > 0)
+        # TODO: Ensure minimum rotation path (i.e. neighboring quats dots > 0)
         bone_name = bone_table[str(bone_hash)]
         bone = arm_obj.pose.bones[bone_name]
-        bone.rotation_mode = 'QUATERNION'
-        fcurve_W = action.fcurves.new(data_path='pose.bones["%s"].rotation_quaternion' % bone_name,index=0)
-        fcurve_X = action.fcurves.new(data_path='pose.bones["%s"].rotation_quaternion' % bone_name,index=1)
-        fcurve_Y = action.fcurves.new(data_path='pose.bones["%s"].rotation_quaternion' % bone_name,index=2)
-        fcurve_Z = action.fcurves.new(data_path='pose.bones["%s"].rotation_quaternion' % bone_name,index=3)
-        for keyframe in track.Curve:
-            frame = time_to_frame(keyframe.time)
-            value = to_pose_quaternion(bone, swizzle_quaternion(keyframe.value))
-            fcurve_W.keyframe_points.insert(frame, value.w)
-            fcurve_X.keyframe_points.insert(frame, value.x)
-            fcurve_Y.keyframe_points.insert(frame, value.y)
-            fcurve_Z.keyframe_points.insert(frame, value.z)
+        bone.rotation_mode = 'QUATERNION'       
+        values = [to_pose_quaternion(bone, swizzle_quaternion(keyframe.value)) for keyframe in track.Curve]
+        frames = [time_to_frame(keyframe.time) for keyframe in track.Curve]
+        add_fcurve('pose.bones["%s"].rotation_quaternion' % bone_name, values, frames, 4)
     for bone_hash, track in data.TransformTracks[TransformType.EulerRotation].items():
         # Euler rotations
         bone_name = bone_table[str(bone_hash)]
         bone = arm_obj.pose.bones[bone_name]
         bone.rotation_mode = 'XYZ'
-        fcurve_X = action.fcurves.new(data_path='pose.bones["%s"].rotation_euler' % bone_name,index=0)
-        fcurve_Y = action.fcurves.new(data_path='pose.bones["%s"].rotation_euler' % bone_name,index=1)
-        fcurve_Z = action.fcurves.new(data_path='pose.bones["%s"].rotation_euler' % bone_name,index=2)
-        for keyframe in track.Curve:
-            frame = time_to_frame(keyframe.time)
-            value = to_pose_euler(bone, swizzle_euler(keyframe.value))
-            fcurve_X.keyframe_points.insert(frame, value.x)
-            fcurve_Y.keyframe_points.insert(frame, value.y)
-            fcurve_Z.keyframe_points.insert(frame, value.z)  
+        values = [to_pose_euler(bone, swizzle_euler(keyframe.value)) for keyframe in track.Curve]
+        frames = [time_to_frame(keyframe.time) for keyframe in track.Curve]
+        add_fcurve('pose.bones["%s"].rotation_euler' % bone_name, values, frames, 3)            
     for bone_hash, track in data.TransformTracks[TransformType.Translation].items():
         # Translations
         bone_name = bone_table[str(bone_hash)]
         bone = arm_obj.pose.bones[bone_name]
-        fcurve_X = action.fcurves.new(data_path='pose.bones["%s"].location' % bone_name,index=0)
-        fcurve_Y = action.fcurves.new(data_path='pose.bones["%s"].location' % bone_name,index=1)
-        fcurve_Z = action.fcurves.new(data_path='pose.bones["%s"].location' % bone_name,index=2)
-        for keyframe in track.Curve:
-            frame = time_to_frame(keyframe.time)
-            value = to_pose_translation(bone, swizzle_vector(keyframe.value))
-            fcurve_X.keyframe_points.insert(frame, value.x)
-            fcurve_Y.keyframe_points.insert(frame, value.y)
-            fcurve_Z.keyframe_points.insert(frame, value.z)            
+        values = [to_pose_translation(bone, swizzle_vector(keyframe.value)) for keyframe in track.Curve]
+        frames = [time_to_frame(keyframe.time) for keyframe in track.Curve]
+        add_fcurve('pose.bones["%s"].location' % bone_name, values, frames, 3)       
     # Scale is ignored for now
     # ...
 if BLENDER:
@@ -559,7 +548,7 @@ if __name__ == "__main__":
     if BLENDER:
         arm_obj = bpy.context.active_object
         check_is_object_sssekai_imported_armature(arm_obj)    
-    with open(r"F:\Sekai\live_pv\timeline\0001\character",'rb') as f:
+    with open(r"C:\Users\Huang\Desktop\Anim\Anim_Data\sharedassets0.assets",'rb') as f:
         ab = load_assetbundle(f)
         animations = search_env_animations(ab)
         for animation in animations:
