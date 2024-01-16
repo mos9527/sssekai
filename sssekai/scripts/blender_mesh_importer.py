@@ -47,7 +47,8 @@ def get_name_hash(name : str):
 # The tables stored in the mesh's Custom Properties. Used by the animation importer.
 KEY_BONE_NAME_HASH_TBL = 'sssekai_bone_name_hash_tbl' # Bone *full path hash* to bone name (Vertex Group name in blender lingo)
 KEY_SHAPEKEY_NAME_HASH_TBL = 'sssekai_shapekey_name_hash_tbl' # ShapeKey name hash to ShapeKey names
-BINDPOSE_MATRIX_TBL = 'sssekai_bindpose_matrix_tbl' # Bone name to bind pose matrix
+KEY_BINDPOSE_TRANS = 'sssekai_bindpose_trans' # Bone name to bind pose translation
+KEY_BINDPOSE_QUAT = 'sssekai_bindpose_quat' # Bone name to bind pose quaternion
 # UnityPy deps
 from UnityPy import Environment, config
 from UnityPy.enums import ClassIDType
@@ -70,6 +71,10 @@ class Bone:
     global_path : str = ''
     global_transform : Matrix = None
     # Helpers
+    def get_blender_local_position(self):
+        return swizzle_vector(self.localPosition)
+    def get_blender_local_rotation(self):
+        return swizzle_quaternion(self.localRotation)
     def to_translation_matrix(self):
         return Matrix.Translation(swizzle_vector(self.localPosition))
     def to_trs_matrix(self):
@@ -85,7 +90,7 @@ class Bone:
                 yield from dfs(child, bone, depth + 1)
         yield from dfs(root or self)        
     # Extra
-    boneObj = None # Blender Bone
+    edit_bone = None # Blender Bone
 @dataclass
 class Armature:
     name : str
@@ -308,7 +313,7 @@ def import_armature(name : str, data : Armature):
     bpy.context.collection.objects.link(obj)
     bpy.context.view_layer.objects.active = obj
     bpy.ops.object.mode_set(mode='EDIT')
-    # HACK: *Seems like* the only useful root bone is 'Position' (which is the root of the actual skeleton)    
+    # HACK: *Seems like* the only useful root bone is 'Position' (which is the root of the actual skeleton)
     for bone in data.root.children:
         bone : Bone
         if bone.name == 'Position':
@@ -316,7 +321,7 @@ def import_armature(name : str, data : Armature):
             bone.global_transform = Matrix.Identity(4)
             # Build global transforms
             # I think using the inverse of m_BindPose could work too
-            # but I kinda missed it until I implemented all this so...
+            # but I kinda missed it until I implemented all this so...            
             for parent, child, _ in bone.dfs_generator():
                 if parent:
                     child.global_transform = parent.global_transform @ child.to_trs_matrix()
@@ -324,20 +329,24 @@ def import_armature(name : str, data : Armature):
                     child.global_transform = child.to_trs_matrix()
             # Build bone hierarchy in blender
             for parent, child, _ in bone.dfs_generator():
-                bbone = armature.edit_bones.new(child.name)
-                bbone.use_local_location = True
-                bbone.use_relative_parent = False                
-                bbone.use_connect = False
-                bbone.use_deform = True
-                bbone[BINDPOSE_MATRIX_TBL] = [v for col in child.to_trs_matrix() for v in col]
-                child.boneObj = bbone               
+                ebone = armature.edit_bones.new(child.name)
+                ebone.use_local_location = True
+                ebone.use_relative_parent = False                
+                ebone.use_connect = False
+                ebone.use_deform = True
+                ebone[KEY_BINDPOSE_TRANS] = [v for v in child.get_blender_local_position()]
+                ebone[KEY_BINDPOSE_QUAT] = [v for v in child.get_blender_local_rotation()]
+                child.edit_bone = ebone
+                # Treat the joints as extremely small bones
+                # The same as https://github.com/KhronosGroup/glTF-Blender-IO/blob/2debd75ace303f3a3b00a43e9d7a9507af32f194/addons/io_scene_gltf2/blender/imp/gltf2_blender_node.py#L198
+                # TODO: Alternative shapes for bones                                                
+                ebone.head = child.global_transform @ Vector((0,0,0))
+                ebone.tail = child.global_transform @ Vector((0,1,0))
+                ebone.length = 0.01
+                ebone.align_roll(child.global_transform @ Vector((0,0,1)) - ebone.head)
                 if parent:
-                    bbone.tail = parent.global_transform.translation
-                    bbone.parent = parent.boneObj
-                else:
-                    bbone.tail = child.global_transform.translation + Vector((0,0,0.01)) # Otherwise the bone disappears!
-                bbone.head = child.global_transform.translation
-    bpy.ops.object.mode_set(mode='OBJECT')
+                    ebone.parent = parent.edit_bone
+
     return armature, obj
 def import_texture(name : str, data : Texture2D):
     '''Imports Texture2D assets into blender
@@ -410,33 +419,43 @@ def import_animation(name : str, data : Animation):
     bone_table = json.loads(mesh[KEY_BONE_NAME_HASH_TBL]) if KEY_BONE_NAME_HASH_TBL in mesh else dict()
     shapekey_table = json.loads(mesh[KEY_SHAPEKEY_NAME_HASH_TBL]) if KEY_SHAPEKEY_NAME_HASH_TBL in mesh else dict()
     print('* Importing Animation', name)
-    bpy.ops.object.mode_set(mode='EDIT')           
-    local_space_mat = dict()
-    arm_space_mat = dict()
-    for bone in arm_obj.data.edit_bones:
-        local_space_mat[bone.name] = Matrix(tuple(bone[BINDPOSE_MATRIX_TBL][n:n+4] for n in range(0, 16, 4)))
-        arm_space_mat[bone.name] = bone.matrix       
-    def time_to_frame(time : float):
-        return int(time * bpy.context.scene.render.fps) + 1
-    def debug_format_trs_matrix(mat: Matrix):
-        t,r,s = mat.decompose()
-        return 'T: %s R: %s Q: %s S: %s' % (t,r.to_euler(),r,s)
-    def local_to_pose_space(bone : bpy.types.PoseBone, mat : Matrix):
-        g_mat = arm_space_mat[bone.name]
-        l_mat = local_space_mat[bone.name]
-        p_l_mat = local_space_mat[bone.parent.name] if bone.parent else Matrix.Identity(4)
-        pre_mat = g_mat.inverted() @ p_l_mat # Into parent local space
-        post_mat = l_mat.inverted() @ p_l_mat.inverted() @ g_mat # Out of parent local space to pose space
-        return pre_mat @ mat @ post_mat
+    bpy.ops.object.mode_set(mode='EDIT')
+    # Collect bone space <-> local space matrices
+    local_space_trans_rot = dict() # i.e. parent space
+    for bone in arm_obj.data.edit_bones: # Must be done in edit mode
+        local_space_trans_rot[bone.name] = (Vector(bone[KEY_BINDPOSE_TRANS]), BlenderQuaternion(bone[KEY_BINDPOSE_QUAT]))
+    # from glTF-Blender-IO:
+    # ---
+    # We have the final TRS of the bone in values. We need to give
+    # the TRS of the pose bone though, which is relative to the edit
+    # bone.
+    #
+    #     Final = EditBone * PoseBone
+    #   where
+    #     Final =    Trans[ft] Rot[fr] Scale[fs]
+    #     EditBone = Trans[et] Rot[er]
+    #     PoseBone = Trans[pt] Rot[pr] Scale[ps]
+    #
+    # Solving for PoseBone gives
+    #
+    #     pt = Rot[er^{-1}] (ft - et)
+    #     pr = er^{-1} fr
+    #     ps = fs 
+    # ---
     def to_pose_quaternion(bone : bpy.types.PoseBone, quat : BlenderQuaternion):
-        result = local_to_pose_space(bone, quat.to_matrix().to_4x4())
-        return result.to_quaternion()
+        etrans, erot = local_space_trans_rot[bone.name]
+        erot_inv = erot.conjugated()
+        return erot_inv @ quat
     def to_pose_translation(bone : bpy.types.PoseBone, vec : Vector):
-        result = local_to_pose_space(bone, Matrix.Translation(vec))
-        return result.to_translation()
-    def to_pose_euler(bone : bpy.types.PoseBone, euler : Euler):    
-        result = local_to_pose_space(bone, euler.to_matrix().to_4x4())
-        return result.to_euler('ZYX', euler)
+        etrans, erot = local_space_trans_rot[bone.name]
+        erot_inv = erot.conjugated()
+        return erot_inv @ (vec - etrans)
+    def to_pose_euler(bone : bpy.types.PoseBone, euler : Euler):
+        etrans, erot = local_space_trans_rot[bone.name]
+        erot_inv = erot.conjugated()
+        result = erot_inv @ euler.to_quaternion()
+        result = result.to_euler('XYZ')
+        return result
     # Reset the pose 
     bpy.ops.object.mode_set(mode='POSE')
     bpy.ops.pose.select_all(action='SELECT')
@@ -446,12 +465,15 @@ def import_animation(name : str, data : Animation):
     # Set the fps. Otherwise keys may get lost!
     bpy.context.scene.render.fps = int(data.Framerate)
     print('* Blender FPS:', bpy.context.scene.render.fps)
+    def time_to_frame(time : float):
+        return int(time * bpy.context.scene.render.fps) + 1
     arm_obj.animation_data_create()
     # Setup actions
     action = bpy.data.actions.new(name)
     arm_obj.animation_data.action = action
     for bone_hash, track in data.TransformTracks[TransformType.Rotation].items():
         # Quaternion rotations
+        # TODO: Ensure minimum rotation path (i.e. negiboring quats dots > 0)
         bone_name = bone_table[str(bone_hash)]
         bone = arm_obj.pose.bones[bone_name]
         bone.rotation_mode = 'QUATERNION'
@@ -462,10 +484,6 @@ def import_animation(name : str, data : Animation):
         for keyframe in track.Curve:
             frame = time_to_frame(keyframe.time)
             value = to_pose_quaternion(bone, swizzle_quaternion(keyframe.value))
-            if bone_name == 'Right_Ankle':
-                print('!!!!')
-                print(swizzle_quaternion(keyframe.value))
-                print(local_space_mat[bone_name].to_quaternion())
             fcurve_W.keyframe_points.insert(frame, value.w)
             fcurve_X.keyframe_points.insert(frame, value.x)
             fcurve_Y.keyframe_points.insert(frame, value.y)
@@ -480,9 +498,7 @@ def import_animation(name : str, data : Animation):
         fcurve_Z = action.fcurves.new(data_path='pose.bones["%s"].rotation_euler' % bone_name,index=2)
         for keyframe in track.Curve:
             frame = time_to_frame(keyframe.time)
-            swizzled_value = swizzle_euler(keyframe.value)
-            value = to_pose_euler(bone, swizzled_value)
-            local_value = local_space_mat[bone.name].to_quaternion()
+            value = to_pose_euler(bone, swizzle_euler(keyframe.value))
             fcurve_X.keyframe_points.insert(frame, value.x)
             fcurve_Y.keyframe_points.insert(frame, value.y)
             fcurve_Z.keyframe_points.insert(frame, value.z)  
@@ -544,7 +560,7 @@ if __name__ == "__main__":
     if BLENDER:
         arm_obj = bpy.context.active_object
         check_is_object_sssekai_imported_armature(arm_obj)    
-    with open(r"F:\Sekai\live_pv\timeline\0001\character",'rb') as f:
+    with open(r"C:\Users\Huang\Desktop\Anim\Anim_Data\sharedassets0.assets",'rb') as f:
         ab = load_assetbundle(f)
         animations = search_env_animations(ab)
         for animation in animations:
