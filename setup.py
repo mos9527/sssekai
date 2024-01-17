@@ -3,7 +3,7 @@ import sys,os
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import setuptools, sssekai
 
-with open("README.txt", "r") as fh:
+with open("README.md", "r") as fh:
     long_description = fh.read()
 
 setuptools.setup(
