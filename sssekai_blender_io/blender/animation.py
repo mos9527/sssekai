@@ -72,9 +72,6 @@ def import_armature_animation(name : str, data : Animation, dest_arma : bpy.type
     bpy.ops.pose.select_all(action='SELECT')
     bpy.ops.pose.transforms_clear()
     bpy.ops.pose.select_all(action='DESELECT')    
-    # Set the fps. Otherwise keys may get lost!
-    bpy.context.scene.render.fps = int(data.Framerate)
-    print('* Blender FPS set to:', bpy.context.scene.render.fps)
     dest_arma.animation_data_clear()
     dest_arma.animation_data_create()
     # Setup actions
@@ -113,7 +110,7 @@ def import_armature_animation(name : str, data : Animation, dest_arma : bpy.type
 
 def import_keyshape_animation(name : str, data : Animation, dest_mesh : bpy.types.Object):
     mesh = dest_mesh.data
-    assert KEY_SHAPEKEY_NAME_HASH_TBL in mesh, "ShapeKey table not found. Invalid mesh!"
+    assert KEY_SHAPEKEY_NAME_HASH_TBL in mesh, "Shape Key table not found. You can only import blend shape animations on meshes with blend shapes!"
     print(list(data.FloatTracks.keys()))
     assert BLENDSHAPES_UNK_CRC in data.FloatTracks, "No blend shape animation found!"
     keyshape_table = json.loads(mesh[KEY_SHAPEKEY_NAME_HASH_TBL])

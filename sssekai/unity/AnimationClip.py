@@ -40,6 +40,7 @@ class Animation:
     FloatTracks : Dict[int, Dict[int,Track]] # Path crc hash - Attribute crc hash - Track
     TransformTracks : Dict[TransformType ,Dict[int, Track]] # TransformType - Path crc hash - Track
     Framerate : int
+    Duration : int
     def __init__(self) -> None:
         self.Framerate = 60
         self.FloatTracks = dict()
@@ -63,6 +64,7 @@ def read_animation(animationClip: AnimationClip) -> Animation:
     m_ClipBindingConstant = animationClip.m_ClipBindingConstant
     animationTracks = Animation()
     animationTracks.Framerate = animationClip.m_SampleRate
+    animationTracks.Duration = animationClip.m_MuscleClip.m_StopTime
     def get_transform_track(path : int, type : TransformType): # TransformType is attribute. transposed since there are only TRS
         if not path in animationTracks.TransformTracks[type]:
             animationTracks.TransformTracks[type][path] = Track()

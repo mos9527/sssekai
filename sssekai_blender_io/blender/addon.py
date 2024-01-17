@@ -91,9 +91,17 @@ class SSSekaiBlenderImportOperator(bpy.types.Operator):
                     print('* Loading...')
                     clip = read_animation(animation)  
                     print('* Importing...')
+                    # Set the fps. Otherwise keys may get lost!
+                    bpy.context.scene.render.fps = int(clip.Framerate)
+                    bpy.context.scene.frame_end = max(bpy.context.scene.frame_end,int(clip.Framerate * clip.Duration + 0.5))
+                    print('* Duration', clip.Duration)
+                    print('* Framerate', clip.Framerate)
+                    print('* Frames', bpy.context.scene.frame_end)
+                    print('* Blender FPS set to:', bpy.context.scene.render.fps)
                     if BLENDSHAPES_UNK_CRC in clip.FloatTracks:
                         print('* Importing Keyshape animation', animation.name)
-                        import_keyshape_animation(animation.name, clip, bpy.context.active_object)
+                        arm_mesh_obj = bpy.context.active_object.children[0]
+                        import_keyshape_animation(animation.name, clip, arm_mesh_obj)
                         print('* Imported Keyshape animation', animation.name)
                     else:
                         print('* Importing Armature animation', animation.name)
