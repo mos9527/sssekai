@@ -10,8 +10,12 @@ bl_info = {
     "tracker_url": "https://github.com/mos9527/sssekai",
     "category": "Import-Export",
 }
-import bpy
-from .blender.addon import register, unregister, SSSekaiBlenderImportPanel
+try:
+    import bpy
+    from .blender.addon import register, unregister, SSSekaiBlenderImportPanel
+    BLENDER = True
+except:
+    BLENDER = False
 
-if __name__ == "__main__":
+if BLENDER and __name__ == "__main__":
     register()

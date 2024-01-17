@@ -63,24 +63,26 @@ class SSSekaiBlenderImportOperator(bpy.types.Operator):
             
             for mesh_go in static_mesh_gameobjects:
                 mesh_rnd : MeshRenderer = mesh_go.m_MeshRenderer.read()
-                mesh_data : Mesh = mesh_rnd.m_Mesh.read()
-                if mesh_data.name == wm.sssekai_assetbundle_preview:
-                    mesh, obj = import_mesh(mesh_go.name, mesh_data,False)
-                    add_material(mesh_rnd.m_Materials, obj)    
-                    print('* Imported Static Mesh', mesh_data.name)
-                    return {'FINISHED'}
+                if getattr(mesh_rnd,'m_Mesh',None):
+                    mesh_data : Mesh = mesh_rnd.m_Mesh.read()
+                    if mesh_data.name == wm.sssekai_assetbundle_preview:
+                        mesh, obj = import_mesh(mesh_go.name, mesh_data,False)
+                        add_material(mesh_rnd.m_Materials, obj)    
+                        print('* Imported Static Mesh', mesh_data.name)
+                        return {'FINISHED'}
             
             for armature in armatures:
                 if armature.name == wm.sssekai_assetbundle_preview:
                     mesh_rnd : SkinnedMeshRenderer = armature.skinned_mesh_gameobject.m_SkinnedMeshRenderer.read()
-                    mesh_data : Mesh = mesh_rnd.m_Mesh.read()
-                    armInst, armObj = import_armature('%s_Armature' % armature.name ,armature)
-                    mesh, obj = import_mesh(armature.name, mesh_data,True, armature.bone_path_hash_tbl)
-                    obj.parent = armObj
-                    obj.modifiers.new('Armature', 'ARMATURE').object = armObj
-                    add_material(mesh_rnd.m_Materials, obj)    
-                    print('* Imported Armature and Skinned Mesh', mesh_data.name)
-                    return {'FINISHED'}
+                    if getattr(mesh_rnd,'m_Mesh',None):
+                        mesh_data : Mesh = mesh_rnd.m_Mesh.read()
+                        armInst, armObj = import_armature('%s_Armature' % armature.name ,armature)
+                        mesh, obj = import_mesh(armature.name, mesh_data,True, armature.bone_path_hash_tbl)
+                        obj.parent = armObj
+                        obj.modifiers.new('Armature', 'ARMATURE').object = armObj
+                        add_material(mesh_rnd.m_Materials, obj)    
+                        print('* Imported Armature and Skinned Mesh', mesh_data.name)
+                        return {'FINISHED'}
 
             animations = search_env_animations(env)    
             for animation in animations:
@@ -155,9 +157,10 @@ def enumerate_assets(self, context):
             static_mesh_gameobjects, armatures = search_env_meshes(env)
             for mesh_go in static_mesh_gameobjects:
                 mesh_rnd : MeshRenderer = mesh_go.m_MeshRenderer.read()
-                mesh_data : Mesh = mesh_rnd.m_Mesh.read()    
-                enum_items.append((mesh_data.name,mesh_data.name,'Static Mesh %s' % mesh_data.name, 'MESH_DATA', index))
-                index+=1
+                if getattr(mesh_rnd,'m_Mesh',None):
+                    mesh_data : Mesh = mesh_rnd.m_Mesh.read()    
+                    enum_items.append((mesh_data.name,mesh_data.name,'Static Mesh %s' % mesh_data.name, 'MESH_DATA', index))
+                    index+=1
 
             for armature in armatures:
                 enum_items.append((armature.name,armature.name,'Armature %s' % armature.name, 'ARMATURE_DATA',index))

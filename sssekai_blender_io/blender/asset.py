@@ -154,10 +154,11 @@ def import_mesh(name : str, data: Mesh, skinned : bool = False, bone_path_tbl : 
                 data.m_UV0[vtx * uvFloats + 1]
             )
     # Vertex Color
-    vertex_color = mesh.color_attributes.new(name='Vertex Color',type='FLOAT_COLOR',domain='POINT')
-    for vtx in range(0, data.m_VertexCount):
-        color = [data.m_Colors[vtx * colorFloats + i] for i in range(colorFloats)]
-        vertex_color.data[vtx].color = color
+    if colorFloats:
+        vertex_color = mesh.color_attributes.new(name='Vertex Color',type='FLOAT_COLOR',domain='POINT')
+        for vtx in range(0, data.m_VertexCount):
+            color = [data.m_Colors[vtx * colorFloats + i] for i in range(colorFloats)]
+            vertex_color.data[vtx].color = color
     # Assign vertex normals
     mesh.create_normals_split()
     normals = [(0,0,0) for l in mesh.loops]
