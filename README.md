@@ -1,5 +1,5 @@
 # sssekai
-Command-line tool for downloading/deobfuscating the game's assets, along with some other tools.
+Command-line tool (w/Python API support) for downloading/deobfuscating the game's assets, along with some other tools.
 
     usage: sssekai [-h]
                   {apidecrypt,abdecrypt,usmdemux,abcache,live2dextract,mitm} ...
@@ -31,18 +31,5 @@ Command-line tool for downloading/deobfuscating the game's assets, along with so
         live2dextract       Extract Sekai Live2D Models in a AssetBundle
         mitm                Run Sekai API MITM proxy (WIP)
 
-# sssekai_blender_io
-Blender I/O for the game's assets. (actually it's imports only)
-
-Refer to https://github.com/mos9527/sssekai for downloads!
-
-Currently supports:  
-  * Textures
-  * Character NPR Material (via [SekaiShaderStandalone](https://github.com/mos9527/sssekai/blob/main/sssekai_blender_io/assets/SekaiShaderStandalone.blend))
-  * Static Mesh
-  * Skinned Mesh
-  * Armatures (built through GameObject hierarchy)
-  * Animations (Skeletal, BlendShape)
-
-## Installation:
-*WIP*
+# 简中 Wiki!
+https://github.com/mos9527/sssekai/wiki
