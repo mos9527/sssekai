@@ -1,8 +1,7 @@
 # Config
-SHADER_BLEND_FILE = r'C:\Users\Huang\sssekai\sssekai\scripts\assets\SekaiShaderStandalone.blend'
+SHADER_BLEND_FILE = r'C:\Users\Huang\sssekai\sssekai-blender-io\assets\SekaiShaderStandalone.blend'
 PYTHON_PACKAGES_PATH = r'C:\Users\Huang\AppData\Local\Programs\Python\Python310\Lib\site-packages'
 import sys,os,math
-
 try:
     import bpy
     import bpy_extras
