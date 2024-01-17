@@ -1,13 +1,15 @@
-SHADER_BLEND_FILE = r'C:\Users\Huang\sssekai\sssekai_blender_io\assets\SekaiShaderStandalone.blend'
+import os, sys
+SCRIPT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+SHADER_BLEND_FILE = os.path.join(SCRIPT_DIR, 'assets/SekaiShaderStandalone.blend')
 PYTHON_PACKAGES_PATH = r'C:\Users\Huang\AppData\Local\Programs\Python\Python310\Lib\site-packages'
-import sys,os,math
+print('*** SSSekai Blender IO ***')
+print('* Script Directory:', SCRIPT_DIR)
+print('* Shader Blend File:', SHADER_BLEND_FILE)
 try:
     import bpy
     import bpy_extras
     import bmesh
     from mathutils import Matrix, Quaternion as BlenderQuaternion, Vector, Euler
-    # HACK: to get blender to use the system's python packges
-    sys.path.append(PYTHON_PACKAGES_PATH)    
     BLENDER = True
 except ImportError:
     # Stubs for debugging outside blender's python
@@ -57,7 +59,6 @@ from UnityPy.math import Vector3, Quaternion as UnityQuaternion
 from sssekai.unity.AnimationClip import read_animation, Animation, TransformType
 from sssekai.unity.AssetBundle import load_assetbundle
 from sssekai.unity.constant.CommonPathNames import BLENDSHAPES_UNK_CRC
-
 @dataclass
 class Bone:
     name : str

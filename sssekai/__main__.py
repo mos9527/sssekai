@@ -20,7 +20,7 @@ def __main__():
         level='INFO', format="[%(levelname).4s] %(name)s %(message)s"
     )
     
-    parser = argparse.ArgumentParser(description='''SSSekai Proejct SEKAI feat. Hatsune Miku (TW Android) Modding Tools
+    parser = argparse.ArgumentParser(description='''SSSekai Proejct SEKAI feat. Hatsune Miku (Android) Modding Tools
 Installation:
     pip install git+https://github.com/mos9527/sssekai                                    
 ''', formatter_class=argparse.RawTextHelpFormatter)
