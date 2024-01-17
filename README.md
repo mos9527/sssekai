@@ -31,5 +31,9 @@ Command-line tool (w/Python API support) for downloading/deobfuscating the game'
         live2dextract       Extract Sekai Live2D Models in a AssetBundle
         mitm                Run Sekai API MITM proxy (WIP)
 
-# 简中 Wiki!
-https://github.com/mos9527/sssekai/wiki
+# Usage
+Refer to the Wiki!
+https://github.com/mos9527/sssekai/wiki （附带简中）
+
+# See Also
+https://github.com/mos9527/sssekai_blender_io
