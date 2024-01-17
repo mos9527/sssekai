@@ -1,4 +1,4 @@
-from common import *
+from . import *
 
 def time_to_frame(time : float):
     return int(time * bpy.context.scene.render.fps) + 1
@@ -29,7 +29,6 @@ def import_armature_animation(name : str, data : Animation, dest_arma : bpy.type
     mesh_obj = dest_arma.children[0]
     mesh = mesh_obj.data   
     assert KEY_BONE_NAME_HASH_TBL in mesh, "Bone table not found. Invalid armature!" 
-    print('* Importing Armature animation', name)
     bone_table = json.loads(mesh[KEY_BONE_NAME_HASH_TBL])
     bpy.ops.object.mode_set(mode='EDIT')
     # Collect bone space <-> local space transforms
@@ -111,14 +110,12 @@ def import_armature_animation(name : str, data : Animation, dest_arma : bpy.type
         frames = [time_to_frame(keyframe.time) for keyframe in track.Curve]
         import_fcurve(action,'pose.bones["%s"].location' % bone_name, values, frames, 3)       
     # No scale.
-    print('* Imported Armature animation', name)
 
 def import_keyshape_animation(name : str, data : Animation, dest_mesh : bpy.types.Object):
     mesh = dest_mesh.data
     assert KEY_SHAPEKEY_NAME_HASH_TBL in mesh, "ShapeKey table not found. Invalid mesh!"
     print(list(data.FloatTracks.keys()))
     assert BLENDSHAPES_UNK_CRC in data.FloatTracks, "No blend shape animation found!"
-    print('* Importing Keyshape animation', name)
     keyshape_table = json.loads(mesh[KEY_SHAPEKEY_NAME_HASH_TBL])
     action = bpy.data.actions.new(name)
     mesh.shape_keys.animation_data_clear()
@@ -127,4 +124,3 @@ def import_keyshape_animation(name : str, data : Animation, dest_mesh : bpy.type
     for attrCRC, track in data.FloatTracks[BLENDSHAPES_UNK_CRC].items():
         bsName = keyshape_table[str(attrCRC)]
         import_fcurve(action,'key_blocks["%s"].value' % bsName, [keyframe.value / 100.0 for keyframe in track.Curve], [time_to_frame(keyframe.time) for keyframe in track.Curve])
-    print('* Imported Keyshape animation', name)

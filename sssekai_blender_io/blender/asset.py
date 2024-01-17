@@ -1,4 +1,4 @@
-from common import *
+from . import *
 
 def search_env_meshes(env : Environment):
     '''(Partially) Loads the UnityPy Environment for further Mesh processing
