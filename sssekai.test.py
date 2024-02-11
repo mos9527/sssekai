@@ -3,13 +3,13 @@ from sssekai.unity.AssetBundle import load_assetbundle
 import sys
 sys.path.insert(0,r'C:\Users\Huang')
 from sssekai_blender_io.blender.asset import search_env_animations, search_env_meshes
-
-with open(r"F:\Sekai\live_pv\timeline\0008\camera",'rb') as f:
+from sssekai_blender_io.blender import BonePhysicsType, BonePhysics, BoneAngularLimit, Bone
+with open(r"F:\Sekai\live_pv\timeline\0002\stage",'rb') as f:
     env = load_assetbundle(f)
     anims = search_env_animations(env)
+    CRC_DOF = 3138646591
     for anim in anims:
-        if 'depth_' in anim.name:
-            data = read_animation(anim)
-            pass
+        data = read_animation(anim)
         pass
+    pass
 pass

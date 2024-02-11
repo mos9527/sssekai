@@ -8,6 +8,7 @@ def main_abcache(args):
         startfile(config.cache_dir)
         return
     cache = AbCache(config)
+    downloader.session = cache
     if not args.skip_update:
         cache.update_cahce_index()
     downloader.shutdown()

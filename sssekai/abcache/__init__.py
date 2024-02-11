@@ -1,7 +1,7 @@
 from os import path, remove, makedirs, stat
 from typing import List, Mapping
 from dataclasses import dataclass, asdict
-from requests import get as http_get, Session
+from requests import Session
 from logging import getLogger
 from json import dump, load
 from pathlib import Path
@@ -14,10 +14,12 @@ from msgpack import unpackb
 from tqdm import tqdm
 DEFAULT_CACHE_DIR = '~/.sssekai/abcache'
 # 2.6.1
-SEKAI_CDN = 'https://lf16-mkovscdn-sg.bytedgame.com/obj/sf-game-alisg/gdl_app_5245/'
-SEKAI_AB_BASE_PATH = 'AssetBundle/2.6.0/Release/online/'
-SEKAI_AB_INDEX_PATH = SEKAI_AB_BASE_PATH + 'android21/AssetBundleInfo.json'
-
+SEKAI_CDN = 'https://production-cf2d2388-assetbundle-info.sekai.colorfulpalette.org/'
+SEKAI_AB_CDN = 'https://production-cf2d2388-assetbundle.sekai.colorfulpalette.org/'
+SEKAI_AB_BASE_PATH = '3.3.0.20/8fd5e993-0146-c881-8902-4ed113efcdbf/android/'
+SEKAI_AB_INDEX_PATH = 'api/version/3.3.0.20/os/android'
+# HACK: Bypasses the check for now. Would this expire though?
+SEKAI_API_COOKIES = 'CloudFront-Policy=eyJTdGF0ZW1lbnQiOlt7IlJlc291cmNlIjoiKiIsIkNvbmRpdGlvbiI6eyJEYXRlTGVzc1RoYW4iOnsiQVdTOkVwb2NoVGltZSI6MTcwNzcwNDc1Nn0sIklwQWRkcmVzcyI6eyJBV1M6U291cmNlSXAiOiIwLjAuMC4wLzAifX19XX0_; CloudFront-Signature=KKEPARo-8R5aSq~AsEyXL~Bl7OaZ5P7U7KhxcQCjCtgVeCTdLxehu3fUt22cS-UOg25ZhzLLc4vEsFFTAz4LPq~I7lOZcGNj5Jan5-fQg52iRHVnZw~otkRrrsyZh6aDnKMxeNmqSOBtvf4Nw0tqe6vRPo398l6IqBeHZ-5owKQxG0SreAmq1wm8VSnMTow2l5Atxw~reEqQ9TFsktMsebL1eqExROXF4e~135zrcFuN9C~vPOs4m9CogLaYKPXcCau-l1D~Qs7PXXL3ZSY6r40kwdICfd50MiVM14Ip~926Xh6MO3BfEGR20WFqCA-VPGfa3ANUHR9Rj-Gzddxlrw__; CloudFront-Key-Pair-Id=KV6QGCE0D633X;'
 class ThreadpoolDownloader(ThreadPoolExecutor):
     session : Session
     progress : tqdm
@@ -48,8 +50,8 @@ class ThreadpoolDownloader(ThreadPoolExecutor):
     def add_link(self, url, fname, length):
         self.progress.total += length
         return self.submit(self.download, url, fname, length)
-    def __init__(self) -> None:
-        self.session = Session()
+    def __init__(self, session = None) -> None:
+        self.session = session or Session()
         self.progress = tqdm(bar_format="{desc}: {percentage:.1f}%|{bar}| {n_fmt}/{total_fmt} {rate_fmt} {elapsed}<{remaining}", total=0,unit='B', unit_scale=True, unit_divisor=1024,desc="Downloading")
         super().__init__() # workers = processor count * 5
 
@@ -73,8 +75,6 @@ class AbCacheEntry(dict):
     dependencies : List[str]
     paths : List[str]
     isBuiltin : bool
-    md5Hash : str
-    downloadPath : str
 
     def up_to_date(self, config: AbCacheConfig, other) -> bool:
         fsize = self.get_file_size(config)     
@@ -93,8 +93,9 @@ class AbCacheEntry(dict):
         return path.join(config.cache_dir, self.bundleName)
 @dataclass
 class AbCacheIndex(dict):
-    version : str
-    bundles : Mapping[str, AbCacheEntry]
+    version : str = 'unknown'
+    os : str = 'android'
+    bundles : Mapping[str, AbCacheEntry] = None
     def get_bundle_by_abcache_path(self, config: AbCacheConfig, fpath) -> AbCacheEntry | None:
         # "C:\Users\mos9527\.sssekai\abcache\title_screen\anniversary_2nd_bg"
         fpath = Path(fpath)
@@ -103,13 +104,12 @@ class AbCacheIndex(dict):
         relpath = fpath.relative_to(cpath).as_posix()
         return self.bundles.get(relpath,None)
     
-class AbCache:
+class AbCache(Session):
     config : AbCacheConfig
     index : AbCacheIndex
     
-    @staticmethod
-    def download_cache_index() -> AbCacheIndex:
-        resp = http_get(
+    def download_cache_index(self) -> AbCacheIndex:
+        resp = self.get(
             url=SEKAI_CDN + SEKAI_AB_INDEX_PATH,
             headers={
                 'Accept-Encoding': 'deflate, gzip'
@@ -127,14 +127,14 @@ class AbCache:
         if new_entry:
             entry = new_entry
         return self.config.downloader.add_link(
-            SEKAI_CDN + SEKAI_AB_BASE_PATH + entry.downloadPath,
+            SEKAI_AB_CDN + SEKAI_AB_BASE_PATH + entry.bundleName,
             entry.get_file_path(self.config),
             entry.fileSize
         )
                 
     def update_cahce_index(self):
-        logger.info('Downloading AssetBundleInfo.json')
-        dl = AbCache.download_cache_index()
+        logger.info('Downloading Asset Bundle Index')
+        dl = self.download_cache_index()
         all_keys = sorted(list({k for k in dl.bundles.keys()}.union({k for k in self.index.bundles.keys()})))
         update_count = 0
         for k in all_keys:
@@ -149,7 +149,7 @@ class AbCache:
                     pass
             elif k in dl.bundles: 
                 # append
-                logger.info('Adding bundle %s', k)
+                logger.debug('Adding bundle %s', k)
                 self.index.bundles[k] = dl.bundles[k]
                 self.update_cahce_entry(self.index.bundles[k])
                 update_count+=1
@@ -166,13 +166,15 @@ class AbCache:
         logger.info('AssetBundles are now up-to-date')
     
     def __init__(self, config : AbCacheConfig) -> None:
+        super().__init__()        
+        self.headers['Cookie'] = SEKAI_API_COOKIES
         self.config = config
         makedirs(self.config.cache_dir,exist_ok=True)
         try:
             self.load()
         except Exception as e:
             logger.warning('Failed to load cache index. Creating new one. (%s)' % e)
-            self.index = AbCacheIndex(None, {})
+            self.index = AbCacheIndex(bundles=dict())
             self.save()
     
     def save(self):

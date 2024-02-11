@@ -47,10 +47,10 @@ These can be found at /sdcard/Android/data/com.hermes.mk.asia/files/data/
     usmdemux_parser.set_defaults(func=main_usmdemux)
     # abcache
     abcache_parser = subparsers.add_parser('abcache', help='''Sekai AssetBundle local cache
-Downloads/Updates *ALL* PJSK TW assets to local devices.
-NOTE: The assets can take quite a lot of space (est. 27GB) so be prepared
-NOTE: The AssetBundles cached are NOT OBFUSCATED. They can be used as is by various Unity ripping tools (and sssekai by extension)
-      that supports stripped Unity version (should be %s).''' % SEKAI_UNITY_VERSION)
+Downloads/Updates *ALL* PJSK JP assets to local devices.
+NOTE: The assets can take quite a lot of space (est. 42.5GB) so be prepared
+NOTE: The AssetBundles *cached* are NOT OBFUSCATED. They can be used as is by various Unity ripping tools (and sssekai by extension)
+      that supports stripped Unity version (should be %s. the version is ripped).''' % SEKAI_UNITY_VERSION)
     abcache_parser.add_argument('--cache-dir', type=str, help='cache directory',default=DEFAULT_CACHE_DIR)
     abcache_parser.add_argument('--skip-update',action='store_true',help='skip all updates and use cached assets as is.')
     abcache_parser.add_argument('--open', action='store_true',help='open cache directory. this will skip all updates.')

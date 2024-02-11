@@ -1,6 +1,32 @@
 {
     "version": "0.2.0",
     "configurations": [
+
+        {
+            "name": "Python: Current File",
+            "type": "python",
+            "request": "launch",
+            "program": "${file}",
+            "console": "integratedTerminal",
+            "justMyCode": false,
+            "args": [
+                "F:\\Sekai\\live_pv\\mv_data",
+                "C:\\Users\\Huang\\Desktop\\mv_data.json"
+            ]
+        },
+        {
+            "name": "Python: AbCache",
+            "type": "python",
+            "request": "launch",
+            "module": "sssekai",
+            "args": [
+                "abcache",
+                "--cache-dir",
+                "F:\\Sekai"
+            ],
+            "justMyCode": true
+        },
+
         {
             "name": "Python: Tests",
             "type": "python",
@@ -9,7 +35,7 @@
             "cwd": "${workspaceFolder}",
             "console": "integratedTerminal",
             "justMyCode": false
-        },               
+        },
         {
             "name": "Python: Convert Sekai Character Mesh",
             "type": "python",
@@ -21,7 +47,7 @@
                 "C:\\Users\\mos9527\\.sssekai\\abcache\\live_pv\\model\\character\\body\\21\\0001\\ladies_s"
             ],
             "justMyCode": false
-        },        
+        },
         {
             "name": "Python: Dump Live2D Model Parameter names",
             "type": "python",
