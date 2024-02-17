@@ -128,6 +128,9 @@ class SekaiSystemData:
             if app in av.appVersion:
                 return av
         return None
+    
+    def list_app_versions(self) -> List[str]:
+        return [av.appVersion for av in self.appVersions]
 @dataclass
 class SekaiGameVersionData:
     profile : str
@@ -143,7 +146,7 @@ class AbCache(Session):
     @property
     def SEKAI_APP_VERSION(self): 
         version = self.sekai_system_data.get_app_version_by_app(self.config.app_version)
-        assert version, "Incorrect app version %s" % self.config.app_version
+        assert version, "Incorrect app version %s. Please choose from: %s" % (self.config.app_version, ', '.join(self.sekai_system_data.list_app_versions()))
         return version
     @property
     def SEKAI_ASSET_VERSION(self): return self.SEKAI_APP_VERSION.assetVersion
