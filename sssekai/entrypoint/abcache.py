@@ -2,7 +2,7 @@ from sssekai.abcache import AbCache, AbCacheConfig,ThreadpoolDownloader, logger,
 def main_abcache(args):
     downloader = ThreadpoolDownloader()
     cache_dir = args.cache_dir or DEFAULT_CACHE_DIR
-    config = AbCacheConfig(downloader, cache_dir)
+    config = AbCacheConfig(downloader, cache_dir, args.version, args.platform)
     if args.open:
         from os import startfile
         startfile(config.cache_dir)

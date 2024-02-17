@@ -19,13 +19,13 @@ Command-line tool (w/Python API support) for downloading/deobfuscating the game'
         apidecrypt          API crypto dumper
                             This crypto applies to:
                                 - API request/response body dumped by packet sniffer (mitmproxy, wireshark, etc.)
-                                - AssetBundleInfo (can be found at /sdcard/Android/data/com.hermes.mk.asia/files/data/AssetBundleInfo,or see sssekai.abcache)  
+                                - AssetBundleInfo (can be found at /sdcard/Android/data/com.hermes.mk.asia/files/data/AssetBundleInfo,or see sssekai.abcache)
         abdecrypt           Decrypt Sekai AssetBundle
                             These can be found at /sdcard/Android/data/com.hermes.mk.asia/files/data/
         usmdemux            Demux Sekai USM Video in a AssetBundle
         abcache             Sekai AssetBundle local cache
                             Downloads/Updates *ALL* PJSK JP assets to local devices.
-                            NOTE: The assets can take quite a lot of space (est. 42.5GB) so be prepared
+                            NOTE: The assets can take quite a lot of space (est. 42.5GB for app version 3.3.1) so be prepared
                             NOTE: The AssetBundles *cached* are NOT OBFUSCATED. They can be used as is by various Unity ripping tools (and sssekai by extension)
                                   that supports stripped Unity version (should be 2020.3.21f1. the version is ripped).
         live2dextract       Extract Sekai Live2D Models in a AssetBundle

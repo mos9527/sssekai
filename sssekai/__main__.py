@@ -5,21 +5,31 @@ from sssekai.entrypoint.apidecrypt import main_apidecrypt
 from sssekai.entrypoint.abdecrypt import main_abdecrypt
 from sssekai.entrypoint.mitm import main_mitm
 from sssekai.entrypoint.usmdemux import main_usmdemux
-from sssekai.entrypoint.abcache import main_abcache, DEFAULT_CACHE_DIR
+from sssekai.entrypoint.abcache import main_abcache
 from sssekai.entrypoint.live2dextract import main_live2dextract
 from sssekai.unity import SEKAI_UNITY_VERSION
+from sssekai.abcache import DEFAULT_CACHE_DIR, DEFAULT_SEKAI_VERSION, DEFAULT_SEKAI_PLATFORM
 def __main__():
+    from tqdm.std import tqdm as tqdm_c
+    class SemaphoreStdout:
+        @staticmethod
+        def write(__s):
+            # Blocks tqdm's output until write on this stream is done
+            # Solves cases where progress bars gets re-rendered when logs
+            # spews out too fast
+            with tqdm_c.external_write_mode(file=sys.stdout, nolock=False):
+                return sys.stdout.write(__s)
     import coloredlogs
     from logging import basicConfig
     coloredlogs.install(
             level='INFO',
             fmt="%(asctime)s %(name)s [%(levelname).4s] %(message)s",
             isatty=True,
+            stream=SemaphoreStdout
         )
     basicConfig(
-        level='INFO', format="[%(levelname).4s] %(name)s %(message)s"
+        level='INFO', format="[%(levelname).4s] %(name)s %(message)s", stream=SemaphoreStdout
     )
-    
     parser = argparse.ArgumentParser(description='''SSSekai Proejct SEKAI feat. Hatsune Miku (Android) Modding Tools
 Installation:
     pip install git+https://github.com/mos9527/sssekai                                    
@@ -48,11 +58,13 @@ These can be found at /sdcard/Android/data/com.hermes.mk.asia/files/data/
     # abcache
     abcache_parser = subparsers.add_parser('abcache', help='''Sekai AssetBundle local cache
 Downloads/Updates *ALL* PJSK JP assets to local devices.
-NOTE: The assets can take quite a lot of space (est. 42.5GB) so be prepared
+NOTE: The assets can take quite a lot of space (est. 42.5GB for app version 3.3.1) so be prepared
 NOTE: The AssetBundles *cached* are NOT OBFUSCATED. They can be used as is by various Unity ripping tools (and sssekai by extension)
       that supports stripped Unity version (should be %s. the version is ripped).''' % SEKAI_UNITY_VERSION)
-    abcache_parser.add_argument('--cache-dir', type=str, help='cache directory',default=DEFAULT_CACHE_DIR)
+    abcache_parser.add_argument('--cache-dir', type=str, help='cache directory (default: %(default)s)',default=DEFAULT_CACHE_DIR)
     abcache_parser.add_argument('--skip-update',action='store_true',help='skip all updates and use cached assets as is.')
+    abcache_parser.add_argument('--version', type=str, help='PJSK app version (default: %(default)s)', default=DEFAULT_SEKAI_VERSION)
+    abcache_parser.add_argument('--platform', type=str, help='PJSK app platform (default: %(default)s)', default=DEFAULT_SEKAI_PLATFORM)
     abcache_parser.add_argument('--open', action='store_true',help='open cache directory. this will skip all updates.')
     abcache_parser.set_defaults(func=main_abcache)
     # live2dextract
