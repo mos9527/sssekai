@@ -7,6 +7,7 @@ from sssekai.entrypoint.mitm import main_mitm
 from sssekai.entrypoint.usmdemux import main_usmdemux
 from sssekai.entrypoint.abcache import main_abcache
 from sssekai.entrypoint.live2dextract import main_live2dextract
+from sssekai.entrypoint.spineextract import main_spineextract
 from sssekai.unity import SEKAI_UNITY_VERSION
 from sssekai.abcache import DEFAULT_CACHE_DIR, DEFAULT_SEKAI_VERSION, DEFAULT_SEKAI_PLATFORM
 def __main__():
@@ -73,6 +74,11 @@ NOTE: The AssetBundles *cached* are NOT OBFUSCATED. They can be used as is by va
     live2dextract_parser.add_argument('outdir', type=str, help='output directory')
     live2dextract_parser.add_argument('--no-anim',action='store_true',help='don\'t extract animation clips')
     live2dextract_parser.set_defaults(func=main_live2dextract)
+    # spineextract
+    spineextract_parser = subparsers.add_parser('spineextract', help='''Extract Sekai Spine (Esoteric Spine2D) Models in a AssetBundle''')
+    spineextract_parser.add_argument('infile', type=str, help='input file')
+    spineextract_parser.add_argument('outdir', type=str, help='output directory')    
+    spineextract_parser.set_defaults(func=main_spineextract)    
     # mitm
     mitm_parser = subparsers.add_parser('mitm', help='Run Sekai API MITM proxy (WIP)')
     mitm_parser.set_defaults(func=main_mitm)
