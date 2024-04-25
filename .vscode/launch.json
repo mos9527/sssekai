@@ -21,8 +21,8 @@
             "module": "sssekai",
             "args": [
                 "abcache",
-                "--cache-dir",
-                "F:\\Sekai"
+                "--version",
+                "latest"
             ],
             "justMyCode": true
         },

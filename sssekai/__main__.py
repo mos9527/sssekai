@@ -9,7 +9,7 @@ from sssekai.entrypoint.abcache import main_abcache
 from sssekai.entrypoint.live2dextract import main_live2dextract
 from sssekai.entrypoint.spineextract import main_spineextract
 from sssekai.unity import SEKAI_UNITY_VERSION
-from sssekai.abcache import DEFAULT_CACHE_DIR, DEFAULT_SEKAI_VERSION, DEFAULT_SEKAI_PLATFORM
+from sssekai.abcache import DEFAULT_CACHE_DIR, DEFAULT_SEKAI_LATEST_VERSION, DEFAULT_SEKAI_PLATFORM
 def __main__():
     from tqdm.std import tqdm as tqdm_c
     class SemaphoreStdout:
@@ -64,7 +64,7 @@ NOTE: The AssetBundles *cached* are NOT OBFUSCATED. They can be used as is by va
       that supports stripped Unity version (should be %s. the version is ripped).''' % SEKAI_UNITY_VERSION)
     abcache_parser.add_argument('--cache-dir', type=str, help='cache directory (default: %(default)s)',default=DEFAULT_CACHE_DIR)
     abcache_parser.add_argument('--skip-update',action='store_true',help='skip all updates and use cached assets as is.')
-    abcache_parser.add_argument('--version', type=str, help='PJSK app version (default: %(default)s)', default=DEFAULT_SEKAI_VERSION)
+    abcache_parser.add_argument('--version', type=str, help='PJSK app version (default: %(default)s)', default=DEFAULT_SEKAI_LATEST_VERSION)
     abcache_parser.add_argument('--platform', type=str, help='PJSK app platform (default: %(default)s)', default=DEFAULT_SEKAI_PLATFORM)
     abcache_parser.add_argument('--open', action='store_true',help='open cache directory. this will skip all updates.')
     abcache_parser.set_defaults(func=main_abcache)

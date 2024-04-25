@@ -13,10 +13,12 @@ from sssekai.crypto.AssetBundle import decrypt_headaer_inplace, SEKAI_AB_MAGIC
 from msgpack import unpackb
 from tqdm import tqdm
 DEFAULT_CACHE_DIR = '~/.sssekai/abcache'
-DEFAULT_SEKAI_VERSION = '3.3.1'
+DEFAULT_SEKAI_LATEST_VERSION = 'latest'
 DEFAULT_SEKAI_PLATFORM = 'android'
-
 DOWNLOADER_WORKER_COUNT = 8
+# TODO: These seems to be in pairs?
+DEFAULT_SEKAI_FALLBACK_VERSION = '3.4.1'
+DEFAULT_SEKAI_FALLBACK_APP_HASH = 'a3015fe8-785f-27e1-fb8b-546a23c82c1f'
 class ThreadpoolDownloader(ThreadPoolExecutor):
     session : Session
     progress : tqdm
@@ -58,7 +60,7 @@ class AbCacheConfig:
 
     cache_dir : str # absolute path to cache directory
     downloader : ThreadpoolDownloader
-    def __init__(self, downloader : ThreadpoolDownloader, cache_dir: str = DEFAULT_CACHE_DIR, version: str = DEFAULT_SEKAI_VERSION, platform : str = DEFAULT_SEKAI_PLATFORM) -> None:
+    def __init__(self, downloader : ThreadpoolDownloader, cache_dir: str = DEFAULT_CACHE_DIR, version: str = DEFAULT_SEKAI_LATEST_VERSION, platform : str = DEFAULT_SEKAI_PLATFORM) -> None:
         self.cache_dir = path.expanduser(cache_dir)
         self.cache_dir = path.abspath(self.cache_dir)
         self.downloader = downloader
@@ -123,14 +125,17 @@ class SekaiSystemData:
     maintenanceStatus : str
     appVersions : List[SekaiAppVersion]    
 
-    def get_app_version_by_app(self, app: str) -> SekaiAppVersion | None:
+    def get_app_version_by_app(self, app: str) -> SekaiAppVersion | None:        
         for av in self.appVersions:
             if app in av.appVersion:
                 return av
         return None
     
+    def get_app_version_latest(self):
+        return self.appVersions[-1]
+    
     def list_app_versions(self) -> List[str]:
-        return [av.appVersion for av in self.appVersions]
+        return {av.appVersion for av in self.appVersions}
 @dataclass
 class SekaiGameVersionData:
     profile : str
@@ -145,7 +150,10 @@ class AbCache(Session):
 
     @property
     def SEKAI_APP_VERSION(self): 
-        version = self.sekai_system_data.get_app_version_by_app(self.config.app_version)
+        if self.config.app_version == DEFAULT_SEKAI_LATEST_VERSION:
+            version = self.sekai_system_data.get_app_version_latest()
+        else:
+            version = self.sekai_system_data.get_app_version_by_app(self.config.app_version)
         assert version, "Incorrect app version %s. Please choose from: %s" % (self.config.app_version, ', '.join(self.sekai_system_data.list_app_versions()))
         return version
     @property
@@ -190,6 +198,7 @@ class AbCache(Session):
         self.sekai_system_data = SekaiSystemData(**data)
         for i, appVersion in enumerate(self.sekai_system_data.appVersions):
             self.sekai_system_data.appVersions[i] = SekaiAppVersion(**appVersion)
+        self.sekai_system_data.appVersions = sorted(self.sekai_system_data.appVersions, key=lambda x: x.appVersion)
 
     def update_gameversion_data(self):
         logger.info('Updating game version data')
@@ -264,14 +273,19 @@ class AbCache(Session):
             'User-Agent': 'UnityPlayer/2020.3.32f1 (UnityWebRequest/1.0, libcurl/7.80.0-DEV)',
             'X-Platform': self.config.app_platform,
             'X-Unity-Version': '2020.3.32f1',
-            'X-App-Version': self.config.app_version,
-            'X-Platform': self.config.app_platform
+            'X-App-Version': DEFAULT_SEKAI_FALLBACK_VERSION, # These will be updated later
+            'X-App-Hash': DEFAULT_SEKAI_FALLBACK_APP_HASH
         })
         logger.info('Cache directory: %s' % self.config.cache_dir)
-        logger.info('App version: %s (%s)' % (self.config.app_version,self.config.app_platform))
+        logger.info('Set App version: %s (%s)' % (self.config.app_version,self.config.app_platform))
         self.update_signatures()
         self.update_system_data()
         self.update_gameversion_data()
+        # Update to the actually usable set version
+        self.config.app_version = self.SEKAI_APP_VERSION.appVersion
+        self.headers['X-App-Version'] = self.SEKAI_APP_VERSION.appVersion
+        self.headers['X-App-Hash'] = self.SEKAI_APP_VERSION.appHash
+        logger.info('Actual App version: %s (%s), hash=%s' % (self.config.app_version,self.config.app_platform, self.SEKAI_APP_VERSION.appHash))
         logger.info('Sekai AssetBundle version: %s' % self.SEKAI_ASSET_VERSION)
         logger.info('Sekai AssetBundle host hash: %s' % self.SEKAI_AB_HOST_HASH)
         makedirs(self.config.cache_dir,exist_ok=True)
