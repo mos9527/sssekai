@@ -135,7 +135,7 @@ class SekaiSystemData:
         return self.appVersions[-1]
     
     def list_app_versions(self) -> List[str]:
-        return {av.appVersion for av in self.appVersions}
+        return [av.appVersion for av in self.appVersions]
 @dataclass
 class SekaiGameVersionData:
     profile : str
