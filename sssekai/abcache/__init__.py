@@ -143,7 +143,7 @@ class SekaiSystemData:
         return self.appVersions[-1]
     
     def list_app_versions(self) -> List[str]:
-        return {av.appVersion for av in self.appVersions}
+        return [av.appVersion for av in self.appVersions]
 @dataclass
 class SekaiGameVersionData:
     profile : str
@@ -208,7 +208,6 @@ class AbCache(Session):
         self.sekai_system_data = SekaiSystemData(**data)
         for i, appVersion in enumerate(self.sekai_system_data.appVersions):
             self.sekai_system_data.appVersions[i] = SekaiAppVersion(**appVersion)
-        self.sekai_system_data.appVersions = sorted(self.sekai_system_data.appVersions, key=lambda x: x.appVersion)
 
     def update_gameversion_data(self):
         logger.info('Updating game version data')
