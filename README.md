@@ -28,7 +28,8 @@ Command-line tool (w/Python API support) for downloading/deobfuscating the game'
                             NOTE: The assets can take quite a lot of space (est. 42.5GB for app version 3.3.1) so be prepared
                             NOTE: The AssetBundles *cached* are NOT OBFUSCATED. They can be used as is by various Unity ripping tools (and sssekai by extension)
                                   that supports stripped Unity version (should be 2020.3.21f1. the version is ripped).
-        live2dextract       Extract Sekai Live2D Models in a AssetBundle
+        spineextract        Extract Sekai Spine (Esoteric Spine2D) Models in a AssetBundle
+        mvdata              Query Sekai MV data from AssetBundle
         mitm                Run Sekai API MITM proxy (WIP)
 
 # Usage

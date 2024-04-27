@@ -4,6 +4,7 @@ import argparse
 from sssekai.entrypoint.apidecrypt import main_apidecrypt
 from sssekai.entrypoint.abdecrypt import main_abdecrypt
 from sssekai.entrypoint.mitm import main_mitm
+from sssekai.entrypoint.mvdata import main_mvdata
 from sssekai.entrypoint.usmdemux import main_usmdemux
 from sssekai.entrypoint.abcache import main_abcache
 from sssekai.entrypoint.live2dextract import main_live2dextract
@@ -20,21 +21,11 @@ def __main__():
             # spews out too fast
             with tqdm_c.external_write_mode(file=sys.stdout, nolock=False):
                 return sys.stdout.write(__s)
-    import coloredlogs
-    from logging import basicConfig
-    coloredlogs.install(
-            level='INFO',
-            fmt="%(asctime)s %(name)s [%(levelname).4s] %(message)s",
-            isatty=True,
-            stream=SemaphoreStdout
-        )
-    basicConfig(
-        level='INFO', format="[%(levelname).4s] %(name)s %(message)s", stream=SemaphoreStdout
-    )
     parser = argparse.ArgumentParser(description='''SSSekai Proejct SEKAI feat. Hatsune Miku (Android) Modding Tools
 Installation:
     pip install git+https://github.com/mos9527/sssekai                                    
 ''', formatter_class=argparse.RawTextHelpFormatter)
+    parser.add_argument('--log-level', type=str, help='logging level (default: %(default)s)', default='INFO', choices=['DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL'])
     subparsers = parser.add_subparsers(title='subcommands', description='valid subcommands', help='additional help')
     # apidecrypt
     apidecrypt_parser = subparsers.add_parser('apidecrypt', help='''API crypto dumper
@@ -79,11 +70,28 @@ NOTE: The AssetBundles *cached* are NOT OBFUSCATED. They can be used as is by va
     spineextract_parser.add_argument('infile', type=str, help='input file')
     spineextract_parser.add_argument('outdir', type=str, help='output directory')    
     spineextract_parser.set_defaults(func=main_spineextract)    
+    # mvdata
+    mvdata_parser = subparsers.add_parser('mvdata', help='''Query Sekai MV data from AssetBundle''')
+    mvdata_parser.add_argument('--cache-dir', type=str, help='abcache cache directory (default: %(default)s)',default=DEFAULT_CACHE_DIR)
+    mvdata_parser.add_argument('query', type=str, help='query string. Either MV ID or MV (full) name')
+    mvdata_parser.set_defaults(func=main_mvdata)
     # mitm
     mitm_parser = subparsers.add_parser('mitm', help='Run Sekai API MITM proxy (WIP)')
     mitm_parser.set_defaults(func=main_mitm)
     # parse args
     args = parser.parse_args()
+    # set logging level
+    import coloredlogs
+    from logging import basicConfig
+    coloredlogs.install(
+            level=args.log_level,
+            fmt="%(asctime)s %(name)s [%(levelname).4s] %(message)s",
+            isatty=True,
+            stream=SemaphoreStdout
+        )
+    basicConfig(
+        level=args.log_level, format="[%(levelname).4s] %(name)s %(message)s", stream=SemaphoreStdout
+    )
     if 'func' in args:
         args.func(args)
     else:

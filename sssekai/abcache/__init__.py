@@ -3,14 +3,13 @@ from typing import List, Mapping
 from dataclasses import dataclass, asdict
 from requests import Session
 from logging import getLogger
-from json import dump, load
 from pathlib import Path
 from concurrent.futures import ThreadPoolExecutor
 logger = getLogger('sssekai.abcache')
 
 from sssekai.crypto.APIManager import decrypt
 from sssekai.crypto.AssetBundle import decrypt_headaer_inplace, SEKAI_AB_MAGIC
-from msgpack import unpackb
+from msgpack import unpackb, dump, load
 from tqdm import tqdm
 DEFAULT_CACHE_DIR = '~/.sssekai/abcache'
 DEFAULT_SEKAI_LATEST_VERSION = 'latest'
@@ -19,7 +18,9 @@ DOWNLOADER_WORKER_COUNT = 8
 # TODO: These seems to be in pairs?
 DEFAULT_SEKAI_FALLBACK_VERSION = '3.4.1'
 DEFAULT_SEKAI_FALLBACK_APP_HASH = 'a3015fe8-785f-27e1-fb8b-546a23c82c1f'
-class ThreadpoolDownloader(ThreadPoolExecutor):
+
+DEFAULT_FILESIZE_MATCH_RATIO = 1.5
+class SekaiAssetBundleThreadpoolDownloader(ThreadPoolExecutor):
     session : Session
     progress : tqdm
 
@@ -32,6 +33,7 @@ class ThreadpoolDownloader(ThreadPoolExecutor):
                 makedirs(path.dirname(fname),exist_ok=True)
                 with open(fname, 'wb') as f:
                     magic = next(resp.iter_content(4))
+                    self.progress.update(4)
                     if magic == SEKAI_AB_MAGIC:
                         header = next(resp.iter_content(128))            
                         self.progress.update(128)
@@ -59,13 +61,15 @@ class AbCacheConfig:
     app_platform : str
 
     cache_dir : str # absolute path to cache directory
-    downloader : ThreadpoolDownloader
-    def __init__(self, downloader : ThreadpoolDownloader, cache_dir: str = DEFAULT_CACHE_DIR, version: str = DEFAULT_SEKAI_LATEST_VERSION, platform : str = DEFAULT_SEKAI_PLATFORM) -> None:
+    downloader : SekaiAssetBundleThreadpoolDownloader
+
+    def __init__(self, downloader : SekaiAssetBundleThreadpoolDownloader, cache_dir: str = DEFAULT_CACHE_DIR, version: str = DEFAULT_SEKAI_LATEST_VERSION, platform : str = DEFAULT_SEKAI_PLATFORM) -> None:
         self.cache_dir = path.expanduser(cache_dir)
         self.cache_dir = path.abspath(self.cache_dir)
         self.downloader = downloader
         self.app_version = version
         self.app_platform = platform
+
 @dataclass
 class AbCacheEntry(dict):
     bundleName: str
@@ -80,9 +84,13 @@ class AbCacheEntry(dict):
     isBuiltin : bool
 
     def up_to_date(self, config: AbCacheConfig, other) -> bool:
-        return self.hash == other.hash and self.get_file_exists(config)
-        # HACK: we don't have proper hash checking yet. so we just check if the file exists.
-        # The file size isn't a useful predicate, also. Some files will have incorrect file size (compared to the ab cache report)
+        return (
+            self.hash == other.hash and 
+            self.get_file_exists(config) and 
+            (other.fileSize / max(1,self.get_file_size(config)) < DEFAULT_FILESIZE_MATCH_RATIO)
+        )
+        # HACK: we don't have proper hash checking yet. so we just check if the file exists and
+        # the file size roughly matches
 
     def get_file_size(self, config: AbCacheConfig):
         if self.get_file_exists(config):
@@ -143,10 +151,12 @@ class SekaiGameVersionData:
     domain : str
 class AbCache(Session):    
     config : AbCacheConfig
-    index : AbCacheIndex
     
-    sekai_system_data : SekaiSystemData
-    sekai_gameversion_data : SekaiGameVersionData
+    local_abcache_index : AbCacheIndex  = None
+
+    sekai_abcache_index  : AbCacheIndex = None
+    sekai_system_data : SekaiSystemData  = None
+    sekai_gameversion_data : SekaiGameVersionData  = None
 
     @property
     def SEKAI_APP_VERSION(self): 
@@ -208,20 +218,25 @@ class AbCache(Session):
         data = unpackb(data)
         self.sekai_gameversion_data = SekaiGameVersionData(**data)
     
-    def download_cache_index(self) -> AbCacheIndex:
-        logger.info('Downloading Asset Bundle Index')
+    def update_abcache_index(self) -> AbCacheIndex:
+        logger.info('Updating Assetbundle index')
         resp = self.get(
             url=self.SEKAI_AB_INFO_ENDPOINT + self.SEKAI_AB_INDEX_PATH
         )
         resp.raise_for_status()
         data = decrypt(resp.content)
         data = unpackb(data)
-        cache = AbCacheIndex(**data)
+        self.sekai_abcache_index = cache = AbCacheIndex(**data)
         for k,v in cache.bundles.items():
-            cache.bundles[k] = AbCacheEntry(**v)
-        return cache
+            cache.bundles[k] = AbCacheEntry(**v)         
 
-    def update_cahce_entry(self, entry : AbCacheEntry, new_entry : AbCacheEntry = None):
+    def list_entry_keys(self) -> List[str]:
+        return self.local_abcache_index.bundles.keys()
+
+    def query_entry(self, bundleName : str) -> AbCacheEntry | None:
+        return self.local_abcache_index.bundles.get(bundleName, None)
+
+    def queue_update_cache_entry(self, entry : AbCacheEntry, new_entry : AbCacheEntry = None):
         if new_entry:
             entry = new_entry
         return self.config.downloader.add_link(
@@ -229,40 +244,51 @@ class AbCache(Session):
             entry.get_file_path(self.config),
             entry.fileSize
         )
-                
-    def update_cahce_index(self):
-        logger.info('Updating Asset Bundle Index')
-        dl = self.download_cache_index()
-        all_keys = sorted(list({k for k in dl.bundles.keys()}.union({k for k in self.index.bundles.keys()})))
+
+    def queue_update_cache_entry_full(self):        
+        all_keys = sorted(list({k for k in self.sekai_abcache_index.bundles.keys()}.union({k for k in self.local_abcache_index.bundles.keys()})))
         update_count = 0
         for k in all_keys:
-            if k in dl.bundles and k in self.index.bundles:
+            if k in self.sekai_abcache_index.bundles and k in self.local_abcache_index.bundles:
                 # update
-                if not dl.bundles[k].up_to_date(self.config, self.index.bundles[k]):
-                    logger.info('Updating bundle %s. (size on disk=%d, reported=%d)' % (k, self.index.bundles[k].get_file_size(self.config), self.index.bundles[k].fileSize))
-                    self.update_cahce_entry(self.index.bundles[k], dl.bundles[k])
+                if not self.sekai_abcache_index.bundles[k].up_to_date(self.config,self.local_abcache_index.bundles[k]):
+                    logger.debug('Updating bundle %s. (size on disk=%d, reported=%d)' % (k, self.local_abcache_index.bundles[k].get_file_size(self.config), self.local_abcache_index.bundles[k].fileSize))
+                    self.queue_update_cache_entry(self.local_abcache_index.bundles[k], self.sekai_abcache_index.bundles[k])
                     update_count+=1
-                else:
-                    logger.debug('Bundle %s is up to date' % k)
+                else:                    
                     pass
-            elif k in dl.bundles: 
+            elif k in self.sekai_abcache_index.bundles: 
                 # append
                 logger.debug('Adding bundle %s', k)
-                self.index.bundles[k] = dl.bundles[k]
-                self.update_cahce_entry(self.index.bundles[k])
+                self.local_abcache_index.bundles[k] = self.sekai_abcache_index.bundles[k]
+                self.queue_update_cache_entry(self.local_abcache_index.bundles[k])
                 update_count+=1
             else: 
                 # removal
-                logger.info('Removing bundle %s', k)
-                if path.exists(self.index.bundles[k].get_file_path(self.config)):
-                    remove(self.index.bundles[k].get_file_path(self.config))
-                del self.index.bundles[k]
-        logger.info('Saving AssetBundle index')
+                logger.debug('Removing bundle %s', k)
+                if path.exists(self.local_abcache_index.bundles[k].get_file_path(self.config)):
+                    remove(self.local_abcache_index.bundles[k].get_file_path(self.config))
+                del self.local_abcache_index.bundles[k]
+        logger.debug('Saving AssetBundle index')
         self.save()
-        logger.info('...Saved. Need %d updates' % update_count)
-        self.config.downloader.shutdown(wait=True)
-        logger.info('AssetBundles are now up-to-date')
+        logger.debug('Queued %d updates' % update_count)
     
+    def update_metadata(self):
+        logger.info('Updating metadata')
+        logger.debug('Cache directory: %s' % self.config.cache_dir)
+        logger.debug('Set App version: %s (%s)' % (self.config.app_version,self.config.app_platform))
+        self.update_signatures()
+        self.update_system_data()
+        self.update_gameversion_data()               
+        self.update_abcache_index()
+        # Update to the actually usable set version
+        self.config.app_version = self.SEKAI_APP_VERSION.appVersion
+        self.headers['X-App-Version'] = self.SEKAI_APP_VERSION.appVersion
+        self.headers['X-App-Hash'] = self.SEKAI_APP_VERSION.appHash
+        logger.debug('Actual App version: %s (%s), hash=%s' % (self.config.app_version,self.config.app_platform, self.SEKAI_APP_VERSION.appHash))
+        logger.debug('Sekai AssetBundle version: %s' % self.SEKAI_ASSET_VERSION)
+        logger.debug('Sekai AssetBundle host hash: %s' % self.SEKAI_AB_HOST_HASH)
+
     def __init__(self, config : AbCacheConfig) -> None:
         super().__init__()
         self.config = config
@@ -276,34 +302,23 @@ class AbCache(Session):
             'X-App-Version': DEFAULT_SEKAI_FALLBACK_VERSION, # These will be updated later
             'X-App-Hash': DEFAULT_SEKAI_FALLBACK_APP_HASH
         })
-        logger.info('Cache directory: %s' % self.config.cache_dir)
-        logger.info('Set App version: %s (%s)' % (self.config.app_version,self.config.app_platform))
-        self.update_signatures()
-        self.update_system_data()
-        self.update_gameversion_data()
-        # Update to the actually usable set version
-        self.config.app_version = self.SEKAI_APP_VERSION.appVersion
-        self.headers['X-App-Version'] = self.SEKAI_APP_VERSION.appVersion
-        self.headers['X-App-Hash'] = self.SEKAI_APP_VERSION.appHash
-        logger.info('Actual App version: %s (%s), hash=%s' % (self.config.app_version,self.config.app_platform, self.SEKAI_APP_VERSION.appHash))
-        logger.info('Sekai AssetBundle version: %s' % self.SEKAI_ASSET_VERSION)
-        logger.info('Sekai AssetBundle host hash: %s' % self.SEKAI_AB_HOST_HASH)
         makedirs(self.config.cache_dir,exist_ok=True)
         try:
             self.load()
         except Exception as e:
-            logger.warning('Failed to load cache index. Creating new one. (%s)' % e)
-            self.index = AbCacheIndex(bundles=dict())
+            logger.warning('Failed to load cache index. Creating a new one. (%s)' % e)
+            self.local_abcache_index = AbCacheIndex(bundles=dict())
             self.save()
+        
     
     def save(self):
-        with open(path.join(self.config.cache_dir, 'abindex.json'),'w',encoding='utf-8') as f:
-            dump(asdict(self.index), f, indent=4, ensure_ascii=False)
-            logger.info("Saved %d entries to cache index" % len(self.index.bundles))
+        with open(path.join(self.config.cache_dir, 'abindex'),'wb') as f:
+            dump(asdict(self.local_abcache_index), f)
+            logger.info("Saved %d entries to cache index" % len(self.local_abcache_index.bundles))
 
     def load(self):
-        with open(path.join(self.config.cache_dir, 'abindex.json'),'r',encoding='utf-8') as f:
-            self.index = AbCacheIndex(**load(f))
-            for k,v in self.index.bundles.items():
-                self.index.bundles[k] = AbCacheEntry(**v)
-            logger.info("Loaded %d entries from cache index" % len(self.index.bundles))
+        with open(path.join(self.config.cache_dir, 'abindex'), 'rb') as f:
+            self.local_abcache_index = AbCacheIndex(**load(f, raw=False))
+            for k,v in self.local_abcache_index.bundles.items():
+                self.local_abcache_index.bundles[k] = AbCacheEntry(**v)
+            logger.info("Loaded %d entries from cache index" % len(self.local_abcache_index.bundles))

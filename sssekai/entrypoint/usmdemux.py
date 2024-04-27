@@ -1,4 +1,3 @@
-from sssekai.crypto.AssetBundle import SEKAI_AB_MAGIC
 from sssekai.unity.AssetBundle import load_assetbundle
 
 from os import path,remove,makedirs

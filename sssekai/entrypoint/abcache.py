@@ -1,6 +1,6 @@
-from sssekai.abcache import AbCache, AbCacheConfig,ThreadpoolDownloader, logger, DEFAULT_CACHE_DIR
+from sssekai.abcache import AbCache, AbCacheConfig,SekaiAssetBundleThreadpoolDownloader, logger, DEFAULT_CACHE_DIR
 def main_abcache(args):
-    downloader = ThreadpoolDownloader()
+    downloader = SekaiAssetBundleThreadpoolDownloader()
     cache_dir = args.cache_dir or DEFAULT_CACHE_DIR
     config = AbCacheConfig(downloader, cache_dir, args.version, args.platform)
     if args.open:
@@ -10,7 +10,8 @@ def main_abcache(args):
     cache = AbCache(config)
     downloader.session = cache
     if not args.skip_update:
-        cache.update_cahce_index()
-    downloader.shutdown()
+        cache.update_metadata()
+        cache.queue_update_cache_entry_full()
+        downloader.shutdown(wait=True)
     cache.save()
     logger.info('AssetBundle cache is now ready. Visit: %s' % cache_dir)

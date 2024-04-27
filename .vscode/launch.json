@@ -20,13 +20,27 @@
             "request": "launch",
             "module": "sssekai",
             "args": [
+                "--log-level",
+                "DEBUG",
                 "abcache",
                 "--version",
                 "latest"
             ],
             "justMyCode": true
         },
-
+        {
+            "name": "Python: MVData",
+            "type": "python",
+            "request": "launch",
+            "module": "sssekai",
+            "args": [
+                "--log-level",
+                "DEBUG",
+                "mvdata",
+                "181"
+            ],
+            "justMyCode": true
+        },
         {
             "name": "Python: Tests",
             "type": "python",
