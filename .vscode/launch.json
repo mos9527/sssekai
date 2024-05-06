@@ -22,9 +22,7 @@
             "args": [
                 "--log-level",
                 "DEBUG",
-                "abcache",
-                "--version",
-                "latest"
+                "abcache",                
             ],
             "justMyCode": true
         },

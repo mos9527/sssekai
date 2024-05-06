@@ -12,19 +12,23 @@ from sssekai.crypto.AssetBundle import decrypt_headaer_inplace, SEKAI_AB_MAGIC
 from msgpack import unpackb, dump, load
 from tqdm import tqdm
 DEFAULT_CACHE_DIR = '~/.sssekai/abcache'
-DEFAULT_SEKAI_LATEST_VERSION = 'latest'
-DEFAULT_SEKAI_PLATFORM = 'android'
 DOWNLOADER_WORKER_COUNT = 8
-# TODO: These seems to be in pairs?
-DEFAULT_SEKAI_FALLBACK_VERSION = '3.4.1'
-DEFAULT_SEKAI_FALLBACK_APP_HASH = 'a3015fe8-785f-27e1-fb8b-546a23c82c1f'
-
 DEFAULT_FILESIZE_MATCH_RATIO = 1.5
-class SekaiAssetBundleThreadpoolDownloader(ThreadPoolExecutor):
-    session : Session
-    progress : tqdm
 
-    def download(self, url, fname, length):
+DEFAULT_SEKAI_APP_VERSION = '3.5.0'
+DEFAULT_SEKAI_APP_HASH = '5e9fea31-2613-bd13-1723-9fe15156bd66'
+DEFAULT_SEKAI_AB_HASH = '9a5e2be1-0502-24c6-389e-b79b6a24ec0b'
+DEFAULT_SEKAI_AB_HOST_HASH = 'cf2d2388'
+DEFAULT_SEKAI_APP_PLATFORM = 'android'
+
+class AbCacheDownloader(ThreadPoolExecutor):
+    session : Session
+    progress : tqdm = None
+    def _ensure_progress(self):
+        if not self.progress:
+            self.progress = tqdm(bar_format="{desc}: {percentage:.1f}%|{bar}| {n_fmt}/{total_fmt} {rate_fmt} {elapsed}<{remaining}", total=0,unit='B', unit_scale=True, unit_divisor=1024,desc="Downloading")
+    def _download(self, url, fname, length):
+        self._ensure_progress()
         RETRIES = 1
         for _ in range(0,RETRIES):
             try:
@@ -48,27 +52,23 @@ class SekaiAssetBundleThreadpoolDownloader(ThreadPoolExecutor):
                 logger.error('While downloading %s : %s. Retrying' % (url,e))
         if _ == RETRIES - 1:
             logger.critical('Did not download %s' % url)
-    def add_link(self, url, fname, length):
-        self.progress.total += length
-        return self.submit(self.download, url, fname, length)
-    def __init__(self, session = None) -> None:
-        self.session = session or Session()
-        self.progress = tqdm(bar_format="{desc}: {percentage:.1f}%|{bar}| {n_fmt}/{total_fmt} {rate_fmt} {elapsed}<{remaining}", total=0,unit='B', unit_scale=True, unit_divisor=1024,desc="Downloading")
+        self._ensure_progress()
+    def __init__(self, session) -> None:
+        self.session = session        
         super().__init__(max_workers=DOWNLOADER_WORKER_COUNT)
+    def add_link(self, url, fname, length):
+        self._ensure_progress()
+        self.progress.total += length
+        return self.submit(self._download, url, fname, length)
 
+@dataclass
 class AbCacheConfig:
-    app_version : str
-    app_platform : str
-
     cache_dir : str # absolute path to cache directory
-    downloader : SekaiAssetBundleThreadpoolDownloader
-
-    def __init__(self, downloader : SekaiAssetBundleThreadpoolDownloader, cache_dir: str = DEFAULT_CACHE_DIR, version: str = DEFAULT_SEKAI_LATEST_VERSION, platform : str = DEFAULT_SEKAI_PLATFORM) -> None:
-        self.cache_dir = path.expanduser(cache_dir)
-        self.cache_dir = path.abspath(self.cache_dir)
-        self.downloader = downloader
-        self.app_version = version
-        self.app_platform = platform
+    app_version : str = None
+    app_platform : str = None
+    app_hash : str  = None
+    ab_hash : str = None
+    ab_host_hash : str  = None
 
 @dataclass
 class AbCacheEntry(dict):
@@ -120,11 +120,12 @@ class SekaiAppVersion:
     systemProfile : str
     appVersion : str
     multiPlayVersion : str
-    dataVersion : str
-    assetVersion : str
-    appHash : str
-    assetHash : str
     appVersionStatus : str
+    assetVersion : str
+    # These are sadly removed from 3.5.0
+    _dataVersion : str = None 
+    _appHash : str = None 
+    _assetHash : str = None 
 @dataclass
 class SekaiSystemData:
     serverDate : int
@@ -150,8 +151,9 @@ class SekaiGameVersionData:
     assetbundleHostHash : str
     domain : str
 class AbCache(Session):    
+    downloader : AbCacheDownloader
+
     config : AbCacheConfig
-    
     local_abcache_index : AbCacheIndex  = None
 
     sekai_abcache_index  : AbCacheIndex = None
@@ -159,17 +161,13 @@ class AbCache(Session):
     sekai_gameversion_data : SekaiGameVersionData  = None
 
     @property
-    def SEKAI_APP_VERSION(self): 
-        if self.config.app_version == DEFAULT_SEKAI_LATEST_VERSION:
-            version = self.sekai_system_data.get_app_version_latest()
-        else:
-            version = self.sekai_system_data.get_app_version_by_app(self.config.app_version)
-        assert version, "Incorrect app version %s. Please choose from: %s" % (self.config.app_version, ', '.join(self.sekai_system_data.list_app_versions()))
-        return version
+    def SEKAI_APP_VERSION(self): return self.config.app_version
     @property
-    def SEKAI_ASSET_VERSION(self): return self.SEKAI_APP_VERSION.assetVersion
+    def SEKAI_ASSET_VERSION(self): return self.sekai_system_data.get_app_version_by_app(self.SEKAI_APP_VERSION).assetVersion
     @property
-    def SEKAI_AB_HASH(self): return self.SEKAI_APP_VERSION.assetHash
+    def SEKAI_APP_HASH(self): return self.config.app_hash
+    @property
+    def SEKAI_AB_HASH(self): return self.config.ab_hash
     @property
     def SEKAI_AB_HOST_HASH(self): return self.sekai_gameversion_data.assetbundleHostHash
     @property
@@ -211,7 +209,7 @@ class AbCache(Session):
 
     def update_gameversion_data(self):
         logger.info('Updating game version data')
-        resp = self.get(self.SEKAI_API_GAMEVERSION_ENDPOINT + '/' + self.SEKAI_APP_VERSION.appVersion + '/' + self.SEKAI_APP_VERSION.appHash)
+        resp = self.get(self.SEKAI_API_GAMEVERSION_ENDPOINT + '/' + self.SEKAI_APP_VERSION + '/' + self.SEKAI_APP_HASH)
         resp.raise_for_status()
         data = decrypt(resp.content)
         data = unpackb(data)
@@ -238,7 +236,7 @@ class AbCache(Session):
     def queue_update_cache_entry(self, entry : AbCacheEntry, new_entry : AbCacheEntry = None):
         if new_entry:
             entry = new_entry
-        return self.config.downloader.add_link(
+        return self.downloader.add_link(
             self.SEKAI_AB_ENDPOINT + self.SEKAI_AB_BASE_PATH + entry.bundleName,
             entry.get_file_path(self.config),
             entry.fileSize
@@ -271,20 +269,22 @@ class AbCache(Session):
         logger.debug('Saving AssetBundle index')
         self.save()
         logger.debug('Queued %d updates' % update_count)
+
+    def wait_for_downloads(self):       
+        self.downloader = AbCacheDownloader(self)
+
+    def cancel_downloads(self):
+        self.downloader.shutdown(wait=False, cancel_futures=True)
+        self.wait_for_downloads()
     
     def update_metadata(self):
         logger.info('Updating metadata')
         logger.debug('Cache directory: %s' % self.config.cache_dir)
-        logger.debug('Set App version: %s (%s)' % (self.config.app_version,self.config.app_platform))
+        logger.debug('Set App version: %s (%s), hash=%s' % (self.config.app_version,self.config.app_platform, self.SEKAI_APP_HASH))
         self.update_signatures()
         self.update_system_data()
         self.update_gameversion_data()               
         self.update_abcache_index()
-        # Update to the actually usable set version
-        self.config.app_version = self.SEKAI_APP_VERSION.appVersion
-        self.headers['X-App-Version'] = self.SEKAI_APP_VERSION.appVersion
-        self.headers['X-App-Hash'] = self.SEKAI_APP_VERSION.appHash
-        logger.debug('Actual App version: %s (%s), hash=%s' % (self.config.app_version,self.config.app_platform, self.SEKAI_APP_VERSION.appHash))
         logger.debug('Sekai AssetBundle version: %s' % self.SEKAI_ASSET_VERSION)
         logger.debug('Sekai AssetBundle host hash: %s' % self.SEKAI_AB_HOST_HASH)
 
@@ -298,9 +298,10 @@ class AbCache(Session):
             'User-Agent': 'UnityPlayer/2020.3.32f1 (UnityWebRequest/1.0, libcurl/7.80.0-DEV)',
             'X-Platform': self.config.app_platform,
             'X-Unity-Version': '2020.3.32f1',
-            'X-App-Version': DEFAULT_SEKAI_FALLBACK_VERSION, # These will be updated later
-            'X-App-Hash': DEFAULT_SEKAI_FALLBACK_APP_HASH
+            'X-App-Version': self.SEKAI_APP_VERSION,
+            'X-App-Hash': self.SEKAI_APP_HASH
         })
+        self.downloader = AbCacheDownloader(self)
         makedirs(self.config.cache_dir,exist_ok=True)
         try:
             self.load()
@@ -308,7 +309,6 @@ class AbCache(Session):
             logger.warning('Failed to load cache index. Creating a new one. (%s)' % e)
             self.local_abcache_index = AbCacheIndex(bundles=dict())
             self.save()
-        
     
     def save(self):
         with open(path.join(self.config.cache_dir, 'abindex'),'wb') as f:

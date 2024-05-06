@@ -1,10 +1,13 @@
 from sssekai.unity.AssetBundle import load_assetbundle
-from sssekai.abcache import AbCache, AbCacheConfig,SekaiAssetBundleThreadpoolDownloader, logger, DEFAULT_CACHE_DIR
+from sssekai.abcache import AbCache, AbCacheConfig
+import os
 def main_mvdata(args):
     from UnityPy.enums import ClassIDType
     from pprint import pprint
-    cache_dir = args.cache_dir or DEFAULT_CACHE_DIR
-    config = AbCacheConfig(None, cache_dir)
+    cache_dir = args.cache_dir
+    cache_dir = os.path.expanduser(cache_dir)
+    cache_dir = os.path.abspath(cache_dir)
+    config = AbCacheConfig(cache_dir)
     cache = AbCache(config)
     mvdata_keys = filter(lambda x: x.startswith('live_pv/mv_data/'),cache.list_entry_keys())
     mvdata_items = list()
