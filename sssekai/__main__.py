@@ -10,7 +10,7 @@ from sssekai.entrypoint.abcache import main_abcache
 from sssekai.entrypoint.live2dextract import main_live2dextract
 from sssekai.entrypoint.spineextract import main_spineextract
 from sssekai.unity import SEKAI_UNITY_VERSION
-from sssekai.abcache import DEFAULT_CACHE_DIR, DEFAULT_SEKAI_APP_PLATFORM, DEFAULT_SEKAI_APP_VERSION, DEFAULT_SEKAI_APP_HASH, DEFAULT_SEKAI_AB_HASH, DEFAULT_SEKAI_AB_HOST_HASH
+from sssekai.abcache import DEFAULT_CACHE_DIR, DEFAULT_SEKAI_APP_PLATFORM, DEFAULT_SEKAI_APP_VERSION, DEFAULT_SEKAI_APP_HASH
 def __main__():
     from tqdm.std import tqdm as tqdm_c
     class SemaphoreStdout:
@@ -58,8 +58,6 @@ NOTE: The AssetBundles *cached* are NOT OBFUSCATED. They can be used as is by va
     abcache_parser.add_argument('--version', type=str, help='PJSK app version (default: %(default)s)', default=DEFAULT_SEKAI_APP_VERSION)
     abcache_parser.add_argument('--platform', type=str, help='PJSK app platform (default: %(default)s)', default=DEFAULT_SEKAI_APP_PLATFORM)
     abcache_parser.add_argument('--appHash', type=str, help='PJSK app hash (default: %(default)s)', default=DEFAULT_SEKAI_APP_HASH)
-    abcache_parser.add_argument('--assetHash', type=str, help='PJSK asset hash (default: %(default)s)', default=DEFAULT_SEKAI_AB_HASH)
-    abcache_parser.add_argument('--assetHostHash', type=str, help='PJSK asset host hash (default: %(default)s)', default=DEFAULT_SEKAI_AB_HOST_HASH)
     abcache_parser.add_argument('--open', action='store_true',help='open cache directory. this will skip all updates.')
     abcache_parser.set_defaults(func=main_abcache)
     # live2dextract

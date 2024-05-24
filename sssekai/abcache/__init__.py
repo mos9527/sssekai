@@ -5,20 +5,21 @@ from requests import Session
 from logging import getLogger
 from pathlib import Path
 from concurrent.futures import ThreadPoolExecutor
+
+from sssekai import __version__
+from sssekai.unity import SEKAI_UNITY_VERSION
 logger = getLogger('sssekai.abcache')
 
-from sssekai.crypto.APIManager import decrypt
+from sssekai.crypto.APIManager import decrypt, encrypt
 from sssekai.crypto.AssetBundle import decrypt_headaer_inplace, SEKAI_AB_MAGIC
-from msgpack import unpackb, dump, load
+from msgpack import unpackb, dump, load, packb
 from tqdm import tqdm
 DEFAULT_CACHE_DIR = '~/.sssekai/abcache'
 DOWNLOADER_WORKER_COUNT = 8
 DEFAULT_FILESIZE_MATCH_RATIO = 1.5
 
-DEFAULT_SEKAI_APP_VERSION = '3.5.0'
-DEFAULT_SEKAI_APP_HASH = '5e9fea31-2613-bd13-1723-9fe15156bd66'
-DEFAULT_SEKAI_AB_HASH = '9a5e2be1-0502-24c6-389e-b79b6a24ec0b'
-DEFAULT_SEKAI_AB_HOST_HASH = 'cf2d2388'
+DEFAULT_SEKAI_APP_VERSION = '3.6.0'
+DEFAULT_SEKAI_APP_HASH = '7558547e-4753-6ebd-03ff-168494c32769'
 DEFAULT_SEKAI_APP_PLATFORM = 'android'
 
 class AbCacheDownloader(ThreadPoolExecutor):
@@ -67,8 +68,6 @@ class AbCacheConfig:
     app_version : str = None
     app_platform : str = None
     app_hash : str  = None
-    ab_hash : str = None
-    ab_host_hash : str  = None
 
 @dataclass
 class AbCacheEntry(dict):
@@ -150,12 +149,41 @@ class SekaiGameVersionData:
     profile : str
     assetbundleHostHash : str
     domain : str
+@dataclass
+class SekaiUserRegistrationData:
+    userId : int
+    signature : str
+    platform : str
+    deviceModel : str
+    operatingSystem : str
+    registeredAt : int
+@dataclass
+class SekaiUserData:
+    userRegistration : SekaiUserRegistrationData
+    credential : str
+    updatedResources : dict
+@dataclass
+class SekaiUserAuthData:
+    sessionToken: str
+    appVersion: str
+    multiPlayVersion: str
+    dataVersion: str
+    assetVersion: str
+    removeAssetVersion: str
+    assetHash: str
+    appVersionStatus: str
+    isStreamingVirtualLiveForceOpenUser: bool
+    deviceId: str
+    updatedResources: dict
+    suiteMasterSplitPath: list
 class AbCache(Session):    
     downloader : AbCacheDownloader
 
     config : AbCacheConfig
     local_abcache_index : AbCacheIndex  = None
 
+    sekai_user_data : SekaiUserData = None
+    sekai_user_auth_data : SekaiUserAuthData = None
     sekai_abcache_index  : AbCacheIndex = None
     sekai_system_data : SekaiSystemData  = None
     sekai_gameversion_data : SekaiGameVersionData  = None
@@ -163,17 +191,22 @@ class AbCache(Session):
     @property
     def SEKAI_APP_VERSION(self): return self.config.app_version
     @property
+    def SEKAI_APP_HASH(self): return self.config.app_hash
+
+    @property
     def SEKAI_ASSET_VERSION(self): return self.sekai_system_data.get_app_version_by_app(self.SEKAI_APP_VERSION).assetVersion
     @property
-    def SEKAI_APP_HASH(self): return self.config.app_hash
-    @property
-    def SEKAI_AB_HASH(self): return self.config.ab_hash
+    def SEKAI_AB_HASH(self): return self.sekai_user_auth_data.assetHash
     @property
     def SEKAI_AB_HOST_HASH(self): return self.sekai_gameversion_data.assetbundleHostHash
     @property
     def SEKAI_API_ENDPOINT(self): return 'https://production-game-api.sekai.colorfulpalette.org'
     @property
     def SEKAI_API_SYSTEM_DATA(self): return self.SEKAI_API_ENDPOINT + '/api/system'
+    @property
+    def SEKAI_API_USER(self): return self.SEKAI_API_ENDPOINT + '/api/user'
+    @property
+    def SEKAI_API_USER_AUTH(self): return f'{self.SEKAI_API_USER}/{self.sekai_user_data.userRegistration.userId}/auth?refreshUpdatedResources=False'
     @property
     def SEKAI_API_GAMEVERSION_ENDPOINT(self): return 'https://game-version.sekai.colorfulpalette.org'
     @property
@@ -197,6 +230,36 @@ class AbCache(Session):
         # HACK: Per RFC6265, Cookies should not be visible to subdomains since it's not set with Domain attribute (https://github.com/psf/requests/issues/2576)
         # But the other endpoints uses it nontheless. So we have to set it manually.
 
+    def update_user_data(self):
+        logger.info('Updating user data')
+        payload = {
+            "platform": self.headers['X-Platform'],
+            "deviceModel": self.headers['X-DeviceModel'],
+            "operatingSystem": self.headers['X-OperatingSystem'],
+        }
+        payload = packb(payload)
+        payload = encrypt(payload)
+        resp = self.post(self.SEKAI_API_USER, data=payload)
+        resp.raise_for_status()
+        data = decrypt(resp.content)
+        data = unpackb(data)
+        self.sekai_user_data = SekaiUserData(**data)
+        self.sekai_user_data.userRegistration = SekaiUserRegistrationData(**self.sekai_user_data.userRegistration)
+
+    def update_user_auth_data(self):
+        logger.info('Updating user auth data')
+        payload = {
+            "credential": self.sekai_user_data.credential,
+            "deviceId" : None
+        }
+        payload = packb(payload)
+        payload = encrypt(payload)        
+        resp = self.put(self.SEKAI_API_USER_AUTH, data=payload)
+        resp.raise_for_status()
+        data = decrypt(resp.content)
+        data = unpackb(data)        
+        self.sekai_user_auth_data = SekaiUserAuthData(**data)
+        
     def update_system_data(self):
         logger.info('Updating system data')
         resp = self.get(self.SEKAI_API_SYSTEM_DATA)
@@ -282,8 +345,10 @@ class AbCache(Session):
         logger.debug('Cache directory: %s' % self.config.cache_dir)
         logger.debug('Set App version: %s (%s), hash=%s' % (self.config.app_version,self.config.app_platform, self.SEKAI_APP_HASH))
         self.update_signatures()
-        self.update_system_data()
         self.update_gameversion_data()               
+        self.update_user_data()
+        self.update_user_auth_data()
+        self.update_system_data()
         self.update_abcache_index()
         logger.debug('Sekai AssetBundle version: %s' % self.SEKAI_ASSET_VERSION)
         logger.debug('Sekai AssetBundle host hash: %s' % self.SEKAI_AB_HOST_HASH)
@@ -291,13 +356,16 @@ class AbCache(Session):
     def __init__(self, config : AbCacheConfig) -> None:
         super().__init__()
         self.config = config
+        self.config.app_platform = self.config.app_platform.lower()
         self.headers.update({
             'Accept': 'application/octet-stream',
             'Content-Type': 'application/octet-stream',
             'Accept-Encoding': 'deflate, gzip',
-            'User-Agent': 'UnityPlayer/2020.3.32f1 (UnityWebRequest/1.0, libcurl/7.80.0-DEV)',
-            'X-Platform': self.config.app_platform,
-            'X-Unity-Version': '2020.3.32f1',
+            'User-Agent': 'UnityPlayer/%s' % SEKAI_UNITY_VERSION,
+            'X-Platform': self.config.app_platform.capitalize(),
+            'X-DeviceModel': 'sssekai/%s' % __version__,
+            'X-OperatingSystem': self.config.app_platform.capitalize(),
+            'X-Unity-Version': SEKAI_UNITY_VERSION,
             'X-App-Version': self.SEKAI_APP_VERSION,
             'X-App-Hash': self.SEKAI_APP_HASH
         })

@@ -73,6 +73,18 @@
             "justMyCode": false
         },
         {
+            "name": "Python: Dump PJSK app hash",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/sssekai/scripts/dump_android_pjsk_appHash.py",
+            "cwd": "${workspaceFolder}",
+            "console": "integratedTerminal",
+            "args": [
+                "C:\\Users\\mos9527\\Desktop\\pjsk_hash\\pjsk_350.apk"
+            ],
+            "justMyCode": false
+        },        
+        {
             "name": "Python: usmdemux",
             "type": "python",
             "request": "launch",

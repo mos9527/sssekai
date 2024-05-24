@@ -4,7 +4,7 @@ def main_abcache(args):
     cache_dir = args.cache_dir
     cache_dir = os.path.expanduser(cache_dir)
     cache_dir = os.path.abspath(cache_dir)
-    config = AbCacheConfig(cache_dir, args.version, args.platform, args.appHash, args.assetHash, args.assetHostHash)
+    config = AbCacheConfig(cache_dir, args.version, args.platform, args.appHash)
     if args.open:
         from os import startfile
         startfile(config.cache_dir)

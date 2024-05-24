@@ -49,18 +49,30 @@ Have fun and good luck :)
   ```
 - Download game data for a *very specific* version into `D:\Sekai`
   ```powershell
-  sssekai abcache --cache-dir D:\Sekai --platform android --version "3.5.0" --appHash "5e9fea31-2613-bd13-1723-9fe15156bd66" --assetHash "9a5e2be1-0502-24c6-389e-b79b6a24ec0b" --assetHostHash "cf2d2388"
+  sssekai abcache --cache-dir D:\Sekai --platform android --version "3.5.0" --appHash "5e9fea31-2613-bd13-1723-9fe15156bd66"
   ```
-  The fields, `platform`, `appHash`, `assetHash`, `assetHostHash` are **all** necessary to facilitate the download.
 
-  The table below contains the values you might need for that purpose.
-
-  *FYI the game used to actually send these values with before 3.5.0! Now they don't :(*
 ### Known Game Versions And Their Respective Hashes
 *NOTE: This table will probably remain not up-to-date and/or incomplete. PRs are welcome for additions.*
-|platform|version|appHash|assetHash|assetHostHash|
-|-|-|-|-|-|
-|android|3.5.0|5e9fea31-2613-bd13-1723-9fe15156bd66|9a5e2be1-0502-24c6-389e-b79b6a24ec0b|cf2d2388|
+
+|platform|version|appHash|
+|-|-|-|
+|android|3.6.0|7558547e-4753-6ebd-03ff-168494c32769|
+|ios|3.6.0|7558547e-4753-6ebd-03ff-168494c32769|
+|android|3.5.0|5e9fea31-2613-bd13-1723-9fe15156bd66|
+|ios|3.5.0|5e9fea31-2613-bd13-1723-9fe15156bd66|
+#### Bonus: How to extract appHash from Android releases
+- Acquire the game's APK file.
+- Run [dump_android_pjsk_appHash.py](https://github.com/mos9527/sssekai/blob/main/sssekai/scripts/dump_android_pjsk_appHash.py) on it. For example:
+```bash
+python dump_android_pjsk_appHash.py pjsk_360.apk
+```
+- Which prints
+```
+7558547e-4753-6ebd-03ff-168494c32769 production_android
+7558547e-4753-6ebd-03ff-168494c32769 production_android
+7558547e-4753-6ebd-03ff-168494c32769 production_ios
+```
 
 ## What Do These Files Do? (WIP)
 There's a *ton* of them. Like ~45GB with version 3.5.0.(!) I'll try to document my limited findings here whenever possible 
