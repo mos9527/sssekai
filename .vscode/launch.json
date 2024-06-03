@@ -103,8 +103,8 @@
             "module": "sssekai",
             "args": [
                 "live2dextract",
-                "F:\\Sekai\\live2d\\motion\\21miku_motion_base",
-                "C:\\Users\\Huang\\Desktop\\Cache"
+                "C:\\Users\\mos9527\\.sssekai\\abcache\\live2d\\model\\21miku_night",
+                "C:\\Users\\mos9527\\Desktop\\Cache"
             ],
             "justMyCode": true
         },

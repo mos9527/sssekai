@@ -7,7 +7,7 @@ from pathlib import Path
 from concurrent.futures import ThreadPoolExecutor
 
 from sssekai import __version__
-from sssekai.unity import SEKAI_UNITY_VERSION
+from sssekai.unity import sssekai_get_unity_version
 logger = getLogger('sssekai.abcache')
 
 from sssekai.crypto.APIManager import decrypt, encrypt
@@ -361,11 +361,11 @@ class AbCache(Session):
             'Accept': 'application/octet-stream',
             'Content-Type': 'application/octet-stream',
             'Accept-Encoding': 'deflate, gzip',
-            'User-Agent': 'UnityPlayer/%s' % SEKAI_UNITY_VERSION,
+            'User-Agent': 'UnityPlayer/%s' % sssekai_get_unity_version(),
             'X-Platform': self.config.app_platform.capitalize(),
             'X-DeviceModel': 'sssekai/%s' % __version__,
             'X-OperatingSystem': self.config.app_platform.capitalize(),
-            'X-Unity-Version': SEKAI_UNITY_VERSION,
+            'X-Unity-Version': sssekai_get_unity_version(),
             'X-App-Version': self.SEKAI_APP_VERSION,
             'X-App-Hash': self.SEKAI_APP_HASH
         })
