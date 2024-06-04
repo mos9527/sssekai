@@ -27,9 +27,9 @@ Installation:
 ''', formatter_class=argparse.RawTextHelpFormatter)
     parser.add_argument('--log-level', type=str, help='logging level (default: %(default)s)', default='INFO', choices=['DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL'])
     parser.add_argument('--unity-version', type=str, help='''Unity version to use (default: %(default)s)
-Prior to game version 3.6.0, this has always been 2020.3.21f1.
-This has been changed to 2022.3.21f1 since. However, some assets are still using the old version.
-If you encounter any issues, try switching to the new version, or vice versa.''', default=sssekai_get_unity_version())
+Prior to game version 3.6.0, this has always been 2020.3.21f1
+This has been changed to 2022.3.21f1 since, which would apply to all the assets from 3.6.0 onwards.
+If you encounter any issues, try switching to the old version, or vice versa.''', default=sssekai_get_unity_version())
     subparsers = parser.add_subparsers(title='subcommands', description='valid subcommands', help='additional help')
     # apidecrypt
     apidecrypt_parser = subparsers.add_parser('apidecrypt', help='''API crypto dumper

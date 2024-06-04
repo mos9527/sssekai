@@ -13,10 +13,10 @@ Command-line tool (w/Python API support) for downloading/deobfuscating the game'
       --log-level {DEBUG,INFO,WARNING,ERROR,CRITICAL}
                             logging level (default: INFO)
       --unity-version UNITY_VERSION
-                            Unity version to use (default: 2020.3.21f1)
-                            Prior to game version 3.6.0, this has always been 2020.3.21f1.
-                            This has been changed to 2022.3.21f1 since. However, some assets are still using the old version.
-                            If you encounter any issues, try switching to the new version, or vice versa.
+                            Unity version to use (default: 2022.3.21f1)
+                            Prior to game version 3.6.0, this has always been 2020.3.21f1
+                            This has been changed to 2022.3.21f1 since, which would apply to all the assets from 3.6.0 onwards.
+                            If you encounter any issues, try switching to the old version, or vice versa.
 
     subcommands:
       valid subcommands
@@ -34,11 +34,12 @@ Command-line tool (w/Python API support) for downloading/deobfuscating the game'
                             Downloads/Updates *ALL* PJSK JP assets to local devices.
                             NOTE: The assets can take quite a lot of space (est. 42.5GB for app version 3.3.1) so be prepared
                             NOTE: The AssetBundles *cached* are NOT OBFUSCATED. They can be used as is by various Unity ripping tools (and sssekai by extension)   
-                                  that supports stripped Unity version (should be 2020.3.21f1. the version is ripped).
+                                  that supports stripped Unity version (should be 2022.3.21f1. the version is ripped).
         live2dextract       Extract Sekai Live2D Models in a AssetBundle
         spineextract        Extract Sekai Spine (Esoteric Spine2D) Models in a AssetBundle
         mvdata              Query Sekai MV data from AssetBundle
         mitm                Run Sekai API MITM proxy (WIP)
+
 # Documentations
 See the [wiki page!](https://github.com/mos9527/sssekai/wiki)
 # See Also

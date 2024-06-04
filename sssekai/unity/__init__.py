@@ -1,7 +1,7 @@
 import UnityPy, logging
 logger = logging.getLogger(__name__)
 
-DEFAULT_SEKAI_UNITY_VERSION = '2020.3.21f1'
+DEFAULT_SEKAI_UNITY_VERSION = '2022.3.21f1'
 _sssekai_unity_version = DEFAULT_SEKAI_UNITY_VERSION
 
 def sssekai_get_unity_version():
