@@ -1,7 +1,6 @@
 {
     "version": "0.2.0",
     "configurations": [
-
         {
             "name": "Python: Current File",
             "type": "python",
@@ -26,6 +25,24 @@
             ],
             "justMyCode": true
         },
+        {
+            "name": "Python: AbCache (no update)",
+            "type": "python",
+            "request": "launch",
+            "module": "sssekai",
+            "args": [
+                "--log-level",
+                "DEBUG",
+                "abcache",
+                "--no-update",
+                "--download-ensure-deps",
+                "--download-dir",
+                "~/.sssekai/abcache",
+                "--download-filter",
+                ".*characterv2/face/21/.*"
+            ],
+            "justMyCode": true
+        },        
         {
             "name": "Python: MVData",
             "type": "python",
@@ -108,6 +125,7 @@
             ],
             "justMyCode": true
         },
+
         {
             "name": "MITM: Launch server",
             "type": "python",

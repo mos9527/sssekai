@@ -4,13 +4,11 @@ import argparse
 from sssekai.entrypoint.apidecrypt import main_apidecrypt
 from sssekai.entrypoint.abdecrypt import main_abdecrypt
 from sssekai.entrypoint.mitm import main_mitm
-from sssekai.entrypoint.mvdata import main_mvdata
 from sssekai.entrypoint.usmdemux import main_usmdemux
-from sssekai.entrypoint.abcache import main_abcache
+from sssekai.entrypoint.abcache import main_abcache, DEFAULT_CACHE_DB_FILE, DEFAULT_SEKAI_APP_PLATFORM, DEFAULT_SEKAI_APP_VERSION, DEFAULT_SEKAI_APP_HASH
 from sssekai.entrypoint.live2dextract import main_live2dextract
 from sssekai.entrypoint.spineextract import main_spineextract
 from sssekai.unity import sssekai_get_unity_version,sssekai_set_unity_version
-from sssekai.abcache import DEFAULT_CACHE_DIR, DEFAULT_SEKAI_APP_PLATFORM, DEFAULT_SEKAI_APP_VERSION, DEFAULT_SEKAI_APP_HASH
 def __main__():
     from tqdm.std import tqdm as tqdm_c
     class SemaphoreStdout:
@@ -52,17 +50,19 @@ These can be found at /sdcard/Android/data/com.hermes.mk.asia/files/data/
     usmdemux_parser.add_argument('outdir', type=str, help='output directory')
     usmdemux_parser.set_defaults(func=main_usmdemux)
     # abcache
-    abcache_parser = subparsers.add_parser('abcache', help='''Sekai AssetBundle local cache
-Downloads/Updates *ALL* PJSK JP assets to local devices.
-NOTE: The assets can take quite a lot of space (est. 42.5GB for app version 3.3.1) so be prepared
-NOTE: The AssetBundles *cached* are NOT OBFUSCATED. They can be used as is by various Unity ripping tools (and sssekai by extension)
-      that supports stripped Unity version (should be %s. the version is ripped).''' % sssekai_get_unity_version())
-    abcache_parser.add_argument('--cache-dir', type=str, help='cache directory (default: %(default)s)',default=DEFAULT_CACHE_DIR)
-    abcache_parser.add_argument('--skip-update',action='store_true',help='skip all updates and use cached assets as is.')
-    abcache_parser.add_argument('--version', type=str, help='PJSK app version (default: %(default)s)', default=DEFAULT_SEKAI_APP_VERSION)
-    abcache_parser.add_argument('--platform', type=str, help='PJSK app platform (default: %(default)s)', default=DEFAULT_SEKAI_APP_PLATFORM)
-    abcache_parser.add_argument('--appHash', type=str, help='PJSK app hash (default: %(default)s)', default=DEFAULT_SEKAI_APP_HASH)
-    abcache_parser.add_argument('--open', action='store_true',help='open cache directory. this will skip all updates.')
+    abcache_parser = subparsers.add_parser('abcache', help='''Sekai AssetBundle Metadata Cache''')
+    group = abcache_parser.add_argument_group('save/load options')
+    group.add_argument('--db', type=str, help='''cache database file path (default: %(default)s)''',default=DEFAULT_CACHE_DB_FILE)
+    group.add_argument('--no-update',action='store_true',help='skip all metadata updates and use cached ones as is.')
+    group = abcache_parser.add_argument_group('game version options', 'NOTE: these options are used to *update* the cache database. Use --no-update to skip updating.')
+    group.add_argument('--app-version', type=str, help='PJSK app version (default: %(default)s)', default=DEFAULT_SEKAI_APP_VERSION)
+    group.add_argument('--app-platform', type=str, help='PJSK app platform (default: %(default)s)', default=DEFAULT_SEKAI_APP_PLATFORM)
+    group.add_argument('--app-appHash', type=str, help='PJSK app hash (default: %(default)s)', default=DEFAULT_SEKAI_APP_HASH)
+    group = abcache_parser.add_argument_group('download options')
+    group.add_argument('--download-filter', type=str, help='filter AssetBundles (by bundle names) with this regex pattern',default=None)
+    group.add_argument('--download-dir', type=str, help='asset bundle download directory. leave empty if you don\'t want to download anything',default='')
+    group.add_argument('--download-ensure-deps',action='store_true',help='ensure dependencies (of the downloaded ones) are downloaded as well')
+    group.add_argument('--download-workers', type=int, help='number of download workers (default: %(default)s)',default=4)
     abcache_parser.set_defaults(func=main_abcache)
     # live2dextract
     live2dextract_parser = subparsers.add_parser('live2dextract', help='''Extract Sekai Live2D Models in a AssetBundle''')
@@ -74,12 +74,7 @@ NOTE: The AssetBundles *cached* are NOT OBFUSCATED. They can be used as is by va
     spineextract_parser = subparsers.add_parser('spineextract', help='''Extract Sekai Spine (Esoteric Spine2D) Models in a AssetBundle''')
     spineextract_parser.add_argument('infile', type=str, help='input file')
     spineextract_parser.add_argument('outdir', type=str, help='output directory')    
-    spineextract_parser.set_defaults(func=main_spineextract)    
-    # mvdata
-    mvdata_parser = subparsers.add_parser('mvdata', help='''Query Sekai MV data from AssetBundle''')
-    mvdata_parser.add_argument('--cache-dir', type=str, help='abcache cache directory (default: %(default)s)',default=DEFAULT_CACHE_DIR)
-    mvdata_parser.add_argument('query', type=str, help='query string. Either MV ID or MV (full) name')
-    mvdata_parser.set_defaults(func=main_mvdata)
+    spineextract_parser.set_defaults(func=main_spineextract)
     # mitm
     mitm_parser = subparsers.add_parser('mitm', help='Run Sekai API MITM proxy (WIP)')
     mitm_parser.set_defaults(func=main_mitm)
