@@ -5,7 +5,7 @@ from sssekai.entrypoint.apidecrypt import main_apidecrypt
 from sssekai.entrypoint.abdecrypt import main_abdecrypt
 from sssekai.entrypoint.mitm import main_mitm
 from sssekai.entrypoint.usmdemux import main_usmdemux
-from sssekai.entrypoint.abcache import main_abcache, DEFAULT_CACHE_DB_FILE, DEFAULT_SEKAI_APP_PLATFORM, DEFAULT_SEKAI_APP_VERSION, DEFAULT_SEKAI_APP_HASH
+from sssekai.entrypoint.abcache import main_abcache, DEFAULT_CACHE_DB_FILE
 from sssekai.entrypoint.live2dextract import main_live2dextract
 from sssekai.entrypoint.spineextract import main_spineextract
 from sssekai.unity import sssekai_get_unity_version,sssekai_set_unity_version
@@ -54,10 +54,10 @@ These can be found at /sdcard/Android/data/com.hermes.mk.asia/files/data/
     group = abcache_parser.add_argument_group('save/load options')
     group.add_argument('--db', type=str, help='''cache database file path (default: %(default)s)''',default=DEFAULT_CACHE_DB_FILE)
     group.add_argument('--no-update',action='store_true',help='skip all metadata updates and use cached ones as is.')
-    group = abcache_parser.add_argument_group('game version options', 'NOTE: these options are used to *update* the cache database. Use --no-update to skip updating.')
-    group.add_argument('--app-version', type=str, help='PJSK app version (default: %(default)s)', default=DEFAULT_SEKAI_APP_VERSION)
-    group.add_argument('--app-platform', type=str, help='PJSK app platform (default: %(default)s)', default=DEFAULT_SEKAI_APP_PLATFORM)
-    group.add_argument('--app-appHash', type=str, help='PJSK app hash (default: %(default)s)', default=DEFAULT_SEKAI_APP_HASH)
+    group = abcache_parser.add_argument_group('game version options', 'NOTE: these options are used to *update* the cache database. Use --no-update to skip updating. Also, you may want to read the Wiki to know how to get these values.')
+    group.add_argument('--app-version', type=str, help='PJSK app version',required=True) 
+    group.add_argument('--app-platform', type=str, help='PJSK app platform',choices=['ios','android'],required=True) # Let's hope this doesn't age well...
+    group.add_argument('--app-appHash', type=str, help='PJSK app hash',required=True)
     group = abcache_parser.add_argument_group('download options')
     group.add_argument('--download-filter', type=str, help='filter AssetBundles (by bundle names) with this regex pattern',default=None)
     group.add_argument('--download-dir', type=str, help='asset bundle download directory. leave empty if you don\'t want to download anything',default='')

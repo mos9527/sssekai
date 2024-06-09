@@ -16,8 +16,8 @@ with zipfile.ZipFile(sys.argv[1], 'r') as zip_ref:
     )
     for candidate,stream in candidates:
         env.load_file(stream)
-        for obj in env.objects:
-            obj = obj.read()
-            hashStr = HASHREGEX.finditer(obj.raw_data)
-            for m in hashStr:
-                print(m.group().decode(), obj.name)
+    for obj in env.objects:
+        obj = obj.read()
+        hashStr = HASHREGEX.finditer(obj.raw_data)
+        for m in hashStr:
+            print(m.group().decode(), obj.name)

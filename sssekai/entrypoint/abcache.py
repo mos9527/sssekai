@@ -7,9 +7,6 @@ from requests import Session
 from tqdm import tqdm
 
 DEFAULT_CACHE_DB_FILE = '~/.sssekai/abcache.db'
-DEFAULT_SEKAI_APP_VERSION = '3.6.0'
-DEFAULT_SEKAI_APP_HASH = '7558547e-4753-6ebd-03ff-168494c32769'
-DEFAULT_SEKAI_APP_PLATFORM = 'android'
 
 class AbCacheDownloader(ThreadPoolExecutor):
     session : Session

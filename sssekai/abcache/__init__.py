@@ -243,12 +243,16 @@ class AbCache(Session):
 
     def update(self):
         logger.info('Updating metadata')        
-        logger.debug('Set App version: %s (%s), hash=%s' % (self.config.app_version,self.config.app_platform, self.SEKAI_APP_HASH))
+        logger.info('Set App version: %s (%s), hash=%s' % (self.config.app_version,self.config.app_platform, self.SEKAI_APP_HASH))
         self._update_signatures()
+        self._update_system_data()
+        version_newest = self.database.sekai_system_data.appVersions[-1]
+        logger.info('Newest App version: %s' % version_newest)
+        if version_newest.appVersion != self.SEKAI_APP_VERSION:
+            logger.warning('App version mismatch. This may cause issues.')            
         self._update_gameversion_data()               
         self._update_user_data()
         self._update_user_auth_data()
-        self._update_system_data()
         self._update_abcache_index()
         logger.debug('Sekai AssetBundle version: %s' % self.SEKAI_ASSET_VERSION)
         logger.debug('Sekai AssetBundle host hash: %s' % self.SEKAI_AB_HOST_HASH)
