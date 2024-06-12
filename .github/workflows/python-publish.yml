@@ -1,40 +1,63 @@
-# This workflow will upload a Python Package using Twine when a release is created
-# For more information see: https://docs.github.com/en/actions/automating-builds-and-tests/building-and-testing-python#publishing-to-package-registries
-
-# This workflow uses actions that are not certified by GitHub.
-# They are provided by a third-party and are governed by
-# separate terms of service, privacy policy, and support
-# documentation.
-
-name: Upload Python Package
+name: Publish
 
 on:
-  release:
-    types: [published]
+  push:
   workflow_dispatch:
-
-permissions:
-  contents: read
-
+     
 jobs:
-  deploy:
-
-    runs-on: ubuntu-latest
-
+  build-and-release:
+    if: "contains(github.event.head_commit.message, 'Version')"
+    runs-on: windows-latest
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v2
     - name: Set up Python
-      uses: actions/setup-python@v3
+      uses: actions/setup-python@v2
       with:
-        python-version: '3.x'
+        python-version: '3.10'
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
-        pip install build
+        python -m pip install setuptools wheel build twine
+        python -m pip install Pyinstaller
+        python setup.py install
     - name: Build package
-      run: python -m build
+      run: python -m build --no-isolation
     - name: Publish package
-      uses: pypa/gh-action-pypi-publish@27b31702a0e7fc50959f5ad993c78deac1bdfc29
+      env:
+        TWINE_USERNAME: __token__
+        TWINE_PASSWORD: ${{ secrets.PYPI_API_TOKEN }}
+      run: |
+        twine upload ./dist/*.whl --skip-existing
+        twine upload ./dist/*.tar.gz --skip-existing
+    - name: Build Windows executables
+      run: |          
+          pyinstaller -F -i NONE sssekai/__main__.py --name sssekai   
+    - name : Get Version
+      id   : get_version
+      run  : |        
+        $message = @(git log -1 --oneline --format=%s)
+        $lines = $message.Split(' ')
+        $version = $lines[1]
+        
+        Write-Output "::set-output name=version::$version"          
+    - name: Create Release
+      id: create_release
+      uses: actions/create-release@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
-        user: __token__
-        password: ${{ secrets.PYPI_API_TOKEN }}
+        tag_name: ${{ steps.get_version.outputs.version }}
+        release_name: Version ${{ steps.get_version.outputs.version }}
+    - uses: actions/upload-release-asset@v1.0.1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ steps.create_release.outputs.upload_url }}
+        asset_path: dist/sssekai.exe
+        asset_name: sssekai.exe
+        asset_content_type: application/application/vnd.microsoft.portable-executable
+    - uses: eregon/publish-release@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        release_id: ${{ steps.create_release.outputs.id }}
