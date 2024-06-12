@@ -55,9 +55,9 @@ These can be found at /sdcard/Android/data/com.hermes.mk.asia/files/data/
     group.add_argument('--db', type=str, help='''cache database file path (default: %(default)s)''',default=DEFAULT_CACHE_DB_FILE)
     group.add_argument('--no-update',action='store_true',help='skip all metadata updates and use cached ones as is.')
     group = abcache_parser.add_argument_group('game version options', 'NOTE: these options are used to *update* the cache database. Use --no-update to skip updating. Also, you may want to read the Wiki to know how to get these values.')
-    group.add_argument('--app-version', type=str, help='PJSK app version',required=True) 
-    group.add_argument('--app-platform', type=str, help='PJSK app platform',choices=['ios','android'],required=True) # Let's hope this doesn't age well...
-    group.add_argument('--app-appHash', type=str, help='PJSK app hash',required=True)
+    group.add_argument('--app-platform', type=str, help='PJSK app platform (default: %(default)s',choices=['ios','android'],default='android') # Let's hope this doesn't age well...
+    group.add_argument('--app-version', type=str, help='PJSK app version. This is required unless --no-update is specified',default='') 
+    group.add_argument('--app-appHash', type=str, help='PJSK app hash. This is required unless --no-update is specified',default='')
     group = abcache_parser.add_argument_group('download options')
     group.add_argument('--download-filter', type=str, help='filter AssetBundles (by bundle names) with this regex pattern',default=None)
     group.add_argument('--download-dir', type=str, help='asset bundle download directory. leave empty if you don\'t want to download anything',default='')

@@ -58,16 +58,18 @@ class AbCacheDownloader(ThreadPoolExecutor):
         self.progress.total += length
         return self.submit(self._download, url, fname, length)
 
-def main_abcache(args):
+def main_abcache(args):    
     cache = AbCache(AbCacheConfig(args.app_version, args.app_platform, args.app_appHash))
     db_path = os.path.expanduser(args.db)
     if not args.no_update:
+        assert args.app_version and args.app_appHash, "You need --app-version and --app-appHash to perform a cache index update!"
         with open(db_path, 'wb') as f:
             cache.update()
             cache.save(f)
     else:
         with open(db_path, 'rb') as f:
             cache.load(f)
+    logger.info("AbCache: %s" % cache)
     
     if args.download_dir:
         download_dir = os.path.expanduser(args.download_dir)

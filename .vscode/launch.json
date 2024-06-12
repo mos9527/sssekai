@@ -21,7 +21,11 @@
             "args": [
                 "--log-level",
                 "DEBUG",
-                "abcache",                
+                "abcache", 
+                "--app-version",
+                "3.6.5",
+                "--app-appHash",
+                "c5e69328-dcfd-fa80-8ec2-b478ed0719d0"
             ],
             "justMyCode": true
         },
@@ -36,8 +40,6 @@
                 "abcache",
                 "--no-update",
                 "--download-ensure-deps",
-                "--download-dir",
-                "~/.sssekai/abcache",
                 "--download-filter",
                 ".*characterv2/face/21/.*"
             ],

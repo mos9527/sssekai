@@ -107,6 +107,7 @@ class SekaiUserAuthData:
 
 @dataclass
 class SSSekaiDatabase:
+    config : AbCacheConfig = None
     sekai_user_data : SekaiUserData = None
     sekai_user_auth_data : SekaiUserAuthData = None
     sekai_abcache_index  : AbCacheIndex = None
@@ -118,9 +119,12 @@ class AbCacheBundleNotFoundError(Exception):
         self.bundleName = bundleName
         super().__init__('Bundle not found: %s' % bundleName)
 class AbCache(Session):
-    config : AbCacheConfig
     database : SSSekaiDatabase
-
+    
+    @property
+    def config(self): return self.database.config    
+    @config.setter
+    def config(self, v): self.database.config = v
     @property
     def SEKAI_APP_VERSION(self): return self.config.app_version
     @property
@@ -225,6 +229,7 @@ class AbCache(Session):
 
     def __init__(self, config : AbCacheConfig) -> None:
         super().__init__()
+        self.database = SSSekaiDatabase()
         self.config = config
         self.config.app_platform = self.config.app_platform.lower()
         self.headers.update({
@@ -239,7 +244,6 @@ class AbCache(Session):
             'X-App-Version': self.SEKAI_APP_VERSION,
             'X-App-Hash': self.SEKAI_APP_HASH
         })
-        self.database = SSSekaiDatabase()
 
     def update(self):
         logger.info('Updating metadata')        
@@ -267,7 +271,7 @@ class AbCache(Session):
         self.database = load(f)
 
     def __repr__(self) -> str:
-        return f'<AbCache config={self.config} appVersion={self.SEKAI_APP_VERSION} bundles={len(self.abcache_index.bundles)}>'
+        return f'<AbCache config={self.config} bundles={len(self.abcache_index.bundles)}>'
     
     def update_download_headers(self):
         '''Update headers with the latest user auth data. Try to call this before downloading anything.'''
