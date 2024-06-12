@@ -31,7 +31,7 @@ jobs:
         twine upload ./dist/*.tar.gz --skip-existing
     - name: Build Windows executables
       run: |          
-          pyinstaller -F -i NONE sssekai/__main__.py --name sssekai   
+          pyinstaller sssekai.spec  
     - name : Get Version
       id   : get_version
       run  : |        
