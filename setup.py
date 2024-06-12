@@ -21,7 +21,7 @@ setuptools.setup(
         "License :: OSI Approved :: Apache Software License",
         "Operating System :: OS Independent",
     ],
-    install_requires=["msgpack","pycryptodome","unitypy >= 1.10.14","wannacri"],
+    install_requires=["msgpack","pycryptodome","unitypy >= 1.10.14","wannacri", "tqdm", "coloredlogs", "requests"],
     entry_points={"console_scripts": ["sssekai = sssekai.__main__:__main__"]},
-    python_requires=">=3.8",
+    python_requires=">=3.10",
 )
