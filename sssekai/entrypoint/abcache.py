@@ -61,6 +61,7 @@ class AbCacheDownloader(ThreadPoolExecutor):
 def main_abcache(args):    
     cache = AbCache(AbCacheConfig(args.app_version, args.app_platform, args.app_appHash))
     db_path = os.path.expanduser(args.db)
+    os.makedirs(os.path.dirname(db_path), exist_ok=True)
     if not args.no_update:
         assert args.app_version and args.app_appHash, "You need --app-version and --app-appHash to perform a cache index update!"
         with open(db_path, 'wb') as f:
