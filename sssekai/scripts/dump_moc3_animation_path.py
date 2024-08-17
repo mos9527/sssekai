@@ -1,6 +1,6 @@
 from io import BytesIO
 from sssekai.unity.AssetBundle import load_assetbundle
-from sssekai.fmt.moc3 import moc3
+from sssekai.fmt.moc3 import read_moc3
 import sys, os
 from UnityPy.enums import ClassIDType
 
@@ -17,11 +17,9 @@ for root, dirs, files in tree:
                     data = obj.read()
                     out_name : str = data.name
                     if out_name.endswith('.moc3'):
-                        moc = moc3(BytesIO(data.script.tobytes()))                        
-                        for name in moc.Parameters:
-                            ParameterNames.add(name)
-                        for name in moc.Parts:
-                            PartNames.add(name)                        
+                        parts, parameters = read_moc3(BytesIO(data.script.tobytes()))                        
+                        ParameterNames.update(parameters)
+                        PartNames.update(parts)
 from zlib import crc32
 print('NAMES_CRC_TBL = {')
 for name in sorted(list(PartNames)):

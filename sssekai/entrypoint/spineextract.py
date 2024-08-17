@@ -6,6 +6,7 @@ logger = getLogger(__name__)
 
 def main_spineextract(args):
     outdir = args.outdir
+    os.makedirs(outdir, exist_ok=True)
     with open(args.infile, "rb") as f:
         env = load_assetbundle(f)
         objects = [pobj.read() for pobj in env.objects]

@@ -4,9 +4,13 @@ Command-line tool (w/Python API support) for downloading/deobfuscating the game'
 # Installation
 **For Windows Users** : Builds are available [here](https://github.com/mos9527/sssekai/releases)
 
-Or get the latest version from PyPi:
+Or get the latest version from PyPI:
 ```bash
     pip install sssekai
+```
+...Or install it from source:
+```bash
+    pip install git+https://github.com/mos9527/sssekai
 ```
 
 # Documentation

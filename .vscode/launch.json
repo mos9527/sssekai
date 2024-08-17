@@ -127,7 +127,17 @@
             ],
             "justMyCode": true
         },
-
+        {
+            "name": "Python: live2dextract Generic",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/sssekai/scripts/live2dextract_generic.py",
+            "args": [
+                "C:\\Users\\Huang\\Desktop\\Data",
+                "C:\\Users\\Huang\\Desktop\\Data_result"
+            ],
+            "justMyCode": false
+        },
         {
             "name": "MITM: Launch server",
             "type": "python",
