@@ -139,19 +139,16 @@
             "justMyCode": false
         },
         {
-            "name": "MITM: Launch server",
+            "name": "Python: rla2json",
             "type": "python",
             "request": "launch",
             "module": "sssekai",
-            "cwd": "${workspaceFolder}",
             "args": [
-                "-p",
-                "8888",
-                "--mode",
-                "upstream:http://127.0.0.1:8080/",
-                "-q"
+                "rla2json",
+                "H:\\Sekai\\streaming_live\\archive\\1st_live_vbs-1",
+                "H:\\Sekai\\streaming_live\\archive\\1st_live_vbs-1_src"
             ],
-            "justMyCode": false
+            "justMyCode": true
         },
     ]
 }

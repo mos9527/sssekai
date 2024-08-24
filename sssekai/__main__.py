@@ -3,7 +3,7 @@ import sys, os
 import argparse
 from sssekai.entrypoint.apidecrypt import main_apidecrypt
 from sssekai.entrypoint.abdecrypt import main_abdecrypt
-from sssekai.entrypoint.mitm import main_mitm
+from sssekai.entrypoint.rla2json import main_rla2json
 from sssekai.entrypoint.usmdemux import main_usmdemux
 from sssekai.entrypoint.abcache import main_abcache, DEFAULT_CACHE_DB_FILE
 from sssekai.entrypoint.live2dextract import main_live2dextract
@@ -75,9 +75,11 @@ These can be found at /sdcard/Android/data/com.hermes.mk.asia/files/data/
     spineextract_parser.add_argument('infile', type=str, help='input file')
     spineextract_parser.add_argument('outdir', type=str, help='output directory')    
     spineextract_parser.set_defaults(func=main_spineextract)
-    # mitm
-    mitm_parser = subparsers.add_parser('mitm', help='Run Sekai API MITM proxy (WIP)')
-    mitm_parser.set_defaults(func=main_mitm)
+    # rla2json
+    rla2json_parser = subparsers.add_parser('rla2json', help='''Read streaming_live/archive files and dump their information to JSON''')
+    rla2json_parser.add_argument('infile', type=str, help='input file')
+    rla2json_parser.add_argument('outdir', type=str, help='output directory. multiple json files may be produced')
+    rla2json_parser.set_defaults(func=main_rla2json)
     # parse args
     args = parser.parse_args()
     # set logging level
