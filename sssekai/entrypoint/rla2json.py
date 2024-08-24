@@ -13,7 +13,7 @@ logger = getLogger(__name__)
 
 def worker_job(sname, version, script):
     rla = read_rla(BytesIO(script), version)
-    dump(rla, open(sname + '.json', 'w'), indent=4, ensure_ascii=False)
+    dump(rla, open(sname + '.json', 'w', encoding='utf-8'), indent=4, ensure_ascii=False)
 
 def main_rla2json(args):
     with open(args.infile,'rb') as f:
@@ -27,7 +27,7 @@ def main_rla2json(args):
         assert header, "RLH Header file not found!"
         makedirs(args.outdir, exist_ok=True)
         header = loads(header.text)
-        dump(header, open(path.join(args.outdir, 'sekai.rlh.json'), 'w'), indent=4, ensure_ascii=False)
+        dump(header, open(path.join(args.outdir, 'sekai.rlh.json'), 'w', encoding='utf-8'), indent=4, ensure_ascii=False)
         version = tuple(map(int, header['version'].split('.')))
         splitSeconds = header['splitSeconds']
         logger.info('Version: %d.%d' % version)
