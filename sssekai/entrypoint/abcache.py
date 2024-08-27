@@ -1,5 +1,4 @@
-import os, re
-from types import TracebackType
+import os, re, json
 from sssekai.abcache import AbCache, AbCacheConfig, logger
 from sssekai.crypto.AssetBundle import SEKAI_AB_MAGIC, decrypt_headaer_inplace
 from concurrent.futures import ThreadPoolExecutor
@@ -60,6 +59,19 @@ class AbCacheDownloader(ThreadPoolExecutor):
 
 def main_abcache(args):    
     cache = AbCache(AbCacheConfig(args.app_version, args.app_platform, args.app_appHash))
+    if args.dump_master_data:
+        logger.info('Dumping master data to %s', args.dump_master_data)
+        cache.update_client_headers()
+        for split in tqdm(cache.database.sekai_user_auth_data.suiteMasterSplitPath, desc='Pulling'):
+            resp = cache.request_packed('GET', cache.SEKAI_API_ENDPOINT + '/api/' + split)
+            data = cache.response_to_dict(resp)  
+            path = os.path.join(args.dump_master_data, split + '.json')
+            os.makedirs(os.path.dirname(path), exist_ok=True)
+            logger.debug('Saving to %s', path)
+            with open(path, 'w', encoding='utf-8') as f:
+                json.dump(data, f, indent=4, ensure_ascii=False)
+            return  
+
     db_path = os.path.expanduser(args.db)
     os.makedirs(os.path.dirname(db_path), exist_ok=True)
     if not args.no_update:

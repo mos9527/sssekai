@@ -63,6 +63,8 @@ These can be found at /sdcard/Android/data/com.hermes.mk.asia/files/data/
     group.add_argument('--download-dir', type=str, help='asset bundle download directory. leave empty if you don\'t want to download anything',default='')
     group.add_argument('--download-ensure-deps',action='store_true',help='ensure dependencies (of the downloaded ones) are downloaded as well')
     group.add_argument('--download-workers', type=int, help='number of download workers (default: %(default)s)',default=4)
+    group = abcache_parser.add_argument_group('extra options', 'NOTE: when *any* of these options are specified, the cache database *won\'t* be updated, and no download will be performed either.')
+    group.add_argument('--dump-master-data', type=str, help='directory to store the dumped master data in JSON', default=None)
     abcache_parser.set_defaults(func=main_abcache)
     # live2dextract
     live2dextract_parser = subparsers.add_parser('live2dextract', help='''Extract Sekai Live2D Models in a AssetBundle''')

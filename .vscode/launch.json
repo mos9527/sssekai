@@ -23,12 +23,30 @@
                 "DEBUG",
                 "abcache", 
                 "--app-version",
-                "3.6.5",
+                "3.8.0",
                 "--app-appHash",
-                "c5e69328-dcfd-fa80-8ec2-b478ed0719d0"
+                "6a32c1dd-bc3e-69f0-c66e-8dd33e3b1ba2"
             ],
             "justMyCode": true
         },
+        {
+            "name": "Python: AbCache (dump Master data)",
+            "type": "python",
+            "request": "launch",
+            "module": "sssekai",
+            "args": [
+                "--log-level",
+                "DEBUG",
+                "abcache", 
+                "--app-version",
+                "3.8.0",
+                "--app-appHash",
+                "6a32c1dd-bc3e-69f0-c66e-8dd33e3b1ba2",
+                "--dump-master-data",
+                "D:\\masterdata"
+            ],
+            "justMyCode": true
+        },        
         {
             "name": "Python: AbCache (no update)",
             "type": "python",
