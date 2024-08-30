@@ -18,3 +18,10 @@ See the [wiki page!](https://github.com/mos9527/sssekai/wiki)
 
 # See Also
 https://github.com/mos9527/sssekai_blender_io
+
+# License
+MIT
+
+# References
+- https://github.com/K0lb3/UnityPy
+- https://mos9527.github.io/tags/project-sekai/
