@@ -1,6 +1,6 @@
 from sssekai.unity.AssetBundle import load_assetbundle
-from sssekai.abcache import AbCache, AbCacheConfig
 import os, json
+
 def main_mvdata(args):
     from UnityPy.enums import ClassIDType
     cache_dir = args.cache_dir
@@ -24,11 +24,3 @@ def main_mvdata(args):
                         break
     mvdata = mvdata_items[mvdata_lut[args.query]]
     print(json.dumps(mvdata, indent=4,ensure_ascii=False))
-
-if __name__ == '__main__':
-    import argparse
-    parser = argparse.ArgumentParser(description='Dump MVData')
-    parser.add_argument('cache_dir', help='live_pv\mv_data directory. Downloaded by sssekai abcache.')
-    parser.add_argument('query', help='Query')
-    args = parser.parse_args()
-    main_mvdata(args)

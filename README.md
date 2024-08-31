@@ -1,5 +1,5 @@
 # sssekai
-Command-line tool (w/Python API support) for downloading/deobfuscating the game's assets, along with some other tools.
+Command-line tool (w/Python API support) for Project SEKAI (JP: プロジェクトセカイ カラフルステージ！ feat.初音ミク) game assets.
 
 # Installation
 **For Windows Users** : Builds are available [here](https://github.com/mos9527/sssekai/releases)

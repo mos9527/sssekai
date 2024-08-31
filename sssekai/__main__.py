@@ -8,6 +8,9 @@ from sssekai.entrypoint.usmdemux import main_usmdemux
 from sssekai.entrypoint.abcache import main_abcache, DEFAULT_CACHE_DB_FILE
 from sssekai.entrypoint.live2dextract import main_live2dextract
 from sssekai.entrypoint.spineextract import main_spineextract
+from sssekai.entrypoint.apphash import main_apphash
+from sssekai.entrypoint.mvdata import main_mvdata
+from sssekai.entrypoint.moc3paths import main_moc3paths
 from sssekai.unity import sssekai_get_unity_version,sssekai_set_unity_version
 def __main__():
     from tqdm.std import tqdm as tqdm_c
@@ -82,6 +85,20 @@ These can be found at /sdcard/Android/data/com.hermes.mk.asia/files/data/
     rla2json_parser.add_argument('infile', type=str, help='input file')
     rla2json_parser.add_argument('outdir', type=str, help='output directory. multiple json files may be produced')
     rla2json_parser.set_defaults(func=main_rla2json)
+    # apphash
+    apphash_parser = subparsers.add_parser('apphash', help='''Download/extract game AppHash values''')
+    apphash_parser.add_argument('--apk-src', type=str, help='APK source file (default: fetch from APKPure)', default=None)
+    apphash_parser.add_argument('--fetch', action='store_true', help='force fetching the latest APK')
+    apphash_parser.set_defaults(func=main_apphash)
+    # mvdata
+    mvdata_parser = subparsers.add_parser('mvdata', help='''Extract MV Data from AssetBundle''')
+    mvdata_parser.add_argument('cache_dir', type=str, help='cache directory')
+    mvdata_parser.add_argument('query', type=str, help='MV ID')
+    mvdata_parser.set_defaults(func=main_mvdata)
+    # moc3paths
+    moc3paths_parser = subparsers.add_parser('moc3paths', help='''Extract animation path CRCs from raw .moc3 binaries''')
+    moc3paths_parser.add_argument('indir', type=str, help='input directory')
+    moc3paths_parser.set_defaults(func=main_moc3paths)
     # parse args
     args = parser.parse_args()
     # set logging level

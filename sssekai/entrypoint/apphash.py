@@ -38,19 +38,15 @@ def enum_package(zip_file):
         if f.filename.lower().endswith('.apk'):
             yield zipfile.ZipFile(zip_file.open(f)) 
 
-if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description='Dump appHash from Android APK')
-    parser.add_argument('--apk-src','-s', help='APK/APKX file to dump from')
-    parser.add_argument('--fetch', '-f', help='Use the latest game package from APKPure instead. Recommended for most cases.', action='store_true')
-    args = parser.parse_args()
+def main_apphash(args):
     env = UnityPy.Environment()
-    if args.fetch:
+    if not args.apk_src or args.fetch:
         from requests import get
         src = BytesIO()
-        print('Fetching latest game package from APKPure.')
+        print('Fetching latest game package from APKPure')
         resp = get('https://d.apkpure.net/b/XAPK/com.sega.pjsekai?version=latest', stream=True)
         size = resp.headers.get('Content-Length',-1)
-        for chunck in resp.iter_content(chunk_size=2**20):
+        for chunck in resp.iter_content(chunk_size=2**10):
             src.write(chunck)
             print('Downloading %d/%s' % (src.tell(), size), end='\r')
         print()
