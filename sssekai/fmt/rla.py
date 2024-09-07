@@ -72,7 +72,7 @@ def decode_streaming_data(version : tuple, decoder_signature, buffer, strict=Tru
     '''Decodes the streaming data payload into a dictionary.
     
     Args:
-        version (tuple): RLA version. i.e. one of (1,0), (1,1), (1,2), (1,3), (1,4)
+        version (tuple): RLA version
         decoder_signature (int): Decoder signature
         buffer (bytes): Decoded payload data
         strict (bool, optional): If False, incomplete packets will be returned as is. Defaults to True.
@@ -227,12 +227,13 @@ def decode_streaming_data(version : tuple, decoder_signature, buffer, strict=Tru
     return {'type': 'Unknown', 'data': buffer}
 result = defaultdict(dict)
 
-def read_rla(src : BytesIO, version=(1,0)) -> dict:
+def read_rla(src : BytesIO, version=(1,0), strict=True) -> dict:
     '''Parses the Sekai RLA file format used in 'streaming_live/archive' assets.
 
     Args:
         src (BytesIO): Source RLA file stream
-        version (tuple, optional): RLA version, found in respective RLH (JSON) header files. Defaults to (1,0).
+        version (tuple, optional): RLA version, found in respective RLH (JSON) header files. i.e. one of (1,0), (1,1), (1,2), (1,3), (1,4) Defaults to (1,0). 
+        strict (bool, optional): If False, incomplete packets will be returned as is. Defaults to True.
 
     Returns:
         dict: Parsed RLA data. The dictionary is sorted by the frame ticks.
@@ -246,7 +247,7 @@ def read_rla(src : BytesIO, version=(1,0)) -> dict:
             header_signature, data = decode_buffer_base64(buffer)
             decoder_signature, data = decode_buffer_payload(data)
             assert header_signature == decoder_signature, 'mismatching signature (header/decoder). packet may be corrupt'
-            payload = decode_streaming_data(version, decoder_signature, data)
+            payload = decode_streaming_data(version, decoder_signature, data, strict)
             result[ticks].setdefault(payload['type'], list()).append(payload)
             return True
         return False
