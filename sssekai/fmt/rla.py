@@ -40,17 +40,17 @@ def decode_buffer_payload(buffer):
             return decoder_signature, payload        
     return decoder_signature, stream.read()
 # Sekai_Streaming_StreamingData__Deserialize
-def decode_streaming_data(version, decoder_signature, buffer):
+def decode_streaming_data(version, decoder_signature, buffer, strict=True):
     stream = BytesIO(buffer)
     n_mask_offset = read_int(stream, 4)
     n_init_pos = stream.tell()
     stream.seek(n_mask_offset)
     n_mask_length = read_int(stream, 2)
     bitmask = stream.read(n_mask_length)
-    assert not stream.read() # EOF
+    # assert not stream.read() # EOF
     stream.seek(n_init_pos)
     # CP_Serialize_SerializableValueSet
-    bitmask = [bitmask[i // 8] & (1 << (i % 8)) != 0 for i in range(len(bitmask) * 8)]
+    bitmask = [bitmask[i // 8] & (1 << (i % 8)) != 0 for i in range(len(bitmask) * 8)]    
     get_next_mask = lambda: bitmask.pop(0) # GetNextMask, ReadBool
     get_next_pred = lambda: get_next_mask() | (get_next_mask() << 1)
     get_next_byte = lambda: [lambda: 0, lambda: 1, lambda: -1, lambda: read_int(stream, 1)][get_next_pred()]() # ReadByte
@@ -63,7 +63,18 @@ def decode_streaming_data(version, decoder_signature, buffer):
     get_next_ushort_vector3 = lambda: (get_next_ushort() * 0.01, get_next_ushort() * 0.01, get_next_ushort() * 0.01) # ReadUShortVector3
     get_next_tiny_int = lambda type: {'+': lambda: read_int(stream, 2), '*': lambda: read_int(stream, 1, True), ')': lambda: read_int(stream, 1)}[type]() # ReadTinyInt
     get_next_string = lambda: stream.read(get_next_tiny_int(chr(read_int(stream, 1)))).decode() if get_next_pred() else None # ReadString
-    get_next_array = lambda reader: [reader() for _ in range(get_next_int())]  # ReadArray<T>
+    # HACK: Workaround for incomplete packets.
+    def gen_exception_handler(generator):
+        try:
+            for item in generator:
+                yield item
+        except Exception as e: 
+            # XXX: This shouldn't happen unless the packet is corrupted.
+            if strict: raise e
+            else:
+                pass
+    gen_get_next_array = lambda reader: (reader() for _ in range(get_next_int()))  # ReadArray<T>
+    get_next_array = lambda reader: list(gen_exception_handler(gen_get_next_array(reader)))
     # Sekai_Streaming_StreamingData__Deserialize
     assert get_next_byte() == decoder_signature, 'bad signature'
     compress_type = get_next_int()
