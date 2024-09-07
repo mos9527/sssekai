@@ -4,31 +4,43 @@ from io import BytesIO
 from collections import defaultdict
 import math, gzip
 import msgpack
-
+# Sekai_Streaming_StreamingCommon__cctor
 read_int = lambda stream, nbytes, signed=False: int.from_bytes(stream.read(nbytes), 'little',signed=signed)
 read_float = lambda stream: s_unpack('<f', stream.read(4))[0]
 # Sekai_Streaming_StreamingCommon__CheckHeader
 def decode_buffer_base64(buffer):
-    is_base64_encoded = buffer[6 + 4 + 4]
-    is_split = buffer[6 + 4 + 1 + 3]
-    data = buffer[6 + 4 + 1 + 4:]
+    # They really want you to believe it's Base64...
+    # [4 bytes: RTVL][6 bytes : length in hex][Base64 T/F][Split T/F][3 bytes: Signature][data, Base64]
+    # ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ 15 bytes
+    SYM_HEADER = b'RTVL'
+    SYM_TRUE = b'T'
+    SYM_FALSE = b'F'
+    stream = BytesIO(buffer)
+    assert stream.read(4) == SYM_HEADER, 'bad header'
+    encoded_length = stream.read(6)
+    encoded_length = int(encoded_length, 16)
+    is_base64_encoded = stream.read(1) == SYM_TRUE
+    is_split = stream.read(1) == SYM_TRUE
+    header_signature = int(stream.read(3).decode(), 10)
+    data = stream.read()
+    assert len(data) + 15 == encoded_length, 'bad length. packet may be corrupted'
     if is_base64_encoded:
         data = b64decode(data)
-    return data
+    return header_signature, data
 # Sekai_Streaming_SubscribeDecoder__Deserialize
 def decode_buffer_payload(buffer):        
     stream = BytesIO(buffer)
-    decoder_type = read_int(stream, 1)
+    decoder_signature = read_int(stream, 1)
     unk1 = read_int(stream, 4)
     if not unk1:
         unk2 = read_int(stream, 4)
         if unk2:
             payload = stream.read()
             payload = gzip.decompress(payload)
-            return decoder_type, payload        
-    return decoder_type, stream.read()
+            return decoder_signature, payload        
+    return decoder_signature, stream.read()
 # Sekai_Streaming_StreamingData__Deserialize
-def decode_streaming_data(version, decoder_type, buffer):
+def decode_streaming_data(version, decoder_signature, buffer):
     stream = BytesIO(buffer)
     n_mask_offset = read_int(stream, 4)
     n_init_pos = stream.tell()
@@ -53,7 +65,7 @@ def decode_streaming_data(version, decoder_type, buffer):
     get_next_string = lambda: stream.read(get_next_tiny_int(chr(read_int(stream, 1)))).decode() if get_next_pred() else None # ReadString
     get_next_array = lambda reader: [reader() for _ in range(get_next_int())]  # ReadArray<T>
     # Sekai_Streaming_StreamingData__Deserialize
-    assert get_next_byte() == decoder_type
+    assert get_next_byte() == decoder_signature, 'bad signature'
     compress_type = get_next_int()
     sequence_no = get_next_int()
     target_time = get_next_long()
@@ -79,7 +91,7 @@ def decode_streaming_data(version, decoder_type, buffer):
             'isEyeLookAt': get_next_mask()
         } if version >= (1,4) else {})
     }
-    match decoder_type:
+    match decoder_signature:
         case 0:
             # Sekai_Streaming_MotionData
             timeStamps = get_next_array(get_next_long) if get_next_pred() == 2 else None
@@ -172,16 +184,17 @@ def read_rla(src : BytesIO, version=(1,0)) -> dict:
     Returns:
         dict: Parsed RLA data. The dictionary is sorted by the frame ticks.
     '''    
+    result = defaultdict(dict)
     def read_frames():
         ticks = read_int(src, 8)
         if ticks:
             buffer_length = read_int(src, 4)
             buffer = src.read(buffer_length)
-            # [RTVL... (15 bytes)][data]
-            data = decode_buffer_base64(buffer)
-            decoder_type, data = decode_buffer_payload(data)
-            data = decode_streaming_data(version, decoder_type, data)
-            result[ticks].setdefault(data['type'], list()).append(data)
+            header_signature, data = decode_buffer_base64(buffer)
+            decoder_signature, data = decode_buffer_payload(data)
+            assert header_signature == decoder_signature, 'mismatching signature (header/decoder). packet may be corrupt'
+            payload = decode_streaming_data(version, decoder_signature, data)
+            result[ticks].setdefault(payload['type'], list()).append(payload)
             return True
         return False
     while read_frames(): pass        
@@ -189,5 +202,5 @@ def read_rla(src : BytesIO, version=(1,0)) -> dict:
     return result
 
 if __name__ == '__main__':
-    result = read_rla(open(r"D:\project\TextAsset\sekai_30_00000000.rla.bytes",'rb'), (1,0))
+    result = read_rla(open(r"C:\Users\mos9527\Desktop\TextAsset\sekai_30_00000100.rla.bytes",'rb'), (1,0))
     pass
