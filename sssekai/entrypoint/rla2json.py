@@ -23,7 +23,8 @@ def dump_audio_job(sname, version, script):
             for i, b64data in enumerate(data):
                 fname = sname + '_%d_%d.hca' % (i, tick)
                 raw_data = base64.b64decode(b64data['data'])
-                with open(fname, 'wb') as f: f.write(raw_data)
+                start = raw_data.find(b'\xFF\xFF')
+                with open(fname, 'wb') as f: f.write(raw_data[start:])
 
 def main_rla2json(args):
     with open(args.infile,'rb') as f:        
