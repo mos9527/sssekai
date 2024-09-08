@@ -163,8 +163,9 @@
             "module": "sssekai",
             "args": [
                 "rla2json",
+                "--dump-audio",
                 "D:\\proseka_reverse\\assets\\streaming_live\\archive\\1st_live_vbs-1",
-                "D:\\proseka_reverse\\assets\\streaming_live\\archive\\1st_live_vbs-1_src"
+                "D:\\proseka_reverse\\assets\\streaming_live\\archive\\1st_live_vbs-1_hca"
             ],
             "justMyCode": true
         },

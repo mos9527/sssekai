@@ -82,8 +82,10 @@ These can be found at /sdcard/Android/data/com.hermes.mk.asia/files/data/
     spineextract_parser.set_defaults(func=main_spineextract)
     # rla2json
     rla2json_parser = subparsers.add_parser('rla2json', help='''Read streaming_live/archive files and dump their information to JSON''')
-    rla2json_parser.add_argument('infile', type=str, help='input file')
-    rla2json_parser.add_argument('outdir', type=str, help='output directory. multiple json files may be produced')
+    rla2json_parser.add_argument('infile', type=str, help='input file. either a streaming_live bundle or a zip file with the same file hierarchy (i.e. containing sekai.rlh, sekai_xx_xxxxxx.rla files)')
+    rla2json_parser.add_argument('outdir', type=str, help='output directory. RLA files in JSON format will be saved, unless otherwise specified.')
+    rla2json_parser.add_argument('--dump-audio', action='store_true', help='dump raw HCA audio data instead of the JSON data. Use https://github.com/mos9527/sssekai_streaming_hca_decoder to decode them.')
+    rla2json_parser.add_argument('--no-parallel', action='store_true', help='disable parallel processing')
     rla2json_parser.set_defaults(func=main_rla2json)
     # apphash
     apphash_parser = subparsers.add_parser('apphash', help='''Download/extract game AppHash values''')
