@@ -63,7 +63,7 @@ def main_rla2json(args):
                 logger.info('Dumping RLA data with %d processors' % executor._max_workers)
             futures = []
             for sid in header['splitFileIds']:
-                sname = 'sekai_%2d_%08d' % (splitSeconds, sid)
+                sname = 'sekai_%02d_%08d' % (splitSeconds, sid)
                 script = datas[sname + '.rla']
                 if args.no_parallel:
                     worker_job(path.join(args.outdir,sname), version, script)
