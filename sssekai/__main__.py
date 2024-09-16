@@ -36,14 +36,12 @@ If you encounter any issues, try switching to the old version, or vice versa.'''
     apidecrypt_parser = subparsers.add_parser('apidecrypt', help='''API crypto dumper
 This crypto applies to:
     - API request/response body dumped by packet sniffer (mitmproxy, wireshark, etc.)
-    - AssetBundleInfo (can be found at /sdcard/Android/data/com.hermes.mk.asia/files/data/AssetBundleInfo,or see sssekai.abcache)''')
+    - AssetBundleInfo (see sssekai.abcache)''')
     apidecrypt_parser.add_argument('infile', type=str, help='input dump file')
     apidecrypt_parser.add_argument('outfile', type=str, help='output json file')
     apidecrypt_parser.set_defaults(func=main_apidecrypt)
     # abdecrypt
-    abdecrypt_parser = subparsers.add_parser('abdecrypt', help='''Decrypt Sekai AssetBundle
-These can be found at /sdcard/Android/data/com.hermes.mk.asia/files/data/                                             
-''')
+    abdecrypt_parser = subparsers.add_parser('abdecrypt', help='''Decrypt Sekai AssetBundle''')
     abdecrypt_parser.add_argument('indir', type=str, help='input directory')
     abdecrypt_parser.add_argument('outdir', type=str, help='output directory')
     abdecrypt_parser.set_defaults(func=main_abdecrypt)

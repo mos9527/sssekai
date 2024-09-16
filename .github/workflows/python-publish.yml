@@ -19,6 +19,7 @@ jobs:
         python -m pip install --upgrade pip
         python -m pip install setuptools wheel build twine
         python -m pip install Pyinstaller
+        python -m pip install -e .
         python setup.py install
     - name: Build package
       run: python -m build --no-isolation
