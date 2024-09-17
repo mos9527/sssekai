@@ -39,11 +39,11 @@
                 "DEBUG",
                 "abcache", 
                 "--app-version",
-                "3.8.0",
+                "3.8.1",
                 "--app-appHash",
-                "6a32c1dd-bc3e-69f0-c66e-8dd33e3b1ba2",
+                "3f8a6157-fe09-d1f9-1ff4-4e4f251c6b5c",
                 "--dump-master-data",
-                "D:\\masterdata"
+                "D:\\proseka_reverse\\masterdata"
             ],
             "justMyCode": true
         },        

@@ -62,15 +62,24 @@ def main_abcache(args):
     if args.dump_master_data:
         logger.info('Dumping master data to %s', args.dump_master_data)
         cache.update_client_headers()
-        for split in tqdm(cache.database.sekai_user_auth_data.suiteMasterSplitPath, desc='Pulling'):
+        progress = tqdm(
+            total=len(cache.database.sekai_user_auth_data.suiteMasterSplitPath), 
+            desc='Pulling',unit='file',            
+            bar_format="{desc}: {percentage:.1f}%|{bar}| {n:.1f}/{total_fmt} {rate_fmt} {elapsed}<{remaining}"
+        )
+        for split in cache.database.sekai_user_auth_data.suiteMasterSplitPath:
             resp = cache.request_packed('GET', cache.SEKAI_API_ENDPOINT + '/api/' + split)
             data = cache.response_to_dict(resp)  
-            path = os.path.join(args.dump_master_data, split + '.json')
-            os.makedirs(os.path.dirname(path), exist_ok=True)
-            logger.debug('Saving to %s', path)
-            with open(path, 'w', encoding='utf-8') as f:
-                json.dump(data, f, indent=4, ensure_ascii=False)
-            return  
+            path = args.dump_master_data
+            os.makedirs(path, exist_ok=True)
+            logger.debug('Saving to %s', path)            
+            for k,v in data.items():
+                logger.debug('Saving %s', k)
+                fpath = os.path.join(path, k + '.json')
+                with open(fpath, 'w', encoding='utf-8') as f:
+                    json.dump(v, f, indent=4, ensure_ascii=False)
+                progress.update(1/len(data))
+        return
 
     db_path = os.path.expanduser(args.db)
     os.makedirs(os.path.dirname(db_path), exist_ok=True)
