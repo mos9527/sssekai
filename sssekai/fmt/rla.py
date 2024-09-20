@@ -92,8 +92,9 @@ def decode_streaming_data(version : tuple, decoder_signature, buffer, strict=Tru
     # assert not stream.read() # EOF
     stream.seek(n_init_pos)
     # CP_Serialize_SerializableValueSet
-    bitmask = [bitmask[i // 8] & (1 << (i % 8)) != 0 for i in range(len(bitmask) * 8)]    
-    get_next_mask = lambda: bitmask.pop(0) # GetNextMask, ReadBool
+    bitmask = [bitmask[i // 8] & (1 << (i % 8)) != 0 for i in range(len(bitmask) * 8)]
+    bitmask_gen = iter(range(len(bitmask)))
+    get_next_mask = lambda: bitmask[next(bitmask_gen)] # GetNextMask, ReadBool
     get_next_pred = lambda: get_next_mask() | (get_next_mask() << 1)
     get_next_byte = lambda: [lambda: 0, lambda: 1, lambda: -1, lambda: read_int(stream, 1)][get_next_pred()]() # ReadByte
     get_next_ushort = lambda: [lambda: 0.0, lambda: 0.0, lambda: read_int(stream, 1), lambda: read_int(stream, 2)][get_next_pred()]() # ReadUShort
