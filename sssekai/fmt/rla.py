@@ -256,5 +256,8 @@ def read_rla(src : BytesIO, version=(1,0), strict=True) -> dict:
     return result
 
 if __name__ == '__main__':
-    result = read_rla(open(r"C:\Users\mos9527\Desktop\TextAsset\sekai_30_00000100.rla.bytes",'rb'), (1,0))
-    pass
+    from timeit import timeit
+    fp = open(r'C:\Users\mos9527\Desktop\sekai_streaming\sekai_30_00000060.rla.bytes','rb')
+    buffer = fp.read()
+    fp = BytesIO(buffer)
+    print('took %.2f seconds' % timeit("read_rla(fp, (1,0))",globals=globals()))

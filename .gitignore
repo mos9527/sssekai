@@ -4,3 +4,4 @@ logs_bin
 build
 dist
 *.egg-info
+*.test*
