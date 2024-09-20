@@ -91,10 +91,12 @@ def decode_streaming_data(version : tuple, decoder_signature, buffer, strict=Tru
     bitmask = stream.read(n_mask_length)
     # assert not stream.read() # EOF
     stream.seek(n_init_pos)
-    # CP_Serialize_SerializableValueSet
-    bitmask = [bitmask[i // 8] & (1 << (i % 8)) != 0 for i in range(len(bitmask) * 8)]
-    bitmask_gen = iter(range(len(bitmask)))
-    get_next_mask = lambda: bitmask[next(bitmask_gen)] # GetNextMask, ReadBool
+    # CP_Serialize_SerializableValueSet    
+    mask_i = -1
+    def get_next_mask():
+        nonlocal mask_i
+        mask_i += 1
+        return bitmask[mask_i // 8] & (1 << (mask_i % 8)) != 0
     get_next_pred = lambda: get_next_mask() | (get_next_mask() << 1)
     get_next_byte = lambda: [lambda: 0, lambda: 1, lambda: -1, lambda: read_int(stream, 1)][get_next_pred()]() # ReadByte
     get_next_ushort = lambda: [lambda: 0.0, lambda: 0.0, lambda: read_int(stream, 1), lambda: read_int(stream, 2)][get_next_pred()]() # ReadUShort
@@ -115,7 +117,7 @@ def decode_streaming_data(version : tuple, decoder_signature, buffer, strict=Tru
             # XXX: This shouldn't happen unless the packet is corrupted.
             if strict: raise e
             else:
-                pass
+                return
     gen_get_next_array = lambda reader: (reader() for _ in range(get_next_int()))  # ReadArray<T>
     get_next_array = lambda reader: list(gen_exception_handler(gen_get_next_array(reader)))
     # Sekai_Streaming_StreamingData__Deserialize
