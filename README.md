@@ -3,16 +3,20 @@
 
 Command-line tool (w/Python API support) for Project SEKAI (JP: プロジェクトセカイ カラフルステージ！ feat.初音ミク) game assets.
 
-# Installation
+# Installing & Updating
 **For Windows Users** : Builds are available [here](https://github.com/mos9527/sssekai/releases)
-
+## Installation
 Or get the latest version from PyPI:
 ```bash
-    pip install sssekai
+    pip install sssekai    
 ```
 ...Or install it from source:
 ```bash
     pip install git+https://github.com/mos9527/sssekai
+```
+## Updating
+```bash
+    pip install sssekai --upgrade
 ```
 
 # Documentation
