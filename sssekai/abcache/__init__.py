@@ -3,6 +3,8 @@ from typing import BinaryIO, List, Mapping, Union
 from logging import getLogger
 from dataclasses import dataclass, fields, is_dataclass
 
+logger = getLogger("sssekai.abcache")
+
 
 def fromdict(klass: type, d: Union[Mapping, List]):
     """
@@ -10,9 +12,22 @@ def fromdict(klass: type, d: Union[Mapping, List]):
     https://stackoverflow.com/a/54769644
     https://gist.github.com/gatopeich/1efd3e1e4269e1e98fae9983bb914f22
     """
+
+    def check_field(key, fields):
+        if not key in fields:
+            logger.error(f"Field {key} of type {type(d[key])} not found in {klass}")
+            return False
+        return True
+
     if is_dataclass(klass):
         fieldtypes = {f.name: f.type for f in fields(klass)}
-        return klass(**{f: fromdict(fieldtypes[f], d[f]) for f in d})
+        return klass(
+            **{
+                f: fromdict(fieldtypes[f], d[f])
+                for f in d
+                if check_field(f, fieldtypes)
+            }
+        )
     if isinstance(d, list) and hasattr(klass, "__args__"):
         return [fromdict(klass.__args__[0], di) for di in d]
     if isinstance(d, dict) and hasattr(klass, "__args__"):
@@ -26,8 +41,6 @@ from msgpack import unpackb, packb
 from sssekai import __version__
 from sssekai.unity import sssekai_get_unity_version
 from sssekai.crypto.APIManager import decrypt, encrypt
-
-logger = getLogger("sssekai.abcache")
 
 
 @dataclass
@@ -126,6 +139,7 @@ class SekaiUserAuthData:
     deviceId: str
     updatedResources: dict
     suiteMasterSplitPath: list
+    obtainedBondsRewardIds: list
 
 
 @dataclass
