@@ -1,14 +1,6 @@
 from test_base import *
 
 
-class NamedDict(dict):
-    def __getattribute__(self, name: str):
-        try:
-            return super().__getattribute__(name)
-        except AttributeError:
-            return self.get(name, None)
-
-
 def test_live2d_motion():
     from sssekai.entrypoint.live2dextract import main_live2dextract
 
