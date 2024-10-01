@@ -1,4 +1,4 @@
-from test_base import *
+from . import *
 
 
 def test_live2d_motion():
