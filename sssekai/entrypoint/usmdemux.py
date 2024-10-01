@@ -27,7 +27,7 @@ def main_usmdemux(args):
             for data in movieInfo["movieBundleDatas"]:
                 usm = data["usmFileName"][: -len(".bytes")]
                 usm = datas[usm]
-                usmstream.write(usm.script)
+                usmstream.write(usm.m_Script.encode("utf-8", "surrogateescape"))
         usm = Usm.open(usm_temp, encoding="shift-jis")
         usm.demux(path.join(args.outdir, usm_name), usm_name)
         remove(usm_temp)

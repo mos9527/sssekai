@@ -34,7 +34,7 @@ def main_spineextract(args):
             if atlas:
                 logger.info("...has Atlas %s" % spine)
                 with open(os.path.join(outdir, spine, spine + ".atlas.txt"), "wb") as f:
-                    f.write(atlas.script)
+                    f.write(atlas.m_Script.encode("utf-8", "surrogateescape"))
                 texfiles = [line.strip() for line in atlas.text.split("\n")]
                 texfiles = [
                     ".".join(line.split(".")[:-1])
@@ -59,6 +59,6 @@ def main_spineextract(args):
                 with open(
                     os.path.join(outdir, spine, spine + ".skel.bytes"), "wb"
                 ) as f:
-                    f.write(skel.script)
+                    f.write(skel.m_Script.encode("utf-8", "surrogateescape"))
             else:
                 logger.warning("No skel found for %s" % spine)

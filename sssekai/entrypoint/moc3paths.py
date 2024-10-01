@@ -20,7 +20,9 @@ def main_moc3paths(args):
                         out_name: str = data.name
                         if out_name.endswith(".moc3"):
                             parts, parameters = read_moc3(
-                                BytesIO(data.script.tobytes())
+                                BytesIO(
+                                    data.m_Script.encode("utf-8", "surrogateescape")
+                                )
                             )
                             ParameterNames.update(parameters)
                             PartNames.update(parts)

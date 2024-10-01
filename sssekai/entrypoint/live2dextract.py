@@ -45,9 +45,9 @@ def main_live2dextract(args):
                             out_name += ".json"
                         with open(path.join(args.outdir, out_name), "wb") as fout:
                             logger.info("Extracting Live2D Asset %s" % out_name)
-                            fout.write(data.script)
+                            fout.write(data.m_Script.encode("utf-8", "surrogateescape"))
             # Textures always needs conversion and is placed under specific folders
-            for texture in modelData["TextureNames"]:
+            for texture in modelData.TextureNames:
                 name = path.basename(texture)
                 folder = path.dirname(texture)
                 out_folder = path.join(args.outdir, folder)
