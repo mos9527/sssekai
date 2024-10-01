@@ -14,7 +14,7 @@ def main_usmdemux(args):
         for obj in env.objects:
             if obj.type in {ClassIDType.MonoBehaviour, ClassIDType.TextAsset}:
                 data = obj.read()
-                datas[data.name] = data
+                datas[data.m_Name] = data
         movieInfo = datas.get("MovieBundleBuildData", None)
         assert movieInfo, "Invalid AssetBundle. No MovieBundleBuildData found!"
         movieInfo = movieInfo.read_typetree()

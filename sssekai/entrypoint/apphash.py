@@ -93,4 +93,4 @@ def main_apphash(args):
             obj = obj.read()
             hashStr = HASHREGEX.finditer(obj.raw_data)
             for m in hashStr:
-                print(m.group().decode(), obj.name)
+                print(m.group().decode(), obj.m_Name)

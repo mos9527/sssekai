@@ -18,11 +18,11 @@ def main_live2dextract(args):
         for obj in env.objects:
             data = obj.read()
             if obj.type in {ClassIDType.MonoBehaviour}:
-                monobehaviors[data.name] = data
+                monobehaviors[data.m_Name] = data
             if obj.type in {ClassIDType.Texture2D}:
-                textures[data.name] = data
+                textures[data.m_Name] = data
             if obj.type in {ClassIDType.AnimationClip}:
-                animations[data.name] = data
+                animations[data.m_Name] = data
         modelData = monobehaviors.get("BuildModelData", None)
         if not modelData:
             logger.warning("BuildModelData absent. Not extracting Live2D models!")
@@ -33,7 +33,7 @@ def main_live2dextract(args):
             for obj in env.objects:
                 if obj.type == ClassIDType.TextAsset:
                     data = obj.read()
-                    out_name: str = data.name
+                    out_name: str = data.m_Name
                     if (
                         out_name.endswith(".moc3")
                         or out_name.endswith(".model3")

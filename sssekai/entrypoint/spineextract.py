@@ -13,12 +13,12 @@ def main_spineextract(args):
         env = load_assetbundle(f)
         objects = [pobj.read() for pobj in env.objects]
         binaries = {
-            obj.name: obj
+            obj.m_Name: obj
             for obj in objects
             if getattr(obj, "type", None) in {ClassIDType.TextAsset}
         }
         textures = {
-            obj.name: obj
+            obj.m_Name: obj
             for obj in objects
             if getattr(obj, "type", None) in {ClassIDType.Texture2D}
         }
