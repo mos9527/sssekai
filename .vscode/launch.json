@@ -169,5 +169,15 @@
             ],
             "justMyCode": true
         },
+        {
+            "name": "Python: Test File",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/tests/tests_main.py",
+            "console": "integratedTerminal",
+            "justMyCode": false,
+            "args": [                
+            ]
+        },
     ]
 }

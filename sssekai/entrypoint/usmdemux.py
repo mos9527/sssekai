@@ -17,7 +17,7 @@ def main_usmdemux(args):
                 datas[data.m_Name] = data
         movieInfo = datas.get("MovieBundleBuildData", None)
         assert movieInfo, "Invalid AssetBundle. No MovieBundleBuildData found!"
-        movieInfo = movieInfo.read_typetree()
+        # movieInfo = movieInfo.read_typetree()
         usm_name = movieInfo["movieBundleDatas"][0]["usmFileName"][: -len(".bytes")]
         logger.info("USM: %s" % usm_name)
         usm_folder = path.join(args.outdir, usm_name)

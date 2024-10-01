@@ -27,7 +27,7 @@ def main_live2dextract(args):
         if not modelData:
             logger.warning("BuildModelData absent. Not extracting Live2D models!")
         else:
-            modelData = modelData.read_typetree()
+            # modelData = modelData.read_typetree()
             # TextAssets are directly extracted
             # Usually there are *.moc3, *.model3, *.physics3; the last two should be renamed to *.*.json
             for obj in env.objects:

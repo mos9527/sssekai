@@ -37,4 +37,17 @@ def test_live2d_motion():
     )
 
 
-test_live2d_motion()
+def test_live2d_model():
+    from sssekai.entrypoint.live2dextract import main_live2dextract
+
+    result = main_live2dextract(
+        NamedDict(
+            {
+                "infile": sample_file_path("live2d", "21miku_night"),
+                "outdir": TEMP_DIR,
+            }
+        )
+    )
+
+
+test_live2d_model()
