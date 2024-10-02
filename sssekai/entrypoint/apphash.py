@@ -91,6 +91,6 @@ def main_apphash(args):
             env.load_file(stream)
         for obj in env.objects:
             obj = obj.read()
-            hashStr = HASHREGEX.finditer(obj.raw_data)
+            hashStr = HASHREGEX.finditer(obj.object_reader.get_raw_data())
             for m in hashStr:
                 print(m.group().decode(), obj.m_Name)
