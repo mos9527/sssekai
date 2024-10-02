@@ -17,3 +17,10 @@ def sssekai_set_unity_version(value):
             f"Setting Unity Version from {_sssekai_unity_version} to {value}"
         )
         _sssekai_unity_version = value
+
+
+# Monkey-patching modules
+from . import Mesh, AnimationClip
+
+# Other modules
+from . import AssetBundle
