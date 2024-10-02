@@ -1,8 +1,8 @@
 from collections import OrderedDict
 from typing import Dict, List, Tuple
 from UnityPy.enums import ClassIDType
-from UnityPy.classes import AnimationClip
-from UnityPy.math import Matrix4x4, Quaternion, Vector3
+from UnityPy.classes import AnimationClip, StreamedClip, AnimationClipBindingConstant
+from UnityPy.classes.math import Vector3f as Vector3, Quaternionf as Quaternion
 from UnityPy.streams.EndianBinaryReader import EndianBinaryReader
 from dataclasses import dataclass
 from enum import IntEnum
@@ -102,58 +102,54 @@ class StreamedFrame:
         self.keyList = [StreamedCurveKey(reader) for _ in range(numKeys)]
 
 
-class StreamedClip:
-    @staticmethod
-    def ReadData(buffer):
-        frameList = []
-        buffer = b"".join(val.to_bytes(4, "big") for val in buffer)
-        reader = EndianBinaryReader(buffer)
-        while reader.Position < reader.Length:
-            frameList.append(StreamedFrame(reader))
+def StreamedClipReadData(self):
+    frameList = []
+    buffer = b"".join(val.to_bytes(4, "big") for val in self.data)
+    reader = EndianBinaryReader(buffer)
+    while reader.Position < reader.Length:
+        frameList.append(StreamedFrame(reader))
 
-        for frameIndex in range(2, len(frameList) - 1):
-            frame = frameList[frameIndex]
-            for curveKey in frame.keyList:
-                i = frameIndex - 1
-                while i >= 0:
-                    preFrame = frameList[i]
-                    try:
-                        preCurveKey = [
-                            x for x in preFrame.keyList if x.index == curveKey.index
-                        ][0]
-                        curveKey.inSlope = preCurveKey.CalculateNextInSlope(
-                            frame.time - preFrame.time, curveKey
-                        )
-                        break
-                    except IndexError:
-                        pass
-                    i -= 1
-        return frameList
+    for frameIndex in range(2, len(frameList) - 1):
+        frame = frameList[frameIndex]
+        for curveKey in frame.keyList:
+            i = frameIndex - 1
+            while i >= 0:
+                preFrame = frameList[i]
+                try:
+                    preCurveKey = [
+                        x for x in preFrame.keyList if x.index == curveKey.index
+                    ][0]
+                    curveKey.inSlope = preCurveKey.CalculateNextInSlope(
+                        frame.time - preFrame.time, curveKey
+                    )
+                    break
+                except IndexError:
+                    pass
+                i -= 1
+    return frameList
+StreamedClip.ReadData = StreamedClipReadData
 
+def AnimationClipBindingConstantFindBinding(self, index):
+    curves = 0
+    for b in self.genericBindings:
+        if b.typeID == ClassIDType.Transform:  #
+            switch = b.attribute
 
-class AnimationClipBindingConstant:
-    @staticmethod
-    def FindBinding(obj, index):
-        curves = 0
-        for b in obj.genericBindings:
-            if b.typeID == ClassIDType.Transform:  #
-                switch = b.attribute
-
-                if switch in [1, 3, 4]:
-                    # case 1: #kBindTransformPosition
-                    # case 3: #kBindTransformScale
-                    # case 4: #kBindTransformEuler
-                    curves += 3
-                elif switch == 2:  # kBindTransformRotation
-                    curves += 4
-                else:
-                    curves += 1
+            if switch in [1, 3, 4]:
+                # case 1: #kBindTransformPosition
+                # case 3: #kBindTransformScale
+                # case 4: #kBindTransformEuler
+                curves += 3
+            elif switch == 2:  # kBindTransformRotation
+                curves += 4
             else:
                 curves += 1
-            if curves > index:
-                return b
-        return None
-
+        else:
+            curves += 1
+        if curves > index:
+            return b
+    return None
+AnimationClipBindingConstant.FindBinding = AnimationClipBindingConstantFindBinding
 
 def read_animation(animationClip: AnimationClip) -> Animation:
     """Reads AnimationClip data and converts it to a list of Tracks
@@ -165,7 +161,7 @@ def read_animation(animationClip: AnimationClip) -> Animation:
         List[Track]: List of Tracks
     """
     m_Clip = animationClip.m_MuscleClip.m_Clip.data
-    streamedFrames = StreamedClip.ReadData(m_Clip.m_StreamedClip.data)
+    streamedFrames = m_Clip.m_StreamedClip.ReadData()
     m_ClipBindingConstant = animationClip.m_ClipBindingConstant
     animationTracks = Animation()
     animationTracks.Framerate = animationClip.m_SampleRate
@@ -223,9 +219,7 @@ def read_animation(animationClip: AnimationClip) -> Animation:
         curveIndex = 0
         while curveIndex < len(frame.keyList):
             curveKey = frame.keyList[curveIndex]
-            binding = AnimationClipBindingConstant.FindBinding(
-                m_ClipBindingConstant, curveKey.index
-            )
+            binding = m_ClipBindingConstant.FindBinding(curveKey.index)
             if binding.typeID == ClassIDType.Transform:
                 transformType = TransformType(binding.attribute)
                 dimension = DimensionOfTransformType(transformType)
