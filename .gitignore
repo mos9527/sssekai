@@ -5,3 +5,5 @@ build
 dist
 *.egg-info
 *.test*
+.temp
+test.py

@@ -14,10 +14,10 @@ def main_usmdemux(args):
         for obj in env.objects:
             if obj.type in {ClassIDType.MonoBehaviour, ClassIDType.TextAsset}:
                 data = obj.read()
-                datas[data.name] = data
+                datas[data.m_Name] = data
         movieInfo = datas.get("MovieBundleBuildData", None)
         assert movieInfo, "Invalid AssetBundle. No MovieBundleBuildData found!"
-        movieInfo = movieInfo.read_typetree()
+        # movieInfo = movieInfo.read_typetree()
         usm_name = movieInfo["movieBundleDatas"][0]["usmFileName"][: -len(".bytes")]
         logger.info("USM: %s" % usm_name)
         usm_folder = path.join(args.outdir, usm_name)
@@ -27,7 +27,7 @@ def main_usmdemux(args):
             for data in movieInfo["movieBundleDatas"]:
                 usm = data["usmFileName"][: -len(".bytes")]
                 usm = datas[usm]
-                usmstream.write(usm.script)
+                usmstream.write(usm.m_Script.encode("utf-8", "surrogateescape"))
         usm = Usm.open(usm_temp, encoding="shift-jis")
         usm.demux(path.join(args.outdir, usm_name), usm_name)
         remove(usm_temp)

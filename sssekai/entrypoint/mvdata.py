@@ -20,7 +20,7 @@ def main_mvdata(args):
                     data = obj.read()
                     if data.name == "data":
                         index = len(mvdata_items)
-                        mvdata_items.append(data.read_typetree())
+                        mvdata_items.append(data)  # .read_typetree())
                         mvdata_lut[str(data.name)] = index
                         mvdata_lut[str(data.id)] = index
                         break

@@ -18,22 +18,22 @@ def main_live2dextract(args):
         for obj in env.objects:
             data = obj.read()
             if obj.type in {ClassIDType.MonoBehaviour}:
-                monobehaviors[data.name] = data
+                monobehaviors[data.m_Name] = data
             if obj.type in {ClassIDType.Texture2D}:
-                textures[data.name] = data
+                textures[data.m_Name] = data
             if obj.type in {ClassIDType.AnimationClip}:
-                animations[data.name] = data
+                animations[data.m_Name] = data
         modelData = monobehaviors.get("BuildModelData", None)
         if not modelData:
             logger.warning("BuildModelData absent. Not extracting Live2D models!")
         else:
-            modelData = modelData.read_typetree()
+            # modelData = modelData.read_typetree()
             # TextAssets are directly extracted
             # Usually there are *.moc3, *.model3, *.physics3; the last two should be renamed to *.*.json
             for obj in env.objects:
                 if obj.type == ClassIDType.TextAsset:
                     data = obj.read()
-                    out_name: str = data.name
+                    out_name: str = data.m_Name
                     if (
                         out_name.endswith(".moc3")
                         or out_name.endswith(".model3")
@@ -45,9 +45,9 @@ def main_live2dextract(args):
                             out_name += ".json"
                         with open(path.join(args.outdir, out_name), "wb") as fout:
                             logger.info("Extracting Live2D Asset %s" % out_name)
-                            fout.write(data.script)
+                            fout.write(data.m_Script.encode("utf-8", "surrogateescape"))
             # Textures always needs conversion and is placed under specific folders
-            for texture in modelData["TextureNames"]:
+            for texture in modelData.TextureNames:
                 name = path.basename(texture)
                 folder = path.dirname(texture)
                 out_folder = path.join(args.outdir, folder)
