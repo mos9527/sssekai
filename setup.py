@@ -24,7 +24,7 @@ setuptools.setup(
     install_requires=[
         "msgpack",
         "pycryptodome",
-        "unitypy >= 1.10.14",
+        "unitypy >= 1.20.4",
         "wannacri",
         "python-json-logger",
         "tqdm",
