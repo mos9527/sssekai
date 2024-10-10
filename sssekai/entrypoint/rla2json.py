@@ -48,7 +48,9 @@ def main_rla2json(args):
             for obj in rla_env.objects:
                 if obj.type in {ClassIDType.TextAsset}:
                     data = obj.read()
-                    datas[data.m_Name] = data.script.tobytes()
+                    datas[data.m_Name] = data.m_Script.encode(
+                        "utf-8", "surrogateescape"
+                    )
         header = datas.get("sekai.rlh", None)
         assert header, "RLH Header file not found!"
         makedirs(args.outdir, exist_ok=True)

@@ -164,8 +164,9 @@
             "args": [
                 "rla2json",
                 "--dump-audio",
-                "D:\\proseka_reverse\\assets\\streaming_live\\archive\\1st_live_vbs-1",
-                "D:\\proseka_reverse\\assets\\streaming_live\\archive\\1st_live_vbs-1_hca"
+                "--no-parallel",
+                "D:\\proseka_reverse\\sse_packet_importer\\streaming_archive.zip",
+                "D:\\proseka_reverse\\sse_packet_importer\\4270_hca"
             ],
             "justMyCode": true
         },
