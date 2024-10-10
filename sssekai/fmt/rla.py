@@ -306,6 +306,16 @@ def decode_streaming_data(
                     if version >= (1, 4)
                     else {}
                 ),
+                **(
+                    {
+                        "characterVisible": get_next_mask(),
+                        "eyeLookAtTargetPositionOffset": get_next_vector3(),
+                        "eyeLookAtAngleLimit": get_next_vector3(),
+                        "isPreloadReverseCharacter": get_next_mask(),
+                    }
+                    if version >= (1, 5)
+                    else {}
+                ),
             }
             read_character_status = lambda: {
                 "costumeIndex": get_next_int(),
@@ -354,12 +364,32 @@ def decode_streaming_data(
 result = defaultdict(dict)
 
 
+def read_rla_frame(buffer: bytes, version=(1, 0), strict=True) -> dict:
+    """Parses a single frame of the Sekai RLA file format used in 'streaming_live/archive' assets.
+
+    Args:
+        buffer (bytes): Frame buffer
+        version (tuple, optional): RLA version, found in respective RLH (JSON) header files. range: (1,0) to (1,5). Defaults to (1,0).
+        strict (bool, optional): If False, incomplete packets will be returned as is. Defaults to True.
+
+    Returns:
+        dict: Parsed frame data
+    """
+    header_signature, data = decode_buffer_base64(buffer)
+    decoder_signature, data = decode_buffer_payload(data)
+    assert (
+        header_signature == decoder_signature
+    ), "mismatching signature (header/decoder). packet may be corrupt"
+    payload = decode_streaming_data(version, decoder_signature, data, strict)
+    return payload
+
+
 def read_rla(src: BytesIO, version=(1, 0), strict=True) -> dict:
     """Parses the Sekai RLA file format used in 'streaming_live/archive' assets.
 
     Args:
         src (BytesIO): Source RLA file stream
-        version (tuple, optional): RLA version, found in respective RLH (JSON) header files. i.e. one of (1,0), (1,1), (1,2), (1,3), (1,4) Defaults to (1,0).
+        version (tuple, optional): RLA version, found in respective RLH (JSON) header files. range: (1,0) to (1,5). Defaults to (1,0).
         strict (bool, optional): If False, incomplete packets will be returned as is. Defaults to True.
 
     Returns:
@@ -372,12 +402,7 @@ def read_rla(src: BytesIO, version=(1, 0), strict=True) -> dict:
         if ticks:
             buffer_length = read_int(src, 4)
             buffer = src.read(buffer_length)
-            header_signature, data = decode_buffer_base64(buffer)
-            decoder_signature, data = decode_buffer_payload(data)
-            assert (
-                header_signature == decoder_signature
-            ), "mismatching signature (header/decoder). packet may be corrupt"
-            payload = decode_streaming_data(version, decoder_signature, data, strict)
+            payload = read_rla_frame(buffer, version, strict)
             result[ticks].setdefault(payload["type"], list()).append(payload)
             return True
         return False
@@ -389,11 +414,10 @@ def read_rla(src: BytesIO, version=(1, 0), strict=True) -> dict:
 
 
 if __name__ == "__main__":
+    import sys
     from timeit import timeit
 
-    fp = open(
-        r"C:\Users\mos9527\Desktop\sekai_streaming\sekai_30_00000060.rla.bytes", "rb"
-    )
+    fp = open(sys.argv[-1], "rb")
     buffer = fp.read()
-    fp = BytesIO(buffer)
-    print("took %.2f seconds" % timeit("read_rla(fp, (1,0))", globals=globals()))
+    payload = read_rla_frame(buffer)
+    pass

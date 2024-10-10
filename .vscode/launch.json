@@ -179,5 +179,17 @@
             "args": [                
             ]
         },
+        {
+            "name": "Python: RLA Test (Single File)",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/sssekai/fmt/rla.py",
+            "console": "integratedTerminal",
+            "justMyCode": false,            
+            "args": [           
+                // "D:\\proseka_reverse\\sse_packet_importer\\packets\\streaming_vbs_1\\sekai_30_00000006.rla.bytes"                     
+                "D:\\proseka_reverse\\sse_packet_importer\\packets\\4268\\1728191806276-0.bin"
+            ]
+        },                
     ]
 }
