@@ -204,6 +204,12 @@ This crypto applies to:
         default=None,
     )
     apphash_parser.add_argument(
+        "--ab-src",
+        type=str,
+        help="AssetBundle (namely, 6350e2ec327334c8a9b7f494f344a761 or c726e51b6fe37463685916a1687158dd) source file (default: fetch from APK)",
+        default=None,
+    )
+    apphash_parser.add_argument(
         "--fetch", action="store_true", help="force fetching the latest APK"
     )
     apphash_parser.set_defaults(func=main_apphash)

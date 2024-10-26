@@ -25,3 +25,8 @@ def test_live2d_model():
             }
         )
     )
+
+
+if __name__ == "__main__":
+    test_live2d_motion()
+    test_live2d_model()

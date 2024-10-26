@@ -23,3 +23,9 @@ def test_rla_1_0():
 
     with open(PATH, "rb") as f:
         frame = read_rla_frame(f.read(), (1, 0), True)
+
+
+if __name__ == "__main__":
+    test_rla_1_5()
+    test_rla_1_4()
+    test_rla_1_0()

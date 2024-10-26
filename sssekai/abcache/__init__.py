@@ -6,32 +6,45 @@ from dataclasses import dataclass, fields, is_dataclass
 logger = getLogger("sssekai.abcache")
 
 
-def fromdict(klass: type, d: Union[Mapping, List]):
+def fromdict(klass: type, d: Union[Mapping, List], warn_missing_fields=True):
     """
     Recursively convert a dictionary to a dataclass instance, if applicable.
     https://stackoverflow.com/a/54769644
     https://gist.github.com/gatopeich/1efd3e1e4269e1e98fae9983bb914f22
     """
 
+    def ensure_iterable(d):
+        if isinstance(d, Mapping):
+            return d
+        if hasattr(d, "__dict__"):
+            return d.__dict__
+        return dict()
+
     def check_field(key, fields):
         if not key in fields:
-            logger.error(f"Field {key} of type {type(d[key])} not found in {klass}")
+            if warn_missing_fields:
+                logger.error(f"Field {key} of type {type(d[key])} not found in {klass}")
             return False
         return True
 
     if is_dataclass(klass):
         fieldtypes = {f.name: f.type for f in fields(klass)}
+        d = ensure_iterable(d)
         return klass(
-            **{
-                f: fromdict(fieldtypes[f], d[f])
-                for f in d
-                if check_field(f, fieldtypes)
-            }
+            **(
+                {
+                    f: fromdict(fieldtypes[f], d[f], warn_missing_fields)
+                    for f in d
+                    if check_field(f, fieldtypes)
+                }
+            )
         )
     if isinstance(d, list) and hasattr(klass, "__args__"):
-        return [fromdict(klass.__args__[0], di) for di in d]
+        return [fromdict(klass.__args__[0], di, warn_missing_fields) for di in d]
     if isinstance(d, dict) and hasattr(klass, "__args__"):
-        return {k: fromdict(klass.__args__[1], v) for k, v in d.items()}
+        return {
+            k: fromdict(klass.__args__[1], v, warn_missing_fields) for k, v in d.items()
+        }
     return d
 
 
