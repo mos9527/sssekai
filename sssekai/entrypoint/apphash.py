@@ -100,7 +100,7 @@ def main_apphash(args):
             env = load_assetbundle(BytesIO(f.read()))
     print("*** AppHash ***")
     for obj in env.objects:
-        obj = obj.read()
-        hashStr = HASHREGEX.finditer(obj.object_reader.get_raw_data())
+        # TODO: Dump actual typetree data from the game itself?
+        hashStr = HASHREGEX.finditer(obj.get_raw_data())
         for m in hashStr:
-            print(m.group().decode(), obj.m_Name)
+            print(m.group().decode())

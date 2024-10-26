@@ -11,16 +11,16 @@ def main_spineextract(args):
     os.makedirs(outdir, exist_ok=True)
     with open(args.infile, "rb") as f:
         env = load_assetbundle(f)
-        objects = [pobj.read() for pobj in env.objects]
+        objects = [(pobj, pobj.read()) for pobj in env.objects]
         binaries = {
             obj.m_Name: obj
-            for obj in objects
-            if getattr(obj, "type", None) in {ClassIDType.TextAsset}
+            for pobj, obj in objects
+            if pobj.type in {ClassIDType.TextAsset}
         }
         textures = {
             obj.m_Name: obj
-            for obj in objects
-            if getattr(obj, "type", None) in {ClassIDType.Texture2D}
+            for pobj, obj in objects
+            if pobj.type in {ClassIDType.Texture2D}
         }
         spines = set()
         for name in binaries:
@@ -35,7 +35,7 @@ def main_spineextract(args):
                 logger.info("...has Atlas %s" % spine)
                 with open(os.path.join(outdir, spine, spine + ".atlas.txt"), "wb") as f:
                     f.write(atlas.m_Script.encode("utf-8", "surrogateescape"))
-                texfiles = [line.strip() for line in atlas.text.split("\n")]
+                texfiles = [line.strip() for line in atlas.m_Script.split("\n")]
                 texfiles = [
                     ".".join(line.split(".")[:-1])
                     for line in texfiles

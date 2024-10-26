@@ -2,6 +2,27 @@
     "version": "0.2.0",
     "configurations": [
         {
+            "name": "Python: SpineExtract test",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "tests.test_spine",
+            "justMyCode": false
+        },
+        {
+            "name": "Python: Live2DExtract test",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "tests.test_live2d",
+            "justMyCode": false
+        },
+        {
+            "name": "Python: AppHash test",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "tests.test_apphash",
+            "justMyCode": false
+        },
+        {
             "name": "Python: Current File",
             "type": "python",
             "request": "launch",
@@ -21,7 +42,7 @@
             "args": [
                 "--log-level",
                 "DEBUG",
-                "abcache", 
+                "abcache",
                 "--app-version",
                 "4.0.0",
                 "--app-appHash",
@@ -37,7 +58,7 @@
             "args": [
                 "--log-level",
                 "DEBUG",
-                "abcache", 
+                "abcache",
                 "--app-version",
                 "3.8.1",
                 "--app-appHash",
@@ -46,7 +67,7 @@
                 "D:\\proseka_reverse\\masterdata"
             ],
             "justMyCode": true
-        },        
+        },
         {
             "name": "Python: AbCache (no update)",
             "type": "python",
@@ -62,7 +83,7 @@
                 ".*characterv2/face/21/.*"
             ],
             "justMyCode": true
-        },        
+        },
         {
             "name": "Python: MVData",
             "type": "python",
@@ -120,7 +141,7 @@
                 "C:\\Users\\mos9527\\Desktop\\pjsk_hash\\pjsk_350.apk"
             ],
             "justMyCode": false
-        },        
+        },
         {
             "name": "Python: usmdemux",
             "type": "python",
@@ -177,8 +198,7 @@
             "program": "${workspaceFolder}/tests/tests_main.py",
             "console": "integratedTerminal",
             "justMyCode": false,
-            "args": [                
-            ]
+            "args": []
         },
         {
             "name": "Python: RLA Test (Single File)",
@@ -186,11 +206,11 @@
             "request": "launch",
             "program": "${workspaceFolder}/sssekai/fmt/rla.py",
             "console": "integratedTerminal",
-            "justMyCode": false,            
-            "args": [           
+            "justMyCode": false,
+            "args": [
                 // "D:\\proseka_reverse\\sse_packet_importer\\packets\\streaming_vbs_1\\sekai_30_00000006.rla.bytes"                     
                 "D:\\proseka_reverse\\sse_packet_importer\\packets\\4268\\1728191806276-0.bin"
             ]
-        },                
+        },
     ]
 }
