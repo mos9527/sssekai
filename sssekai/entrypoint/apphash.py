@@ -43,10 +43,8 @@ def enum_package(zip_file):
             yield zipfile.ZipFile(zip_file.open(f))
 
 
-env = UnityPy.Environment()
-
-
 def main_apphash(args):
+    env = UnityPy.Environment()
     if not args.ab_src:
         if not args.apk_src or args.fetch:
             from requests import get

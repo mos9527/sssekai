@@ -20,7 +20,7 @@ def sssekai_set_unity_version(value):
 
 
 # Monkey-patching modules
-from . import Mesh, AnimationClip
+from . import AnimationClip
 
 # Other modules
 from . import AssetBundle
