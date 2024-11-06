@@ -5,6 +5,8 @@ Command-line tool (w/Python API support) for Project SEKAI (JP: プロジェク�
 
 # Installing & Updating
 **For Windows Users** : Builds are available [here](https://github.com/mos9527/sssekai/releases)
+
+Python >=3.10 is required to run this tool.
 ## Installation
 Or get the latest version from PyPI:
 ```bash
