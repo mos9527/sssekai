@@ -98,6 +98,13 @@ This crypto applies to:
         "NOTE: these options are used to *update* the cache database. Use --no-update to skip updating. Also, you may want to read the Wiki to know how to get these values.",
     )
     group.add_argument(
+        "--app-region",
+        type=str,
+        help="PJSK app region (default: %(default)s)",
+        choices=["jp", "tw", "en", "kr"],
+        default="jp",
+    )
+    group.add_argument(
         "--app-platform",
         type=str,
         help="PJSK app platform (default: %(default)s",

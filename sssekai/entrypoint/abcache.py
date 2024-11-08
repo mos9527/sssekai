@@ -68,7 +68,9 @@ class AbCacheDownloader(ThreadPoolExecutor):
 
 def main_abcache(args):
     cache = AbCache(
-        AbCacheConfig(args.app_version, args.app_platform, args.app_appHash)
+        AbCacheConfig(
+            args.app_region, args.app_version, args.app_platform, args.app_appHash
+        )
     )
     if args.dump_master_data:
         logger.info("Dumping master data to %s", args.dump_master_data)

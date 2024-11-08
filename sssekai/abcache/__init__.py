@@ -58,6 +58,7 @@ from sssekai.crypto.APIManager import decrypt, encrypt
 
 @dataclass
 class AbCacheConfig:
+    app_region: str
     app_version: str
     app_platform: str
     app_hash: str
@@ -173,8 +174,50 @@ class AbCacheBundleNotFoundError(Exception):
         super().__init__("Bundle not found: %s" % bundleName)
 
 
-class AbCache(Session):
+class AbCacheBase(Session):
     database: SSSekaiDatabase
+
+    @property
+    def SEKAI_API_ENDPOINT(self):
+        match self.config.app_region:
+            case "jp":
+                return "https://production-game-api.sekai.colorfulpalette.org"
+            case "en":
+                return "https://n-production-web.sekai-en.com"
+            case _:
+                raise NotImplementedError
+
+    @property
+    def SEKAI_API_GAMEVERSION_ENDPOINT(self):
+        match self.config.app_region:
+            case "jp":
+                return "https://game-version.sekai.colorfulpalette.org"
+            case _:
+                raise NotImplementedError
+
+    @property
+    def SEKAI_ISSUE_ENDPOINT(self):
+        match self.config.app_region:
+            case "jp":
+                return "https://issue.sekai.colorfulpalette.org"
+            case _:
+                raise NotImplementedError
+
+    @property
+    def SEKAI_AB_INFO_ENDPOINT(self):
+        match self.config.app_region:
+            case "jp":
+                return f"https://production-{self.SEKAI_AB_HOST_HASH}-assetbundle-info.sekai.colorfulpalette.org/"
+            case _:
+                raise NotImplementedError
+
+    @property
+    def SEKAI_AB_ENDPOINT(self):
+        match self.config.app_region:
+            case "jp":
+                return f"https://production-{self.SEKAI_AB_HOST_HASH}-assetbundle.sekai.colorfulpalette.org/"
+            case _:
+                raise NotImplementedError
 
     @property
     def config(self):
@@ -183,29 +226,6 @@ class AbCache(Session):
     @config.setter
     def config(self, v):
         self.database.config = v
-
-    @property
-    def SEKAI_API_ENDPOINT(self):
-        return "https://production-game-api.sekai.colorfulpalette.org"
-
-    # region Game Region Specific endpoints
-    @property
-    def SEKAI_API_GAMEVERSION_ENDPOINT(self):
-        return "https://game-version.sekai.colorfulpalette.org"
-
-    @property
-    def SEKAI_ISSUE_ENDPOINT(self):
-        return "https://issue.sekai.colorfulpalette.org"
-
-    @property
-    def SEKAI_AB_INFO_ENDPOINT(self):
-        return f"https://production-{self.SEKAI_AB_HOST_HASH}-assetbundle-info.sekai.colorfulpalette.org/"
-
-    @property
-    def SEKAI_AB_ENDPOINT(self):
-        return f"https://production-{self.SEKAI_AB_HOST_HASH}-assetbundle.sekai.colorfulpalette.org/"
-
-    # endregion
 
     @property
     def SEKAI_APP_VERSION(self):
