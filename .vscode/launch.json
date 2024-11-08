@@ -51,6 +51,24 @@
             "justMyCode": true
         },
         {
+            "name": "Python: AbCache (EN)",
+            "type": "python",
+            "request": "launch",
+            "module": "sssekai",
+            "args": [
+                "--log-level",
+                "DEBUG",
+                "abcache",
+                "--app-region",
+                "en",
+                "--app-version",
+                "3.1.0",
+                "--app-appHash",
+                "a892dc93-798e-4007-8d07-54cb13c9500a"
+            ],
+            "justMyCode": true
+        },
+        {
             "name": "Python: AbCache (dump Master data)",
             "type": "python",
             "request": "launch",

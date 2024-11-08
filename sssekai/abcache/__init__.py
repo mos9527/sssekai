@@ -174,7 +174,7 @@ class AbCacheBundleNotFoundError(Exception):
         super().__init__("Bundle not found: %s" % bundleName)
 
 
-class AbCacheBase(Session):
+class AbCache(Session):
     database: SSSekaiDatabase
 
     @property
