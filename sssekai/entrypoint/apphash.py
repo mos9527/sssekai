@@ -9,27 +9,6 @@ from sssekai.unity.AssetBundle import load_assetbundle
 HASHREGEX = re.compile(b"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}")
 
 
-def dump_axml_stringpool(f: BytesIO):
-    read_int = lambda nbytes: int.from_bytes(f.read(nbytes), "little")
-    f.seek(8)
-    hdr_type, hdr_size, size = read_int(2), read_int(2), read_int(4)
-    n_strings = read_int(4)
-    unk = read_int(4)
-    flags = read_int(4)
-    is_utf8 = flags & (1 << 8)
-    string_offset = read_int(4) + 8
-    unk = read_int(4)
-    offsets = [read_int(4) for _ in range(n_strings)]
-    for offset in offsets:
-        f.seek(string_offset + offset)
-        string_len = read_int(2)
-        if is_utf8:
-            string = f.read(string_len).decode("utf-8")
-        else:
-            string = f.read(string_len * 2).decode("utf-16-le")
-        yield string
-
-
 def enum_candidates(zip_file, filter):
     return (
         (f, zip_file.open(f), zip_file) for f in zip_file.filelist if filter(f.filename)
@@ -72,12 +51,14 @@ def main_apphash(args):
                 )
             ]
             manifest = manifests[0][1]
-            manifest_strings = list(dump_axml_stringpool(manifest))
-            for i in range(len(manifest_strings)):
-                if "STAMP_TYPE_" in manifest_strings[i]:
-                    print("Package Type:", manifest_strings[i])
-                    print("Version:", manifest_strings[i - 2])
-                    break
+            from pyaxmlparser.axmlprinter import AXMLPrinter
+
+            manifest = AXMLPrinter(manifest.read()).get_xml_obj()
+            find_key = lambda ky: next((k for k in manifest.keys() if ky in k), None)
+            version = manifest.get(find_key("versionName"), None)
+            packageName = manifest.get(find_key("package"), None)
+            print("* Package: %s" % packageName)
+            print("* Version: %s" % version)
             candidates = [
                 candidate
                 for package in enum_package(zip_ref)

@@ -185,6 +185,29 @@ class AbCache(Session):
         self.database.config = v
 
     @property
+    def SEKAI_API_ENDPOINT(self):
+        return "https://production-game-api.sekai.colorfulpalette.org"
+
+    # region Game Region Specific endpoints
+    @property
+    def SEKAI_API_GAMEVERSION_ENDPOINT(self):
+        return "https://game-version.sekai.colorfulpalette.org"
+
+    @property
+    def SEKAI_ISSUE_ENDPOINT(self):
+        return "https://issue.sekai.colorfulpalette.org"
+
+    @property
+    def SEKAI_AB_INFO_ENDPOINT(self):
+        return f"https://production-{self.SEKAI_AB_HOST_HASH}-assetbundle-info.sekai.colorfulpalette.org/"
+
+    @property
+    def SEKAI_AB_ENDPOINT(self):
+        return f"https://production-{self.SEKAI_AB_HOST_HASH}-assetbundle.sekai.colorfulpalette.org/"
+
+    # endregion
+
+    @property
     def SEKAI_APP_VERSION(self):
         return self.config.app_version
 
@@ -211,10 +234,6 @@ class AbCache(Session):
         return self.database.sekai_gameversion_data.assetbundleHostHash
 
     @property
-    def SEKAI_API_ENDPOINT(self):
-        return "https://production-game-api.sekai.colorfulpalette.org"
-
-    @property
     def SEKAI_API_SYSTEM_DATA(self):
         return self.SEKAI_API_ENDPOINT + "/api/system"
 
@@ -239,28 +258,12 @@ class AbCache(Session):
         return self.SEKAI_API_ENDPOINT + "/api/information"
 
     @property
-    def SEKAI_API_GAMEVERSION_ENDPOINT(self):
-        return "https://game-version.sekai.colorfulpalette.org"
-
-    @property
-    def SEKAI_AB_INFO_ENDPOINT(self):
-        return f"https://production-{self.SEKAI_AB_HOST_HASH}-assetbundle-info.sekai.colorfulpalette.org/"
-
-    @property
-    def SEKAI_AB_ENDPOINT(self):
-        return f"https://production-{self.SEKAI_AB_HOST_HASH}-assetbundle.sekai.colorfulpalette.org/"
-
-    @property
     def SEKAI_AB_BASE_PATH(self):
         return f"{self.SEKAI_ASSET_VERSION}/{self.SEKAI_AB_HASH}/{self.config.app_platform}/"
 
     @property
     def SEKAI_AB_INDEX_PATH(self):
         return f"api/version/{self.SEKAI_ASSET_VERSION}/os/{self.config.app_platform}"
-
-    @property
-    def SEKAI_ISSUE_ENDPOINT(self):
-        return "https://issue.sekai.colorfulpalette.org"
 
     @property
     def SEKAI_ISSUE_SIGNATURE_ENDPOINT(self):

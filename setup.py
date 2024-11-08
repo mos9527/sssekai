@@ -31,6 +31,7 @@ setuptools.setup(
         "tqdm",
         "coloredlogs",
         "requests",
+        "pyaxmlparser",
     ],
     entry_points={"console_scripts": ["sssekai = sssekai.__main__:__main__"]},
     python_requires=">=3.10",
