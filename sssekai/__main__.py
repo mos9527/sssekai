@@ -62,6 +62,13 @@ This crypto applies to:
     )
     apidecrypt_parser.add_argument("infile", type=str, help="input dump file")
     apidecrypt_parser.add_argument("outfile", type=str, help="output json file")
+    apidecrypt_parser.add_argument(
+        "--region",
+        type=str,
+        help="app region",
+        default="jp",
+        choices=["jp", "tw", "en", "kr"],
+    )
     apidecrypt_parser.set_defaults(func=main_apidecrypt)
     # abdecrypt
     abdecrypt_parser = subparsers.add_parser(
