@@ -1,5 +1,5 @@
 from pickle import load, dump
-from typing import BinaryIO, List, Mapping, Union
+from typing import BinaryIO, List, Mapping, Optional, Union
 from logging import getLogger
 from dataclasses import dataclass, fields, is_dataclass
 
@@ -53,7 +53,7 @@ from msgpack import unpackb, packb
 
 from sssekai import __version__
 from sssekai.unity import sssekai_get_unity_version
-from sssekai.crypto.APIManager import decrypt, encrypt
+from sssekai.crypto.APIManager import decrypt, encrypt, SEKAI_APIMANAGER_KEYSETS
 
 
 @dataclass
@@ -92,10 +92,10 @@ class SekaiAppVersion:
     multiPlayVersion: str
     appVersionStatus: str
     assetVersion: str
-    # These are sadly removed from 3.5.0
-    _dataVersion: str = None
-    _appHash: str = None
-    _assetHash: str = None
+    # These are sadly removed from 3.5.0 (JP)
+    dataVersion: Optional[str] = None
+    appHash: Optional[str] = None
+    assetHash: Optional[str] = None
 
 
 @dataclass
@@ -153,7 +153,7 @@ class SekaiUserAuthData:
     deviceId: str
     updatedResources: dict
     suiteMasterSplitPath: list
-    obtainedBondsRewardIds: list
+    obtainedBondsRewardIds: Optional[list] = None  # JP 4.0+
 
 
 @dataclass
@@ -183,7 +183,7 @@ class AbCache(Session):
             case "jp":
                 return "https://production-game-api.sekai.colorfulpalette.org"
             case "en":
-                return "https://n-production-web.sekai-en.com"
+                return "https://n-production-game-api.sekai-en.com"
             case _:
                 raise NotImplementedError
 
@@ -192,6 +192,8 @@ class AbCache(Session):
         match self.config.app_region:
             case "jp":
                 return "https://game-version.sekai.colorfulpalette.org"
+            case "en":
+                return "https://game-version.sekai-en.com"
             case _:
                 raise NotImplementedError
 
@@ -199,6 +201,8 @@ class AbCache(Session):
     def SEKAI_ISSUE_ENDPOINT(self):
         match self.config.app_region:
             case "jp":
+                return "https://issue.sekai.colorfulpalette.org"
+            case "en":
                 return "https://issue.sekai.colorfulpalette.org"
             case _:
                 raise NotImplementedError
@@ -208,6 +212,8 @@ class AbCache(Session):
         match self.config.app_region:
             case "jp":
                 return f"https://production-{self.SEKAI_AB_HOST_HASH}-assetbundle-info.sekai.colorfulpalette.org/"
+            case "en":
+                return f"https://assetbundle-info.sekai-en.com/"
             case _:
                 raise NotImplementedError
 
@@ -216,6 +222,8 @@ class AbCache(Session):
         match self.config.app_region:
             case "jp":
                 return f"https://production-{self.SEKAI_AB_HOST_HASH}-assetbundle.sekai.colorfulpalette.org/"
+            case "en":
+                return f"https://assetbundle.sekai-en.com/"
             case _:
                 raise NotImplementedError
 
@@ -306,13 +314,12 @@ class AbCache(Session):
         """
         if data is not None:
             data = packb(data)
-            data = encrypt(data)
+            data = encrypt(data, SEKAI_APIMANAGER_KEYSETS[self.config.app_region])
         resp = self.request(method=method, url=url, data=data, **kwargs)
         resp.raise_for_status()
         return resp
 
-    @staticmethod
-    def response_to_dict(resp: Response):
+    def response_to_dict(self, resp: Response):
         """Decrypt and unpack a response content to a dictionary.
 
         Args:
@@ -321,7 +328,7 @@ class AbCache(Session):
         Returns:
             dict: Decrypted and unpacked data
         """
-        data = decrypt(resp.content)
+        data = decrypt(resp.content, SEKAI_APIMANAGER_KEYSETS[self.config.app_region])
         data = unpackb(data)
         return data
 
