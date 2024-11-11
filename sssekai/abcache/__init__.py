@@ -184,6 +184,10 @@ class AbCache(Session):
                 return "https://production-game-api.sekai.colorfulpalette.org"
             case "en":
                 return "https://n-production-game-api.sekai-en.com"
+            case "tw":
+                return "https://mk-zian-obt-cdn.bytedgame.com"
+            case "kr":
+                return "https://mkkorea-obt-prod01-cdn.bytedgame.com"
             case _:
                 raise NotImplementedError
 
@@ -202,8 +206,6 @@ class AbCache(Session):
         match self.config.app_region:
             case "jp":
                 return "https://issue.sekai.colorfulpalette.org"
-            case "en":
-                return "https://issue.sekai.colorfulpalette.org"
             case _:
                 raise NotImplementedError
 
@@ -211,9 +213,13 @@ class AbCache(Session):
     def SEKAI_AB_INFO_ENDPOINT(self):
         match self.config.app_region:
             case "jp":
-                return f"https://production-{self.SEKAI_AB_HOST_HASH}-assetbundle-info.sekai.colorfulpalette.org/"
+                return f"https://production-{self.SEKAI_AB_HOST_HASH}-assetbundle.sekai.colorfulpalette.org/api/version/{self.SEKAI_ASSET_VERSION}/os/{self.config.app_platform}"
             case "en":
-                return f"https://assetbundle-info.sekai-en.com/"
+                return f"https://assetbundle.sekai-en.com/api/version/{self.SEKAI_ASSET_VERSION}/os/{self.config.app_platform}"
+            case "tw":  # NOTE: Android only
+                return f"https://lf16-mkovscdn-sg.bytedgame.com/obj/sf-game-alisg/gdl_app_5245/AssetBundle/{self.config.app_version}/Release/online/android49/AssetBundleInfoNew.json"
+            case "kr":  # NOTE: Android only
+                return f"https://lf16-mkkr.bytedgame.com/obj/sf-game-alisg/gdl_app_292248/AssetBundle/{self.config.app_version}/Release/kr_online/android38/AssetBundleInfoNew.json"
             case _:
                 raise NotImplementedError
 
@@ -224,6 +230,10 @@ class AbCache(Session):
                 return f"https://production-{self.SEKAI_AB_HOST_HASH}-assetbundle.sekai.colorfulpalette.org/"
             case "en":
                 return f"https://assetbundle.sekai-en.com/"
+            case "tw":  # NOTE: Android only
+                return f"https://lf16-mkovscdn-sg.bytedgame.com/obj/sf-game-alisg/gdl_app_5245/AssetBundle/{self.config.app_version}/Release/online/android1/"
+            case "kr":  # NOTE: Android only
+                return f"https://lf16-mkkr.bytedgame.com/obj/sf-game-alisg/gdl_app_292248/AssetBundle/{self.config.app_version}/Release/kr_online/android4/"
             case _:
                 raise NotImplementedError
 
@@ -288,10 +298,6 @@ class AbCache(Session):
     @property
     def SEKAI_AB_BASE_PATH(self):
         return f"{self.SEKAI_ASSET_VERSION}/{self.SEKAI_AB_HASH}/{self.config.app_platform}/"
-
-    @property
-    def SEKAI_AB_INDEX_PATH(self):
-        return f"api/version/{self.SEKAI_ASSET_VERSION}/os/{self.config.app_platform}"
 
     @property
     def SEKAI_ISSUE_SIGNATURE_ENDPOINT(self):
@@ -367,23 +373,22 @@ class AbCache(Session):
         self.database.sekai_system_data = fromdict(SekaiSystemData, data)
 
     def _update_gameversion_data(self):
-        logger.debug("Updating game version data")
-        resp = self.request_packed(
-            "GET",
-            self.SEKAI_API_GAMEVERSION_ENDPOINT
-            + "/"
-            + self.SEKAI_APP_VERSION
-            + "/"
-            + self.SEKAI_APP_HASH,
-        )
-        data = self.response_to_dict(resp)
-        self.database.sekai_gameversion_data = fromdict(SekaiGameVersionData, data)
+        if self.config.app_region in {"jp", "en"}:
+            logger.debug("Updating game version data")
+            resp = self.request_packed(
+                "GET",
+                self.SEKAI_API_GAMEVERSION_ENDPOINT
+                + "/"
+                + self.SEKAI_APP_VERSION
+                + "/"
+                + self.SEKAI_APP_HASH,
+            )
+            data = self.response_to_dict(resp)
+            self.database.sekai_gameversion_data = fromdict(SekaiGameVersionData, data)
 
     def _update_abcache_index(self) -> AbCacheIndex:
         logger.debug("Updating Assetbundle index")
-        resp = self.request_packed(
-            "GET", self.SEKAI_AB_INFO_ENDPOINT + self.SEKAI_AB_INDEX_PATH
-        )
+        resp = self.request_packed("GET", self.SEKAI_AB_INFO_ENDPOINT)
         data = self.response_to_dict(resp)
         self.database.sekai_abcache_index = fromdict(AbCacheIndex, data)
         return self.database.sekai_abcache_index
@@ -415,7 +420,8 @@ class AbCache(Session):
         Returns:
             dict: Updated headers
         """
-        self._update_signatures()
+        if self.config.app_region in {"jp"}:
+            self._update_signatures()
         return self.headers
 
     def update_client_headers(self):

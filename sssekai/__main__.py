@@ -44,7 +44,7 @@ Installation:
         "--unity-version",
         type=str,
         help="""Unity version to use (default: %(default)s)
-Prior to game version 3.6.0, this has always been 2020.3.21f1
+Prior to game version 3.6.0 (JP), this has always been 2020.3.21f1
 This has been changed to 2022.3.21f1 since, which would apply to all the assets from 3.6.0 onwards.
 If you encounter any issues, try switching to the old version, or vice versa.""",
         default=sssekai_get_unity_version(),
@@ -127,7 +127,7 @@ This crypto applies to:
     group.add_argument(
         "--app-appHash",
         type=str,
-        help="PJSK app hash. This is required unless --no-update is specified",
+        help="PJSK app hash. This is required for unless --no-update is specified",
         default="",
     )
     group = abcache_parser.add_argument_group("download options")

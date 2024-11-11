@@ -28,6 +28,8 @@ SEKAI_APIMANAGER_KEYSETS = {
         b"~\x85l\x90y\x87\xf8\xae\xc6\xaf\xc0\xc5G8\xfc~",
     ),
     "jp": (b"g2fcC0ZczN9MTJ61", b"msx3IV0i9XE5uYZ1"),
+    "tw": (b"g2fcC0ZczN9MTJ61", b"msx3IV0i9XE5uYZ1"),
+    "kr": (b"g2fcC0ZczN9MTJ61", b"msx3IV0i9XE5uYZ1"),
 }
 
 

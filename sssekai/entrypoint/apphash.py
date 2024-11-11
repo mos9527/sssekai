@@ -29,7 +29,7 @@ def main_apphash(args):
             from requests import get
 
             src = BytesIO()
-            print("Fetching latest game package from APKPure")
+            print("Fetching latest game package (JP) from APKPure")
             resp = get(
                 "https://d.apkpure.net/b/XAPK/com.sega.pjsekai?version=latest",
                 stream=True,

@@ -51,6 +51,42 @@
             "justMyCode": true
         },
         {
+            "name": "Python: AbCache (TW)",
+            "type": "python",
+            "request": "launch",
+            "module": "sssekai",
+            "args": [
+                "--log-level",
+                "DEBUG",
+                "abcache",
+                "--app-region",
+                "tw",
+                "--app-version",
+                "3.4.0",   
+                "--app-appHash",
+                "<TODO>"                       
+            ],
+            "justMyCode": true
+        },       
+        {
+            "name": "Python: AbCache (KR)",
+            "type": "python",
+            "request": "launch",
+            "module": "sssekai",
+            "args": [
+                "--log-level",
+                "DEBUG",
+                "abcache",
+                "--app-region",
+                "kr",
+                "--app-version",
+                "3.4.0",   
+                "--app-appHash",
+                "<TODO>"                       
+            ],
+            "justMyCode": true
+        },        
+        {
             "name": "Python: AbCache (EN)",
             "type": "python",
             "request": "launch",
