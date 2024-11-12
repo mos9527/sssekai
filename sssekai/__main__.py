@@ -127,7 +127,7 @@ This crypto applies to:
     group.add_argument(
         "--app-appHash",
         type=str,
-        help="PJSK app hash. This is required for unless --no-update is specified",
+        help="PJSK app hash. This is required unless --no-update is specified",
         default="",
     )
     group = abcache_parser.add_argument_group("download options")

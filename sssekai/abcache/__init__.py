@@ -213,9 +213,9 @@ class AbCache(Session):
     def SEKAI_AB_INFO_ENDPOINT(self):
         match self.config.app_region:
             case "jp":
-                return f"https://production-{self.SEKAI_AB_HOST_HASH}-assetbundle.sekai.colorfulpalette.org/api/version/{self.SEKAI_ASSET_VERSION}/os/{self.config.app_platform}"
+                return f"https://production-{self.SEKAI_AB_HOST_HASH}-assetbundle-info.sekai.colorfulpalette.org/api/version/{self.SEKAI_ASSET_VERSION}/os/{self.config.app_platform}"
             case "en":
-                return f"https://assetbundle.sekai-en.com/api/version/{self.SEKAI_ASSET_VERSION}/os/{self.config.app_platform}"
+                return f"https://assetbundle-info.sekai-en.com/api/version/{self.SEKAI_ASSET_VERSION}/os/{self.config.app_platform}"
             case "tw":  # NOTE: Android only
                 return f"https://lf16-mkovscdn-sg.bytedgame.com/obj/sf-game-alisg/gdl_app_5245/AssetBundle/{self.config.app_version}/Release/online/android49/AssetBundleInfoNew.json"
             case "kr":  # NOTE: Android only
@@ -339,11 +339,12 @@ class AbCache(Session):
         return data
 
     def _update_signatures(self):
-        logger.debug("Updating signatures")
-        resp = self.request_packed("POST", self.SEKAI_ISSUE_SIGNATURE_ENDPOINT)
-        self.headers["Cookie"] = resp.headers["Set-Cookie"]
-        # HACK: Per RFC6265, Cookies should not be visible to subdomains since it's not set with Domain attribute (https://github.com/psf/requests/issues/2576)
-        # But the other endpoints uses it nontheless. So we have to set it manually.
+        if self.config.app_region in {"jp"}:
+            logger.debug("Updating signatures")
+            resp = self.request_packed("POST", self.SEKAI_ISSUE_SIGNATURE_ENDPOINT)
+            self.headers["Cookie"] = resp.headers["Set-Cookie"]
+            # HACK: Per RFC6265, Cookies should not be visible to subdomains since it's not set with Domain attribute (https://github.com/psf/requests/issues/2576)
+            # But the other endpoints uses it nontheless. So we have to set it manually.
 
     def _update_user_data(self):
         logger.debug("Updating user data")
@@ -420,8 +421,7 @@ class AbCache(Session):
         Returns:
             dict: Updated headers
         """
-        if self.config.app_region in {"jp"}:
-            self._update_signatures()
+        self._update_signatures()
         return self.headers
 
     def update_client_headers(self):
