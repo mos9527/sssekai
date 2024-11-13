@@ -2,6 +2,7 @@ from pickle import load, dump
 from typing import BinaryIO, List, Mapping, Optional, Union
 from logging import getLogger
 from dataclasses import dataclass, fields, is_dataclass
+from functools import cached_property
 
 logger = getLogger("sssekai.abcache")
 
@@ -12,6 +13,9 @@ def fromdict(klass: type, d: Union[Mapping, List], warn_missing_fields=True):
     https://stackoverflow.com/a/54769644
     https://gist.github.com/gatopeich/1efd3e1e4269e1e98fae9983bb914f22
     """
+
+    while klass.__name__ == "Optional":
+        klass = klass.__args__[0]  # Reduce Optional[T] -> T
 
     def ensure_iterable(d):
         if isinstance(d, Mapping):
@@ -76,12 +80,15 @@ class AbCacheEntry(dict):
     dependencies: List[str]
     paths: List[str]
     isBuiltin: bool
+    # TW, KR only
+    md5Hash: Optional[str] = None
+    downloadPath: Optional[str] = None
 
 
 @dataclass
 class AbCacheIndex(dict):
     version: str
-    os: str
+    os: Optional[str] = None  # Undefined in KR, TW
     bundles: Mapping[str, AbCacheEntry] = None
 
 
@@ -101,18 +108,15 @@ class SekaiAppVersion:
 @dataclass
 class SekaiSystemData:
     serverDate: int
-    timezone: str
-    profile: str
-    maintenanceStatus: str
-    appVersions: List[SekaiAppVersion]
+    # Undefined in KR, TW
+    timezone: Optional[str] = None
+    profile: Optional[str] = None
+    maintenanceStatus: Optional[str] = None
+    appVersions: Optional[List[SekaiAppVersion]] = None
 
-    _appVersionDict: dict = None
-
-    @property
+    @cached_property
     def appVersionDict(self):
-        if self._appVersionDict is None:
-            self._appVersionDict = {av.appVersion: av for av in self.appVersions}
-        return self._appVersionDict
+        return {av.appVersion: av for av in self.appVersions or []}
 
 
 @dataclass
@@ -219,7 +223,7 @@ class AbCache(Session):
             case "tw":  # NOTE: Android only
                 return f"https://lf16-mkovscdn-sg.bytedgame.com/obj/sf-game-alisg/gdl_app_5245/AssetBundle/{self.config.app_version}/Release/online/android49/AssetBundleInfoNew.json"
             case "kr":  # NOTE: Android only
-                return f"https://lf16-mkkr.bytedgame.com/obj/sf-game-alisg/gdl_app_292248/AssetBundle/{self.config.app_version}/Release/kr_online/android38/AssetBundleInfoNew.json"
+                return f"https://lf16-mkkr.bytedgame.com/obj/sf-game-alisg/gdl_app_292248/AssetBundle/{self.config.app_version}/Release/kr_online/android21/AssetBundleInfo.json"
             case _:
                 raise NotImplementedError
 
@@ -347,25 +351,27 @@ class AbCache(Session):
             # But the other endpoints uses it nontheless. So we have to set it manually.
 
     def _update_user_data(self):
-        logger.debug("Updating user data")
-        payload = {
-            "platform": self.headers["X-Platform"],
-            "deviceModel": self.headers["X-DeviceModel"],
-            "operatingSystem": self.headers["X-OperatingSystem"],
-        }
-        resp = self.request_packed("POST", self.SEKAI_API_USER, data=payload)
-        data = self.response_to_dict(resp)
-        self.database.sekai_user_data = fromdict(SekaiUserData, data)
+        if self.config.app_region in {"jp", "en"}:
+            logger.debug("Updating user data")
+            payload = {
+                "platform": self.headers["X-Platform"],
+                "deviceModel": self.headers["X-DeviceModel"],
+                "operatingSystem": self.headers["X-OperatingSystem"],
+            }
+            resp = self.request_packed("POST", self.SEKAI_API_USER, data=payload)
+            data = self.response_to_dict(resp)
+            self.database.sekai_user_data = fromdict(SekaiUserData, data)
 
     def _update_user_auth_data(self):
-        logger.debug("Updating user auth data")
-        payload = {
-            "credential": self.database.sekai_user_data.credential,
-            "deviceId": None,
-        }
-        resp = self.request_packed("PUT", self.SEKAI_API_USER_AUTH, data=payload)
-        data = self.response_to_dict(resp)
-        self.database.sekai_user_auth_data = fromdict(SekaiUserAuthData, data)
+        if self.config.app_region in {"jp", "en"}:
+            logger.debug("Updating user auth data")
+            payload = {
+                "credential": self.database.sekai_user_data.credential,
+                "deviceId": None,
+            }
+            resp = self.request_packed("PUT", self.SEKAI_API_USER_AUTH, data=payload)
+            data = self.response_to_dict(resp)
+            self.database.sekai_user_auth_data = fromdict(SekaiUserAuthData, data)
 
     def _update_system_data(self):
         logger.debug("Updating system data")
@@ -431,33 +437,33 @@ class AbCache(Session):
             _type_: _description_
         """
         logger.debug("Updating metadata")
-        logger.debug(
-            "Set App version: %s (%s), hash=%s"
-            % (self.config.app_version, self.config.app_platform, self.SEKAI_APP_HASH)
-        )
+        logger.debug("Set config: %s" % self.config)
         self._update_signatures()
         self._update_system_data()
-        version_newest = self.database.sekai_system_data.appVersions[-1]
-        logger.debug("Newest App version: %s" % version_newest)
-        if version_newest.appVersion != self.SEKAI_APP_VERSION:
-            logger.warning("App version mismatch. This may cause issues.")
+        if self.config.app_region in {"jp", "en"}:
+            version_newest = self.database.sekai_system_data.appVersions[-1]
+            logger.debug("Newest App version: %s" % version_newest)
+            if version_newest.appVersion != self.SEKAI_APP_VERSION:
+                logger.warning("App version mismatch. This may cause issues.")
         self._update_gameversion_data()
         self._update_user_data()
         self._update_user_auth_data()
-        self.headers.update(
-            {
-                "X-Data-Version": self.database.sekai_user_auth_data.dataVersion,
-                "X-Asset-Version": self.database.sekai_user_auth_data.assetVersion,
-                "X-Session-Token": self.database.sekai_user_auth_data.sessionToken,
-            }
-        )
+        if self.config.app_region in {"jp", "en"}:
+            self.headers.update(
+                {
+                    "X-Data-Version": self.database.sekai_user_auth_data.dataVersion,
+                    "X-Asset-Version": self.database.sekai_user_auth_data.assetVersion,
+                    "X-Session-Token": self.database.sekai_user_auth_data.sessionToken,
+                }
+            )
         return self.headers
 
     def update(self):
         self.update_client_headers()
         self._update_abcache_index()
-        logger.debug("Sekai AssetBundle version: %s" % self.SEKAI_ASSET_VERSION)
-        logger.debug("Sekai AssetBundle host hash: %s" % self.SEKAI_AB_HOST_HASH)
+        if self.config.app_region in {"jp", "en"}:
+            logger.debug("Sekai AssetBundle version: %s" % self.SEKAI_ASSET_VERSION)
+            logger.debug("Sekai AssetBundle host hash: %s" % self.SEKAI_AB_HOST_HASH)
 
     def save(self, f: BinaryIO):
         logger.debug("Saving cache")
@@ -476,7 +482,10 @@ class AbCache(Session):
         return self.abcache_index.bundles.get(bundleName, None)
 
     def get_entry_download_url(self, entry: AbCacheEntry):
-        return self.SEKAI_AB_ENDPOINT + self.SEKAI_AB_BASE_PATH + entry.bundleName
+        if self.config.app_region in {"jp", "en"}:
+            return self.SEKAI_AB_ENDPOINT + self.SEKAI_AB_BASE_PATH + entry.bundleName
+        else:
+            return self.SEKAI_AB_ENDPOINT + entry.bundleName
 
     def get_or_update_dependency_tree_flatten(self, bundleName: str, deps: set = None):
         """Get a flattened set of asset dependency bundle names (including itself) for a given entry.

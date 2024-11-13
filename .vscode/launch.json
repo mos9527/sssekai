@@ -35,7 +35,7 @@
             ]
         },
         {
-            "name": "Python: AbCache",
+            "name": "Python: AbCache (JP)",
             "type": "python",
             "request": "launch",
             "module": "sssekai",
@@ -43,6 +43,8 @@
                 "--log-level",
                 "DEBUG",
                 "abcache",
+                "--app-region",
+                "jp",
                 "--app-version",
                 "4.0.5",
                 "--app-appHash",
@@ -64,7 +66,8 @@
                 "--app-version",
                 "3.4.0",   
                 "--app-appHash",
-                "<TODO>"                       
+                "a3015fe8-785f-27e1-fb8b-546a23c82c1f",
+                              
             ],
             "justMyCode": true
         },       
@@ -80,9 +83,9 @@
                 "--app-region",
                 "kr",
                 "--app-version",
-                "3.4.0",   
+                "2.8.0",   
                 "--app-appHash",
-                "<TODO>"                       
+                "4d9acca8-553f-c3f4-398b-a678e32e7f85"                       
             ],
             "justMyCode": true
         },        
@@ -113,12 +116,14 @@
                 "--log-level",
                 "DEBUG",
                 "abcache",
+                "--app-region",
+                "en",
                 "--app-version",
-                "3.8.1",
+                "3.1.0",
                 "--app-appHash",
-                "3f8a6157-fe09-d1f9-1ff4-4e4f251c6b5c",
+                "a892dc93-798e-4007-8d07-54cb13c9500a",
                 "--dump-master-data",
-                "D:\\proseka_reverse\\masterdata"
+                "~/.sssekai/master_data"
             ],
             "justMyCode": true
         },
@@ -132,6 +137,8 @@
                 "DEBUG",
                 "abcache",
                 "--no-update",
+                "--download-dir",
+                "~/.sssekai/bundles/",
                 "--download-ensure-deps",
                 "--download-filter",
                 ".*characterv2/face/21/.*"

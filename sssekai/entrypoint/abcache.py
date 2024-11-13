@@ -73,7 +73,8 @@ def main_abcache(args):
         )
     )
     if args.dump_master_data:
-        logger.info("Dumping master data to %s", args.dump_master_data)
+        master_data_path = os.path.expanduser(args.dump_master_data)
+        logger.info("Dumping master data to %s", master_data_path)
         cache.update_client_headers()
         progress = tqdm(
             total=len(cache.database.sekai_user_auth_data.suiteMasterSplitPath),
@@ -86,7 +87,7 @@ def main_abcache(args):
                 "GET", cache.SEKAI_API_ENDPOINT + "/api/" + split
             )
             data = cache.response_to_dict(resp)
-            path = args.dump_master_data
+            path = master_data_path
             os.makedirs(path, exist_ok=True)
             logger.debug("Saving to %s", path)
             for k, v in data.items():
