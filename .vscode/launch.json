@@ -185,16 +185,16 @@
             "justMyCode": false
         },
         {
-            "name": "Python: Dump PJSK app hash",
+            "name": "Python: apphash",
             "type": "python",
             "request": "launch",
-            "program": "${workspaceFolder}/sssekai/scripts/dump_android_pjsk_appHash.py",
-            "cwd": "${workspaceFolder}",
-            "console": "integratedTerminal",
+            "module": "sssekai",
             "args": [
-                "C:\\Users\\mos9527\\Desktop\\pjsk_hash\\pjsk_350.apk"
+                "apphash",
+                "--apk-src",
+                "E:\\Reverse\\proseka_reverse\\game_binary\\by_region\\280_kr.apk"
             ],
-            "justMyCode": false
+            "justMyCode": true
         },
         {
             "name": "Python: usmdemux",

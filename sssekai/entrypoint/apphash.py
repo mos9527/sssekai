@@ -4,6 +4,10 @@ import argparse
 import re
 
 from io import BytesIO
+
+import UnityPy.classes
+import UnityPy.enums
+import UnityPy.enums.ClassIDType
 from sssekai.unity.AssetBundle import load_assetbundle
 
 HASHREGEX = re.compile(b"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}")
@@ -68,6 +72,7 @@ def main_apphash(args):
                     in {
                         "6350e2ec327334c8a9b7f494f344a761",  # PJSK Android
                         "c726e51b6fe37463685916a1687158dd",  # PJSK iOS
+                        "data.unity3d",  # TW,KR (ByteDance)
                     },
                 )
             ]
@@ -78,8 +83,12 @@ def main_apphash(args):
         with open(args.ab_src, "rb") as f:
             env = load_assetbundle(BytesIO(f.read()))
     print("*** AppHash ***")
-    for obj in env.objects:
+    for pobj in env.objects:
         # TODO: Dump actual typetree data from the game itself?
-        hashStr = HASHREGEX.finditer(obj.get_raw_data())
-        for m in hashStr:
-            print(m.group().decode())
+        if pobj.type == UnityPy.enums.ClassIDType.MonoBehaviour:
+            obj = pobj.read(check_read=False)
+            for name in {"production_android", "production_ios"}:
+                if obj.m_Name == name:
+                    hashStr = HASHREGEX.finditer(pobj.get_raw_data())
+                    for m in hashStr:
+                        print(name.ljust(32), m.group().decode())
