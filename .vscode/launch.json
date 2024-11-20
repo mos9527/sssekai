@@ -46,9 +46,9 @@
                 "--app-region",
                 "jp",
                 "--app-version",
-                "4.0.5",
+                "4.1.0",
                 "--app-appHash",
-                "2179da72-9de5-23a6-f388-9e5835098ce1"
+                "cbda2f12-c804-4163-5e11-3148631f9ab0"
             ],
             "justMyCode": true
         },
@@ -128,6 +128,18 @@
             "justMyCode": true
         },
         {
+            "name": "Python: AbServer",
+            "type": "python",
+            "request": "launch",
+            "module": "sssekai",
+            "args": [
+                "--log-level",
+                "DEBUG",
+                "abserver"               
+            ],
+            "justMyCode": false
+        },        
+        {
             "name": "Python: AbCache (no update)",
             "type": "python",
             "request": "launch",
@@ -139,12 +151,12 @@
                 "--no-update",
                 "--download-dir",
                 "~/.sssekai/bundles/",
-                "--download-ensure-deps",
                 "--download-filter",
-                ".*characterv2/face/21/.*"
+                ".*characterv2/face/21/0000"
             ],
             "justMyCode": true
         },
+        
         {
             "name": "Python: MVData",
             "type": "python",

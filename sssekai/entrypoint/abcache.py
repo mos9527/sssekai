@@ -1,6 +1,7 @@
 import os, re, json
 from sssekai.abcache import AbCache, AbCacheConfig, logger
-from sssekai.crypto.AssetBundle import SEKAI_AB_MAGIC, decrypt_headaer_inplace
+from sssekai.abcache.fs import AbCacheFilesystem, AbCacheFilesystemStreamingFile
+from sssekai.crypto.AssetBundle import SEKAI_AB_MAGIC, decrypt_header_inplace
 from concurrent.futures import ThreadPoolExecutor
 from requests import Session
 from tqdm import tqdm
@@ -23,31 +24,20 @@ class AbCacheDownloader(ThreadPoolExecutor):
                 desc="Downloading",
             )
 
-    def _download(self, url, fname, length):
+    def _download(self, file: AbCacheFilesystemStreamingFile, dest: str):
         self._ensure_progress()
         RETRIES = 1
         for _ in range(0, RETRIES):
             try:
-                resp = self.session.get(url, stream=True)
-                resp.raise_for_status()
-                os.makedirs(os.path.dirname(fname), exist_ok=True)
-                with open(fname, "wb") as f:
-                    magic = next(resp.iter_content(4))
-                    self.progress.update(4)
-                    if magic == SEKAI_AB_MAGIC:
-                        header = next(resp.iter_content(128))
-                        self.progress.update(128)
-                        f.write(decrypt_headaer_inplace(bytearray(header)))
-                    else:
-                        f.write(magic)
-                    for chunk in resp.iter_content(65536):
-                        self.progress.update(len(chunk))
-                        f.write(chunk)
+                os.makedirs(os.path.dirname(dest), exist_ok=True)
+                with open(dest, "wb") as f:
+                    while chunk := file.read(65536):
+                        self.progress.update(f.write(chunk))
                     return
             except Exception as e:
-                logger.error("While downloading %s : %s. Retrying" % (url, e))
+                logger.error("While downloading %s : %s. Retrying" % (file.path, e))
         if _ == RETRIES - 1:
-            logger.critical("Did not download %s" % url)
+            logger.critical("Did not download %s" % file.path)
         self._ensure_progress()
 
     def __init__(self, session, **kw) -> None:
@@ -60,10 +50,10 @@ class AbCacheDownloader(ThreadPoolExecutor):
     def __exit__(self, exc_type, exc_val, exc_tb):
         return super().__exit__(exc_type, exc_val, exc_tb)
 
-    def add_link(self, url, fname, length):
+    def add_link(self, file: AbCacheFilesystemStreamingFile, dest: str):
         self._ensure_progress()
-        self.progress.total += length
-        return self.submit(self._download, url, fname, length)
+        self.progress.total += file.size
+        return self.submit(self._download, file, dest)
 
 
 def main_abcache(args):
@@ -142,11 +132,11 @@ def main_abcache(args):
             logger.info("Added dependencies:")
             for dep in bundles - basebundles:
                 logger.info("   - %s", dep)
-        with AbCacheDownloader(cache, max_workers=args.download_workers) as downloader:
+        fs = AbCacheFilesystem(cache)
+        with AbCacheDownloader(fs, max_workers=args.download_workers) as downloader:
             cache.update_download_headers()
             logger.info("Downloading %d bundles to %s" % (len(bundles), download_dir))
             for bundleName in bundles:
-                entry = cache.get_entry_by_bundle_name(bundleName)
-                url = cache.get_entry_download_url(entry)
+                file = AbCacheFilesystemStreamingFile(fs, bundleName)
                 fname = os.path.join(download_dir, bundleName)
-                downloader.add_link(url, fname, entry.fileSize)
+                downloader.add_link(file, fname)
