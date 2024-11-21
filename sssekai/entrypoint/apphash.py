@@ -1,6 +1,6 @@
 import zipfile
 import UnityPy
-import argparse
+import logging
 import re
 
 from io import BytesIO
@@ -11,6 +11,13 @@ import UnityPy.enums.ClassIDType
 from sssekai.unity.AssetBundle import load_assetbundle
 
 HASHREGEX = re.compile(b"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}")
+REGION_MAP = {
+    "com.sega.pjsekai": "jp",
+    "com.sega.ColorfulStage.en": "en",
+    "com.hermes.mk.asia": "tw",
+    "com.pjsekai.kr": "kr",
+}
+logger = logging.getLogger("apphash")
 
 
 def enum_candidates(zip_file, filter):
@@ -28,21 +35,24 @@ def enum_package(zip_file):
 
 def main_apphash(args):
     env = UnityPy.Environment()
+    app_package = "unknown"
+    app_version = "unknown"
+    app_hash = "unknown"
+
     if not args.ab_src:
         if not args.apk_src or args.fetch:
             from requests import get
 
             src = BytesIO()
-            print("Fetching latest game package (JP) from APKPure")
+            logger.debug("Fetching latest game package (JP) from APKPure")
             resp = get(
                 "https://d.apkpure.net/b/XAPK/com.sega.pjsekai?version=latest",
                 stream=True,
             )
             size = resp.headers.get("Content-Length", -1)
-            for chunck in resp.iter_content(chunk_size=2**10):
+            for chunck in resp.iter_content(chunk_size=2**20):
                 src.write(chunck)
-                print("Downloading %d/%s" % (src.tell(), size), end="\r")
-            print()
+                logger.debug("Downloading %d/%s" % (src.tell(), size))
             src.seek(0)
         else:
             src = open(args.apk_src, "rb")
@@ -59,10 +69,10 @@ def main_apphash(args):
 
             manifest = AXMLPrinter(manifest.read()).get_xml_obj()
             find_key = lambda ky: next((k for k in manifest.keys() if ky in k), None)
-            version = manifest.get(find_key("versionName"), None)
-            packageName = manifest.get(find_key("package"), None)
-            print("* Package: %s" % packageName)
-            print("* Version: %s" % version)
+            app_version = manifest.get(find_key("versionName"), None)
+            app_package = manifest.get(find_key("package"), None)
+            logger.info("Package: %s" % app_package)
+            logger.info("Version: %s" % app_version)
             candidates = [
                 candidate
                 for package in enum_package(zip_ref)
@@ -79,10 +89,9 @@ def main_apphash(args):
             for candidate, stream, _ in candidates:
                 env.load_file(stream)
     else:
-        print("Loading from AssetBundle %s" % args.ab_src)
+        logger.info("Loading from AssetBundle %s" % args.ab_src)
         with open(args.ab_src, "rb") as f:
             env = load_assetbundle(BytesIO(f.read()))
-    print("*** AppHash ***")
     for pobj in env.objects:
         # TODO: Dump actual typetree data from the game itself?
         if pobj.type == UnityPy.enums.ClassIDType.MonoBehaviour:
@@ -91,4 +100,8 @@ def main_apphash(args):
                 if obj.m_Name == name:
                     hashStr = HASHREGEX.finditer(pobj.get_raw_data())
                     for m in hashStr:
-                        print(name.ljust(32), m.group().decode())
+                        ans = m.group().decode()
+                        logger.debug("%s: %s" % (name, ans))
+                        app_hash = ans
+    region = REGION_MAP.get(app_package, "unknown")
+    print(app_version, region, app_hash)

@@ -235,7 +235,9 @@ This crypto applies to:
     rla2json_parser.set_defaults(func=main_rla2json)
     # apphash
     apphash_parser = subparsers.add_parser(
-        "apphash", help="""Download/extract game AppHash values"""
+        "apphash",
+        help="""Download/extract game AppHash values
+*NOTE*: Only [app version] [app region] [app hash] are written to stdout if successful. Fields are separated by space. Unavailable fields are left as 'unknown'.""",
     )
     apphash_parser.add_argument(
         "--apk-src",
