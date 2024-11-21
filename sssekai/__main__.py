@@ -6,6 +6,7 @@ from sssekai.entrypoint.abdecrypt import main_abdecrypt
 from sssekai.entrypoint.rla2json import main_rla2json
 from sssekai.entrypoint.usmdemux import main_usmdemux
 from sssekai.entrypoint.abcache import main_abcache, DEFAULT_CACHE_DB_FILE
+from sssekai.entrypoint.abserver import main_abserver
 from sssekai.entrypoint.live2dextract import main_live2dextract
 from sssekai.entrypoint.spineextract import main_spineextract
 from sssekai.entrypoint.apphash import main_apphash
@@ -27,10 +28,7 @@ def __main__():
                 return sys.stdout.write(__s)
 
     parser = argparse.ArgumentParser(
-        description="""SSSekai Proejct SEKAI feat. Hatsune Miku (Android) Modding Tools
-Installation:
-    pip install sssekai                                    
-""",
+        description="""SSSekai Proejct SEKAI feat. Hatsune Miku (Android) Asset Utility""",
         formatter_class=argparse.RawTextHelpFormatter,
     )
     parser.add_argument(
@@ -165,6 +163,34 @@ This crypto applies to:
         default=None,
     )
     abcache_parser.set_defaults(func=main_abcache)
+    abserver_parser = subparsers.add_parser(
+        "abserver", help="""AbCache Filesystem server / GUI"""
+    )
+    abserver_parser.add_argument(
+        "--db",
+        type=str,
+        help="""cache database file path (default: %(default)s)""",
+        default=DEFAULT_CACHE_DB_FILE,
+    )
+    abserver_parser.add_argument(
+        "--fuse",
+        type=str,
+        help="""local mount point for AbCache. Required FUSE on host OS and fusepy (default: %(default)s)""",
+        default="",
+    )
+    abserver_parser.add_argument(
+        "--host",
+        type=str,
+        help="""address of the interface to listen on (default: %(default)s)""",
+        default="0.0.0.0",
+    )
+    abserver_parser.add_argument(
+        "--port",
+        type=int,
+        help="""port to listen on (default: %(default)d)""",
+        default="3939",
+    )
+    abserver_parser.set_defaults(func=main_abserver)
     # live2dextract
     live2dextract_parser = subparsers.add_parser(
         "live2dextract", help="""Extract Sekai Live2D Models in a AssetBundle"""

@@ -33,6 +33,9 @@ setuptools.setup(
         "requests",
         "pyaxmlparser",
     ],
-    entry_points={"console_scripts": ["sssekai = sssekai.__main__:__main__"]},
+    entry_points={
+        "console_scripts": ["sssekai = sssekai.__main__:__main__"],
+        "fsspec.specs": ["abcache = sssekai.abcache.fs.AbCacheFilesystem"],
+    },
     python_requires=">=3.10",
 )

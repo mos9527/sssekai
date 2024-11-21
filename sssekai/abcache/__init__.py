@@ -1,3 +1,4 @@
+from collections import defaultdict
 from pickle import load, dump
 from typing import BinaryIO, List, Mapping, Optional, Union
 from logging import getLogger
@@ -400,25 +401,26 @@ class AbCache(Session):
         self.database.sekai_abcache_index = fromdict(AbCacheIndex, data)
         return self.database.sekai_abcache_index
 
-    def __init__(self, config: AbCacheConfig) -> None:
+    def __init__(self, config: Optional[AbCacheConfig] = None):
         super().__init__()
         self.database = SSSekaiDatabase()
-        self.config = config
-        self.config.app_platform = self.config.app_platform.lower()
-        self.headers.update(
-            {
-                "Accept": "application/octet-stream",
-                "Content-Type": "application/octet-stream",
-                "Accept-Encoding": "deflate, gzip",
-                "User-Agent": "UnityPlayer/%s" % sssekai_get_unity_version(),
-                "X-Platform": self.config.app_platform.capitalize(),
-                "X-DeviceModel": "sssekai/%s" % __version__,
-                "X-OperatingSystem": self.config.app_platform.capitalize(),
-                "X-Unity-Version": sssekai_get_unity_version(),
-                "X-App-Version": self.SEKAI_APP_VERSION,
-                "X-App-Hash": self.SEKAI_APP_HASH,
-            }
-        )
+        if config is not None:
+            self.config = config
+            self.config.app_platform = self.config.app_platform.lower()
+            self.headers.update(
+                {
+                    "Accept": "application/octet-stream",
+                    "Content-Type": "application/octet-stream",
+                    "Accept-Encoding": "deflate, gzip",
+                    "User-Agent": "UnityPlayer/%s" % sssekai_get_unity_version(),
+                    "X-Platform": self.config.app_platform.capitalize(),
+                    "X-DeviceModel": "sssekai/%s" % __version__,
+                    "X-OperatingSystem": self.config.app_platform.capitalize(),
+                    "X-Unity-Version": sssekai_get_unity_version(),
+                    "X-App-Version": self.SEKAI_APP_VERSION,
+                    "X-App-Hash": self.SEKAI_APP_HASH,
+                }
+            )
 
     def update_download_headers(self):
         """Update headers for downloading assetbundles *ONLY*. Functionalities related to user-level data (e.g. Master Data, etc) won't
@@ -472,10 +474,11 @@ class AbCache(Session):
     def load(self, f: BinaryIO):
         logger.debug("Loading cache")
         self.database = load(f)
+        logger.debug("Cache loaded: %s" % self)
 
     def __repr__(self) -> str:
         return (
-            f"<AbCache config={self.config} bundles={len(self.abcache_index.bundles)}>"
+            f"AbCache(config={self.config} bundles={len(self.abcache_index.bundles)})"
         )
 
     def get_entry_by_bundle_name(self, bundleName: str) -> AbCacheEntry:
