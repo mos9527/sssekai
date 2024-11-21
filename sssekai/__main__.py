@@ -164,13 +164,31 @@ This crypto applies to:
     )
     abcache_parser.set_defaults(func=main_abcache)
     abserver_parser = subparsers.add_parser(
-        "abserver", help="""AbCache Filesystem server"""
+        "abserver", help="""AbCache Filesystem server / GUI"""
     )
     abserver_parser.add_argument(
         "--db",
         type=str,
         help="""cache database file path (default: %(default)s)""",
         default=DEFAULT_CACHE_DB_FILE,
+    )
+    abserver_parser.add_argument(
+        "--fuse",
+        type=str,
+        help="""local mount point for AbCache. Required FUSE on host OS and fusepy (default: %(default)s)""",
+        default="",
+    )
+    abserver_parser.add_argument(
+        "--host",
+        type=str,
+        help="""address of the interface to listen on (default: %(default)s)""",
+        default="0.0.0.0",
+    )
+    abserver_parser.add_argument(
+        "--port",
+        type=int,
+        help="""port to listen on (default: %(default)d)""",
+        default="3939",
     )
     abserver_parser.set_defaults(func=main_abserver)
     # live2dextract

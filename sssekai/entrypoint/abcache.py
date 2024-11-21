@@ -1,7 +1,6 @@
 import os, re, json
 from sssekai.abcache import AbCache, AbCacheConfig, logger
-from sssekai.abcache.fs import AbCacheFilesystem, AbCacheFilesystemStreamingFile
-from sssekai.crypto.AssetBundle import SEKAI_AB_MAGIC, decrypt_header_inplace
+from sssekai.abcache.fs import AbCacheFilesystem, AbCacheFile
 from concurrent.futures import ThreadPoolExecutor
 from requests import Session
 from tqdm import tqdm
@@ -24,20 +23,20 @@ class AbCacheDownloader(ThreadPoolExecutor):
                 desc="Downloading",
             )
 
-    def _download(self, file: AbCacheFilesystemStreamingFile, dest: str):
+    def _download(self, src: AbCacheFile, dest: str):
         self._ensure_progress()
         RETRIES = 1
         for _ in range(0, RETRIES):
             try:
                 os.makedirs(os.path.dirname(dest), exist_ok=True)
                 with open(dest, "wb") as f:
-                    while chunk := file.read(65536):
-                        self.progress.update(f.write(chunk))
+                    while block := src.read(65536):
+                        self.progress.update(f.write(block))
                     return
             except Exception as e:
-                logger.error("While downloading %s : %s. Retrying" % (file.path, e))
+                logger.error("While downloading %s : %s. Retrying" % (src.path, e))
         if _ == RETRIES - 1:
-            logger.critical("Did not download %s" % file.path)
+            logger.critical("Did not download %s" % src.path)
         self._ensure_progress()
 
     def __init__(self, session, **kw) -> None:
@@ -50,7 +49,7 @@ class AbCacheDownloader(ThreadPoolExecutor):
     def __exit__(self, exc_type, exc_val, exc_tb):
         return super().__exit__(exc_type, exc_val, exc_tb)
 
-    def add_link(self, file: AbCacheFilesystemStreamingFile, dest: str):
+    def add_link(self, file: AbCacheFile, dest: str):
         self._ensure_progress()
         self.progress.total += file.size
         return self.submit(self._download, file, dest)
@@ -100,7 +99,6 @@ def main_abcache(args):
     else:
         with open(db_path, "rb") as f:
             cache.load(f)
-    logger.info("AbCache: %s" % cache)
 
     if args.download_dir:
         download_dir = os.path.expanduser(args.download_dir)
@@ -137,6 +135,5 @@ def main_abcache(args):
             cache.update_download_headers()
             logger.info("Downloading %d bundles to %s" % (len(bundles), download_dir))
             for bundleName in bundles:
-                file = AbCacheFilesystemStreamingFile(fs, bundleName)
                 fname = os.path.join(download_dir, bundleName)
-                downloader.add_link(file, fname)
+                downloader.add_link(fs.open(bundleName), fname)

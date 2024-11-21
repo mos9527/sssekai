@@ -1,5 +1,5 @@
 from io import BytesIO
-from typing import BinaryIO
+from typing import BinaryIO, Iterator
 
 SEKAI_AB_MAGIC = b"\x10\x00\x00\x00"
 
@@ -12,26 +12,15 @@ def decrypt_header_inplace(header: bytearray):
     return header
 
 
-def decrypt(fin: BinaryIO, fout: BinaryIO = None) -> None:
-    if not fout:
-        fout = BytesIO()
-    magic = fin.read(4)
-    if magic == SEKAI_AB_MAGIC:
-        fout.write(decrypt_header_inplace(bytearray(fin.read(128))))
-        while block := fin.read(65536):
-            fout.write(block)
-    else:
-        fin.seek(0)
-        while block := fin.read(65536):
-            fout.write(block)
-    return fout
-
-
-def encrypt(fin, fout):
-    raise NotImplementedError
-
-
-def has_magic(fin: BinaryIO) -> bool:
-    magic = fin.read(4)
-    fin.seek(0)
-    return magic == SEKAI_AB_MAGIC
+def decrypt_iter(next_bytes: callable, block_size=65536):
+    header = next_bytes(4)
+    if header == SEKAI_AB_MAGIC:
+        header = bytearray(next_bytes(128))
+        header = decrypt_header_inplace(header)
+    assert len(header) <= block_size, "impossible to satisfiy bs=%d" % block_size
+    header_res = block_size - len(header)
+    if header_res:
+        header += next_bytes(header_res)
+    yield header
+    while block := next_bytes(block_size):
+        yield block

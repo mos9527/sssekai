@@ -135,7 +135,8 @@
             "args": [
                 "--log-level",
                 "DEBUG",
-                "abserver"               
+                "abserver",
+                "--fuse"
             ],
             "justMyCode": false
         },        
@@ -154,7 +155,7 @@
                 "--download-filter",
                 ".*characterv2/face/21/0000"
             ],
-            "justMyCode": true
+            "justMyCode": false
         },
         
         {

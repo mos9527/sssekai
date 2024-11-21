@@ -474,10 +474,11 @@ class AbCache(Session):
     def load(self, f: BinaryIO):
         logger.debug("Loading cache")
         self.database = load(f)
+        logger.debug("Cache loaded: %s" % self)
 
     def __repr__(self) -> str:
         return (
-            f"<AbCache config={self.config} bundles={len(self.abcache_index.bundles)}>"
+            f"AbCache(config={self.config} bundles={len(self.abcache_index.bundles)})"
         )
 
     def get_entry_by_bundle_name(self, bundleName: str) -> AbCacheEntry:
