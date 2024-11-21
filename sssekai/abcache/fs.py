@@ -29,7 +29,7 @@ class UnidirectionalBlockCache(BaseCache):
     def __fetch_block(self, block_number):
         assert block_number < self.nblocks, "block out of range"
         while len(self.blocks) - 1 < block_number:
-            logger.debug("Fetching block %d" % (len(self.blocks) - 1))
+            logger.debug("Fetching block %d" % (len(self.blocks)))
             start = self.blocksize * len(self.blocks)
             end = start + self.blocksize
             block = self.fetcher(start, end)
@@ -77,7 +77,7 @@ class AbCacheFile(AbstractBufferedFile):
 
     @property
     def entry(self) -> AbCacheEntry:
-        entry = self.session.get_entry_by_bundle_name(self.path)
+        entry = self.session.get_entry_by_bundle_name(self.path.strip('/'))
         assert entry is not None, "entry not found"
         return entry
 
@@ -144,6 +144,7 @@ class AbCacheFilesystem(AbstractArchiveFileSystem):
     def dir_cache(self):
         cache = defaultdict(dict)
         for path, bundle in self.cache.abcache_index.bundles.items():
+            path = "/" + path
             cache.update(
                 {
                     dirname: {"name": dirname, "size": 0, "type": "directory"}
@@ -151,7 +152,7 @@ class AbCacheFilesystem(AbstractArchiveFileSystem):
                 }
             )
             cache[path] = {
-                "name": bundle.bundleName,
+                "name": path,
                 "size": bundle.fileSize,
                 "type": "file",
             }

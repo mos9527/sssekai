@@ -1,10 +1,7 @@
-import os, logging, fsspec
+import os, logging
 from shutil import copyfileobj
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
-
-import fsspec.fuse
 from sssekai import __version__
-from sssekai.abcache import AbCache
 from sssekai.abcache.fs import AbCacheFilesystem
 from rich import filesize
 
@@ -39,6 +36,7 @@ class AbServerHTTPRequestHandler(BaseHTTPRequestHandler):
         ):
             # Directory then Files, then sorted lexically, then size
             name = entry["name"]
+            
             nodename = name.split("/")[-1]
             linkname = name
             displayname = nodename
@@ -47,7 +45,7 @@ class AbServerHTTPRequestHandler(BaseHTTPRequestHandler):
             else:
                 fsize = filesize.decimal(entry["size"])
                 displayname += f" ({fsize})"
-            r += '<li><a href="/%s">%s</a></li>' % (linkname, displayname)
+            r += '<li><a href="%s">%s</a></li>' % (linkname, displayname)
         r += "</ul><hr>"
         r += "<i>sssekai v%s, %s</i>" % (__version__, fs.cache)
         r += "</body></html>"
@@ -58,7 +56,7 @@ class AbServerHTTPRequestHandler(BaseHTTPRequestHandler):
         pass
 
     def do_GET(self):
-        path = self.path.strip("/")
+        path = self.path.rstrip("/")
         if not fs.exists(path):
             self.send_error(404, "File not found")
             return
@@ -81,10 +79,12 @@ class AbServerHTTPRequestHandler(BaseHTTPRequestHandler):
 
 def main_abserver(args):
     global fs
+    import fsspec
     db_path = os.path.expanduser(os.path.normpath(args.db))
     fs = fsspec.filesystem("abcache", fo=db_path)
     if args.fuse:
-        fsspec.fuse.run(fs, "/", args.fuse, threads=True)
+        import fsspec.fuse
+        fsspec.fuse.run(fs, "", args.fuse)
     else:
         with ThreadingHTTPServer(
             (args.host, args.port), AbServerHTTPRequestHandler

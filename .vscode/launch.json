@@ -128,6 +128,22 @@
             "justMyCode": true
         },
         {
+            "name": "Python: AbServer (FUSE)",
+            "type": "python",
+            "request": "launch",
+            "module": "sssekai",
+            "args": [
+                "--log-level",
+                "DEBUG",
+                "abserver",
+                "--db",
+                "/mnt/c/Users/mos9527/.sssekai/abcache.db",
+                "--fuse",
+                "/mnt/abcache"
+            ],
+            "justMyCode": false
+        },   
+        {
             "name": "Python: AbServer",
             "type": "python",
             "request": "launch",
@@ -136,10 +152,11 @@
                 "--log-level",
                 "DEBUG",
                 "abserver",
-                "--fuse"
+                "--db",
+                "/mnt/c/Users/mos9527/.sssekai/abcache.db",
             ],
             "justMyCode": false
-        },        
+        },                
         {
             "name": "Python: AbCache (no update)",
             "type": "python",
