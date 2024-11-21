@@ -5,11 +5,11 @@ from sssekai import __version__
 from sssekai.abcache.fs import AbCacheFilesystem
 from rich import filesize
 
-logger = logging.getLogger("abserver")
+logger = logging.getLogger("abserve")
 fs: AbCacheFilesystem = None
 
 
-class AbServerHTTPRequestHandler(BaseHTTPRequestHandler):
+class AbServeHTTPRequestHandler(BaseHTTPRequestHandler):
     ENCODING = "utf-8"
 
     def format_listing(self, path):
@@ -36,7 +36,7 @@ class AbServerHTTPRequestHandler(BaseHTTPRequestHandler):
         ):
             # Directory then Files, then sorted lexically, then size
             name = entry["name"]
-            
+
             nodename = name.split("/")[-1]
             linkname = name
             displayname = nodename
@@ -77,17 +77,19 @@ class AbServerHTTPRequestHandler(BaseHTTPRequestHandler):
                 self.wfile.write(listing)
 
 
-def main_abserver(args):
+def main_abserve(args):
     global fs
     import fsspec
+
     db_path = os.path.expanduser(os.path.normpath(args.db))
     fs = fsspec.filesystem("abcache", fo=db_path)
     if args.fuse:
         import fsspec.fuse
+
         fsspec.fuse.run(fs, "", args.fuse)
     else:
         with ThreadingHTTPServer(
-            (args.host, args.port), AbServerHTTPRequestHandler
+            (args.host, args.port), AbServeHTTPRequestHandler
         ) as httpd:
             try:
                 host, port = httpd.socket.getsockname()[:2]

@@ -128,14 +128,14 @@
             "justMyCode": true
         },
         {
-            "name": "Python: AbServer (FUSE)",
+            "name": "Python: AbServe (FUSE)",
             "type": "python",
             "request": "launch",
             "module": "sssekai",
             "args": [
                 "--log-level",
                 "DEBUG",
-                "abserver",
+                "abserve",
                 "--db",
                 "/mnt/c/Users/mos9527/.sssekai/abcache.db",
                 "--fuse",
@@ -144,14 +144,14 @@
             "justMyCode": false
         },   
         {
-            "name": "Python: AbServer",
+            "name": "Python: AbServe",
             "type": "python",
             "request": "launch",
             "module": "sssekai",
             "args": [
                 "--log-level",
                 "DEBUG",
-                "abserver",
+                "abserve",
                 "--db",
                 "/mnt/c/Users/mos9527/.sssekai/abcache.db",
             ],
