@@ -11,7 +11,7 @@ setuptools.setup(
     version=sssekai.__version__,
     author="greats3an",
     author_email="greats3an@gmail.com",
-    description="Project SEKAI Asset Utility / PJSK 资源下载 + Live2D, Spine, USM 提取",
+    description="Project SEKAI Asset Utility / PJSK 资源工具",
     long_description=long_description,
     long_description_content_type="text/markdown",
     url="https://github.com/mos9527/sssekai",

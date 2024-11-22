@@ -1,6 +1,6 @@
 import math, fsspec
 from typing import Callable
-from functools import cached_property
+from functools import cached_property, cache
 from collections import defaultdict
 from fsspec.spec import AbstractBufferedFile
 from fsspec.caching import BaseCache, register_cache
@@ -68,7 +68,7 @@ class AbCacheFile(AbstractBufferedFile):
         - Seeks are simulated by read-aheads (by UnidirectionalBlockCache). Meaning seek operations
           will incur additional download (in-betweens will be cached as well).
     """
-
+    DEFAULT_BLOCK_SIZE = 65536 # 64KB
     entry: AbCacheEntry
 
     @property
@@ -81,12 +81,13 @@ class AbCacheFile(AbstractBufferedFile):
         assert entry is not None, "entry not found"
         return entry
 
-    def __init__(self, fs, bundle: str):
+    def __init__(self, fs, bundle: str, block_size=None):
         self.fs, self.path = fs, bundle
         self.fetch_loc = 0
         super().__init__(
             fs,
             bundle,
+            block_size=block_size or self.DEFAULT_BLOCK_SIZE,
             mode="rb",
             cache_type="unidirectional_blockcache",
             size=self.entry.fileSize,
@@ -104,7 +105,7 @@ class AbCacheFile(AbstractBufferedFile):
             for block in decrypt_iter(
                 lambda nbytes: next(self.__resp.iter_content(nbytes)), self.blocksize
             ):
-                yield block
+                yield bytes(block)
 
         return __innner()
 
@@ -117,7 +118,7 @@ class AbCacheFile(AbstractBufferedFile):
 # Reference: https://github.com/fsspec/filesystem_spec/blob/master/fsspec/implementations/libarchive.py
 class AbCacheFilesystem(AbstractArchiveFileSystem):
     """Filesystem for reading from an AbCache on demand."""
-
+    root_marker = "/"
     protocol = "abcache"
     cache: AbCache
 
@@ -142,24 +143,80 @@ class AbCacheFilesystem(AbstractArchiveFileSystem):
 
     @cached_property
     def dir_cache(self):
-        cache = defaultdict(dict)
-        for path, bundle in self.cache.abcache_index.bundles.items():
-            path = "/" + path
-            cache.update(
-                {
-                    dirname: {"name": dirname, "size": 0, "type": "directory"}
-                    for dirname in self._all_dirnames([path])
-                }
-            )
-            cache[path] = {
-                "name": path,
-                "size": bundle.fileSize,
-                "type": "file",
-            }
-        return cache
+        # Reference implementation did O(n) per *every* ls() call
+        # We can make it O(1) with DP on tree preprocessing of O(nlogn)
+        bundles = self.cache.abcache_index.bundles     
+        # Only the leaf nodes are given.     
+        keys = set((self.root_marker + key for key in bundles.keys()))
+        keys |= self._all_dirnames(bundles.keys())
+        # Sorting implies DFS order.
+        keys = [self.root_marker] + [key for key in sorted(keys)]
+        _trim = lambda key: key[len(self.root_marker):]
+        nodes = [{
+            "name": key, 
+            "type": "directory" if not _trim(key) in bundles else "file",
+            "size": 0 if not _trim(key) in bundles else bundles[_trim(key)].fileSize,
+            "item_count": 0,
+            "file_count": 0,
+            "total_size": 0
+        } for key in keys]
+        # Already in DFS order.
+        # Get start index for each directory and their item count.
+        stack = [0]        
+        graph = defaultdict(list)
+        table = {node['name']: index for index, node in enumerate(nodes)}
+        def is_file(name):
+            return _trim(name) in bundles
+        def is_parent_path(a, b):
+            # a is parent of b
+            if a == self.root_marker: return True
+            return b.startswith(a + self.root_marker)           
+        def maintain():
+            # Always starts from root. Safe to assume stack size >= 2
+            u,v = stack[-2], stack[-1]
+            nodes[u]["item_count"] += nodes[v]["item_count"]              
+            nodes[u]["file_count"] += nodes[v]["file_count"]          
+            nodes[u]["total_size"] += nodes[v]["total_size"]    
+            stack.pop()
+        for index, name in enumerate(keys):
+            # Skip root
+            if index == 0:
+                continue
+            while not is_parent_path(keys[stack[-1]], name):
+                maintain()
+            pa = stack[-1]
+            nodes[pa]["item_count"] += 1
+            graph[pa].append(index)
+            if not is_file(name):             
+                stack.append(index)
+            else:
+                nodes[pa]["file_count"] += 1
+                nodes[pa]["total_size"] += nodes[index]["size"]
+                nodes[index]["total_size"] = nodes[index]["size"]
+        while len(stack) >= 2:
+            maintain()
+        assert nodes[0]['file_count'] == len(bundles), "file count mismatch"
+        return nodes, graph, table
 
     def _get_dirs(self):
         return self.dir_cache
+
+    def info(self, path, **kwargs):
+        nodes, graph, table = self._get_dirs()
+        path = path or self.root_marker
+        if path in table:
+            return nodes[table[path]]
+        else:
+            raise FileNotFoundError(path)
+    
+    @cache
+    def ls(self, path, detail=True, **kwargs):
+        nodes, graph, table = self._get_dirs()
+        path = path or self.root_marker
+        if path in table:
+            u = table[path]
+            return [nodes[v] if detail else nodes[v]['name'] for v in graph[u]]
+        return []
 
     def open(self, path, mode="rb"):
         assert mode == "rb", "only binary read-only mode is supported"

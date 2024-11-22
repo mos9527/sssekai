@@ -1,4 +1,4 @@
-import os, logging
+import os, logging, datetime, time, sys
 from shutil import copyfileobj
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from sssekai import __version__
@@ -13,7 +13,9 @@ class AbServeHTTPRequestHandler(BaseHTTPRequestHandler):
     ENCODING = "utf-8"
 
     def format_listing(self, path):
+        t0 = time.time()
         r = []
+        path = path or "/"
         title = f"Directory listing for {path}"
         r = (
             f"<!DOCTYPE HTML>"
@@ -23,13 +25,15 @@ class AbServeHTTPRequestHandler(BaseHTTPRequestHandler):
             f"<style>"
             f"body {{ font-family: monospace; }}"
             f"body {{ background-color: black; color: white; }}"
-            f"a {{ color: lightblue; }}"
+            f"a,i {{ color: lightblue; }}"
             f"</style>"
             f"<title>{title}</title>"
             f"</head>"
             f"<body><h1>{title}</h1>"
-            f"<hr><ul>"
-            f'<li><a href="..">..</a></li>'
+            f"<i>children: {len(fs.ls(path))},</i>"            
+            f"<i>total number of files: {fs.info(path)['file_count']},</i>"
+            f"<i>total size: {filesize.decimal(fs.info(path)['total_size'])}</i><br>"                
+            f'<hr><ul><li><a href="..">..</a></li>'
         )
         for entry in sorted(
             fs.listdir(path), key=lambda x: (x["type"], x["name"], x["size"])
@@ -40,14 +44,16 @@ class AbServeHTTPRequestHandler(BaseHTTPRequestHandler):
             nodename = name.split("/")[-1]
             linkname = name
             displayname = nodename
+            extra_tags = ' '.join([f'{k}="{v}"' for k,v in entry.items()])
             if fs.isdir(name):
-                linkname += "/"
+                linkname += "/"          
             else:
-                fsize = filesize.decimal(entry["size"])
-                displayname += f" ({fsize})"
-            r += '<li><a href="%s">%s</a></li>' % (linkname, displayname)
-        r += "</ul><hr>"
-        r += "<i>sssekai v%s, %s</i>" % (__version__, fs.cache)
+                displayname += f" ({filesize.decimal(entry['size'])})"                  
+            r += f'<li><a {extra_tags} href="{linkname}">{displayname}</a></li>'
+        r += "</ul><hr>"       
+        r += f"<i>sssekai v{__version__} running on Python {sys.version}</i><br>"
+        r += f"<i>{fs.cache}</i><br>"
+        r += "<i>page rendered in %.3fms, server time: %s</i>" % ((time.time() - t0)*1000, datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
         r += "</body></html>"
         encoded = r.encode(self.ENCODING, "surrogateescape")
         return encoded

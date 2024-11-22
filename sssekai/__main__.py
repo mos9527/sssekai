@@ -28,7 +28,7 @@ def __main__():
                 return sys.stdout.write(__s)
 
     parser = argparse.ArgumentParser(
-        description="""SSSekai Proejct SEKAI feat. Hatsune Miku (Android) Asset Utility""",
+        description="""Project SEKAI Asset Utility / PJSK 资源工具""",
         formatter_class=argparse.RawTextHelpFormatter,
     )
     parser.add_argument(
