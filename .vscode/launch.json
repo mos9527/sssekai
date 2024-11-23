@@ -152,8 +152,8 @@
                 "--log-level",
                 "DEBUG",
                 "abserve",
-                "--db",
-                "/mnt/c/Users/mos9527/.sssekai/abcache.db",
+                // "--db",
+                // "/mnt/c/Users/mos9527/.sssekai/abcache.db",
             ],
             "justMyCode": false
         },                

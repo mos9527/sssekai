@@ -26,7 +26,7 @@ class UnidirectionalBlockCache(BaseCache):
         self.nblocks = math.ceil(size / self.blocksize)
         self.blocks = list()
 
-    def __fetch_block(self, block_number):
+    def __fetch_block(self, block_number):        
         assert block_number < self.nblocks, "block out of range"
         while len(self.blocks) - 1 < block_number:
             logger.debug("Fetching block %d" % (len(self.blocks)))
@@ -41,6 +41,7 @@ class UnidirectionalBlockCache(BaseCache):
             start = 0
         if stop is None:
             stop = self.size
+        stop = min(stop, self.size) # XXX: why didn't fsspec handle this?
         if start >= self.size or start >= stop:
             return b""
         start_blk, start_pos = start // self.blocksize, start % self.blocksize

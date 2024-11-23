@@ -29,6 +29,7 @@ setuptools.setup(
         "wannacri",
         "python-json-logger",
         "tqdm",
+        "rich",
         "coloredlogs",
         "requests",
         "pyaxmlparser",
