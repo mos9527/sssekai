@@ -6,4 +6,5 @@ dist
 *.egg-info
 *.test*
 .temp
+venv/
 test.py
