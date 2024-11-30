@@ -130,7 +130,7 @@ def main_abcache(args):
             logger.info("Added dependencies:")
             for dep in bundles - basebundles:
                 logger.info("   - %s", dep)
-        fs = AbCacheFilesystem(cache)
+        fs = AbCacheFilesystem(cache_obj=cache)
         with AbCacheDownloader(fs, max_workers=args.download_workers) as downloader:
             cache.update_download_headers()
             logger.info("Downloading %d bundles to %s" % (len(bundles), download_dir))
