@@ -225,6 +225,8 @@ class AbCache(Session):
                 return f"https://lf16-mkovscdn-sg.bytedgame.com/obj/sf-game-alisg/gdl_app_5245/AssetBundle/{self.config.app_version}/Release/online/android49/AssetBundleInfoNew.json"
             case "kr":  # NOTE: Android only
                 return f"https://lf16-mkkr.bytedgame.com/obj/sf-game-alisg/gdl_app_292248/AssetBundle/{self.config.app_version}/Release/kr_online/android21/AssetBundleInfo.json"
+            case "cn":  # NOTE: Android only
+                return f"https://lf3-j1gamecdn-cn.dailygn.com/obj/sf-game-lf/gdl_app_5236/AssetBundle/{self.config.app_version}/Release/cn_online/android48/AssetBundleInfo.json"
             case _:
                 raise NotImplementedError
 
@@ -239,6 +241,8 @@ class AbCache(Session):
                 return f"https://lf16-mkovscdn-sg.bytedgame.com/obj/sf-game-alisg/gdl_app_5245/AssetBundle/{self.config.app_version}/Release/online/android1/"
             case "kr":  # NOTE: Android only
                 return f"https://lf16-mkkr.bytedgame.com/obj/sf-game-alisg/gdl_app_292248/AssetBundle/{self.config.app_version}/Release/kr_online/android4/"
+            case "cn":  # NOTE: Android only
+                return f"https://lf3-j1gamecdn-cn.dailygn.com/obj/sf-game-lf/gdl_app_5236/AssetBundle/{self.config.app_version}/Release/cn_online/android1/"
             case _:
                 raise NotImplementedError
 
@@ -441,7 +445,9 @@ class AbCache(Session):
         logger.debug("Updating metadata")
         logger.debug("Set config: %s" % self.config)
         self._update_signatures()
-        self._update_system_data()
+        if not self.config.app_region in {"cn"}:
+            # TODO
+            self._update_system_data()
         if self.config.app_region in {"jp", "en"}:
             version_newest = self.database.sekai_system_data.appVersions[-1]
             logger.debug("Newest App version: %s" % version_newest)

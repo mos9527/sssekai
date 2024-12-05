@@ -30,9 +30,9 @@ class AbServeHTTPRequestHandler(BaseHTTPRequestHandler):
             f"<title>{title}</title>"
             f"</head>"
             f"<body><h1>{title}</h1>"
-            f"<i>children: {len(fs.ls(path))},</i>"            
+            f"<i>children: {len(fs.ls(path))},</i>"
             f"<i>total number of files: {fs.info(path)['file_count']},</i>"
-            f"<i>total size: {filesize.decimal(fs.info(path)['total_size'])}</i><br>"                
+            f"<i>total size: {filesize.decimal(fs.info(path)['total_size'])}</i><br>"
             f'<hr><ul><li><a href="..">..</a></li>'
         )
         for entry in sorted(
@@ -44,16 +44,19 @@ class AbServeHTTPRequestHandler(BaseHTTPRequestHandler):
             nodename = name.split("/")[-1]
             linkname = name
             displayname = nodename
-            extra_tags = ' '.join([f'{k}="{v}"' for k,v in entry.items()])
+            extra_tags = " ".join([f'{k}="{v}"' for k, v in entry.items()])
             if fs.isdir(name):
-                linkname += "/"          
+                linkname += "/"
             else:
-                displayname += f" ({filesize.decimal(entry['size'])})"                  
+                displayname += f" ({filesize.decimal(entry['size'])})"
             r += f'<li><a {extra_tags} href="{linkname}">{displayname}</a></li>'
-        r += "</ul><hr>"       
+        r += "</ul><hr>"
         r += f"<i>sssekai v{__version__} running on Python {sys.version}</i><br>"
         r += f"<i>{fs.cache}</i><br>"
-        r += "<i>page rendered in %.3fms, server time: %s</i>" % ((time.time() - t0)*1000, datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
+        r += "<i>page rendered in %.3fms, server time: %s</i>" % (
+            (time.time() - t0) * 1000,
+            datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        )
         r += "</body></html>"
         encoded = r.encode(self.ENCODING, "surrogateescape")
         return encoded
@@ -70,7 +73,10 @@ class AbServeHTTPRequestHandler(BaseHTTPRequestHandler):
             if fs.isfile(path):
                 self.send_response(200)
                 self.send_header("Content-type", "application/octet-stream")
-                self.send_header("Content-Length", fs.stat(path)["size"])
+                # XXX: Size reported by bundles' metadata is not accurate.
+                # If a wrong size is reported, the browser will reject the download.
+                # TODO: Figure out why the size is wrong.
+                # self.send_header("Content-Length", fs.stat(path)["size"])
                 self.end_headers()
                 with fs.open(path, "rb") as f:
                     copyfileobj(f, self.wfile)
