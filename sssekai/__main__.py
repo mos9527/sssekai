@@ -65,7 +65,7 @@ This crypto applies to:
         type=str,
         help="app region",
         default="jp",
-        choices=["jp", "tw", "en", "kr"],
+        choices=["jp", "tw", "en", "kr", "cn"],
     )
     apidecrypt_parser.set_defaults(func=main_apidecrypt)
     # abdecrypt
@@ -106,7 +106,7 @@ This crypto applies to:
         "--app-region",
         type=str,
         help="PJSK app region (default: %(default)s)",
-        choices=["jp", "tw", "en", "kr"],
+        choices=["jp", "tw", "en", "kr", "cn"],
         default="jp",
     )
     group.add_argument(
