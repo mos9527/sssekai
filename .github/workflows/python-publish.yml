@@ -1,7 +1,10 @@
 name: Publish
 
 on:
-  push:
+  workflow_run:
+    workflows: Tests
+    branches: main
+    types: completed
   workflow_dispatch:
      
 jobs:
