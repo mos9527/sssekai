@@ -193,6 +193,8 @@ class AbCache(Session):
                 return "https://mk-zian-obt-cdn.bytedgame.com"
             case "kr":
                 return "https://mkkorea-obt-prod01-cdn.bytedgame.com"
+            case "cn":
+                return "https://mkcn-prod-public-30001-1.dailygn.com"
             case _:
                 raise NotImplementedError
 
@@ -445,9 +447,7 @@ class AbCache(Session):
         logger.debug("Updating metadata")
         logger.debug("Set config: %s" % self.config)
         self._update_signatures()
-        if not self.config.app_region in {"cn"}:
-            # TODO
-            self._update_system_data()
+        self._update_system_data()
         if self.config.app_region in {"jp", "en"}:
             version_newest = self.database.sekai_system_data.appVersions[-1]
             logger.debug("Newest App version: %s" % version_newest)

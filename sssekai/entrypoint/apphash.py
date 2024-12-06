@@ -16,6 +16,7 @@ REGION_MAP = {
     "com.sega.ColorfulStage.en": "en",
     "com.hermes.mk.asia": "tw",
     "com.pjsekai.kr": "kr",
+    "com.hermes.mk": "cn",
 }
 logger = logging.getLogger("apphash")
 
@@ -103,5 +104,5 @@ def main_apphash(args):
                         ans = m.group().decode()
                         logger.debug("%s: %s" % (name, ans))
                         app_hash = ans
-    region = REGION_MAP.get(app_package, "unknown")
+    region = REGION_MAP.get(app_package, app_package)
     print(app_version, region, app_hash)
