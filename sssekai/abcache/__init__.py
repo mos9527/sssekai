@@ -228,7 +228,7 @@ class AbCache(Session):
             case "kr":  # NOTE: Android only
                 return f"https://lf16-mkkr.bytedgame.com/obj/sf-game-alisg/gdl_app_292248/AssetBundle/{self.config.app_version}/Release/kr_online/android21/AssetBundleInfo.json"
             case "cn":  # NOTE: Android only
-                return f"https://lf3-j1gamecdn-cn.dailygn.com/obj/sf-game-lf/gdl_app_5236/AssetBundle/{self.config.app_version}/Release/cn_online/android48/AssetBundleInfo.json"
+                return f"https://lf3-mkcncdn-tos.dailygn.com/obj/sf-game-lf/gdl_app_5236/AssetBundle/{self.config.app_version}/Release/cn_online/android50/AssetBundleInfoNew.json"
             case _:
                 raise NotImplementedError
 
