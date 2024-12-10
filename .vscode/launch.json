@@ -46,9 +46,9 @@
                 "--app-region",
                 "jp",
                 "--app-version",
-                "4.1.0",
+                "4.1.1",
                 "--app-appHash",
-                "cbda2f12-c804-4163-5e11-3148631f9ab0"
+                "41fd71f2-f715-bc10-5852-0a9d8542f760"
             ],
             "justMyCode": true
         },
@@ -176,7 +176,7 @@
             "justMyCode": false
         },                
         {
-            "name": "Python: AbCache (no update)",
+            "name": "Python: AbCache (DL)",
             "type": "python",
             "request": "launch",
             "module": "sssekai",
@@ -188,7 +188,7 @@
                 "--download-dir",
                 "~/.sssekai/bundles/",
                 "--download-filter",
-                ".*characterv2/face/21/0000"
+                "thumbnail/costume"
             ],
             "justMyCode": false
         },
