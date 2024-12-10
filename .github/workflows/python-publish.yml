@@ -6,10 +6,15 @@ on:
     branches: main
     types: completed
   workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version'
+        required: true
+        default: '0.0.0'
      
 jobs:
   build-and-release:
-    if: "contains(github.event.head_commit.message, 'Version')"
+    if: "contains(github.event.workflow_run.head_commit.message, 'Version') || github.event.inputs.version"
     runs-on: windows-latest
     steps:
     - uses: actions/checkout@v2
@@ -37,6 +42,7 @@ jobs:
       run: |          
           pyinstaller sssekai.spec  
     - name : Get Version
+      if   : contains(github.event.workflow_run.head_commit.message, 'Version')
       id   : get_version
       run  : |        
         $message = @(git log -1 --oneline --format=%s)
@@ -44,6 +50,13 @@ jobs:
         $version = $lines[1]
         
         Write-Output "::set-output name=version::$version"          
+    - name : Get Version (manual)
+      if   : github.event.inputs.version
+      id   : get_version_input
+      run  : |        
+        $version = ${{ github.event.inputs.version }}
+
+        Write-Output "::set-output name=version::$version"
     - name: Create Release
       id: create_release
       uses: actions/create-release@v1
