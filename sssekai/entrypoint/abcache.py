@@ -35,6 +35,7 @@ class AbCacheDownloader(ThreadPoolExecutor):
                     return
             except Exception as e:
                 logger.error("While downloading %s : %s. Retrying" % (src.path, e))
+                raise e
         if _ == RETRIES - 1:
             logger.critical("Did not download %s" % src.path)
         self._ensure_progress()

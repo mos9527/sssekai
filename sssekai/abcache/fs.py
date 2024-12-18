@@ -104,7 +104,7 @@ class AbCacheFile(AbstractBufferedFile):
     def __fetch(self):
         def __innner():
             for block in decrypt_iter(
-                lambda nbytes: next(self.__resp.iter_content(nbytes)), self.blocksize
+                lambda nbytes: next(self.__resp.iter_content(nbytes), b''), self.blocksize
             ):
                 yield bytes(block)
 
@@ -113,7 +113,7 @@ class AbCacheFile(AbstractBufferedFile):
     def _fetch_range(self, start, end):
         assert start - self.fetch_loc == 0, "can only fetch sequentially"
         self.fetch_loc = end
-        return next(self.__fetch)
+        return next(self.__fetch, b'')
 
 
 # Reference: https://github.com/fsspec/filesystem_spec/blob/master/fsspec/implementations/libarchive.py

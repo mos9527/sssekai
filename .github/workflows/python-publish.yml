@@ -6,10 +6,21 @@ on:
     branches: main
     types: completed
   workflow_dispatch:
+    inputs:
+      release_pypi:
+        description: 'Create a new PyPI release'
+        type: boolean
+        required: true
+        default: true
+      release_github:
+        description: 'Create a new GitHub release'
+        type: boolean
+        required: true
+        default: true        
      
 jobs:
   build-and-release:
-    if: "contains(github.event.head_commit.message, 'Version')"
+    if: contains(github.event.workflow_run.head_commit.message, 'Version') || github.event.inputs.release_pypi || github.event.inputs.release_github
     runs-on: windows-latest
     steps:
     - uses: actions/checkout@v2
@@ -24,27 +35,32 @@ jobs:
         python -m pip install Pyinstaller
         python -m pip install -e .
         python setup.py install
-    - name: Build package
+    - name: Build package (PyPI)
+      if: github.event.inputs.release_pypi
       run: python -m build --no-isolation
-    - name: Publish package
+    - name: Publish package (PyPI)
+      if: github.event.inputs.release_pypi
       env:
         TWINE_USERNAME: __token__
         TWINE_PASSWORD: ${{ secrets.PYPI_API_TOKEN }}
       run: |
         twine upload ./dist/*.whl --skip-existing
         twine upload ./dist/*.tar.gz --skip-existing
-    - name: Build Windows executables
+    - name: Build Windows executable (GitHub)
+      if: github.event.inputs.release_github
       run: |          
           pyinstaller sssekai.spec  
-    - name : Get Version
+    - name : Get Version (GitHub)
+      if: github.event.inputs.release_github
       id   : get_version
       run  : |        
-        $message = @(git log -1 --oneline --format=%s)
+        $message = @(pip show sssekai)
         $lines = $message.Split(' ')
-        $version = $lines[1]
+        $version = $lines[3]
         
         Write-Output "::set-output name=version::$version"          
-    - name: Create Release
+    - name: Create Release (GitHub)
+      if: github.event.inputs.release_github
       id: create_release
       uses: actions/create-release@v1
       env:
@@ -52,7 +68,9 @@ jobs:
       with:
         tag_name: ${{ steps.get_version.outputs.version }}
         release_name: Version ${{ steps.get_version.outputs.version }}
-    - uses: actions/upload-release-asset@v1.0.1
+    - name: Upload Release Asset (GitHub)
+      if: github.event.inputs.release_github
+      uses: actions/upload-release-asset@v1.0.1
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
@@ -60,7 +78,9 @@ jobs:
         asset_path: dist/sssekai.exe
         asset_name: sssekai.exe
         asset_content_type: application/application/vnd.microsoft.portable-executable
-    - uses: eregon/publish-release@v1
+    - name: Publish Release (GitHub)
+      if: github.event.inputs.release_github
+      uses: eregon/publish-release@v1
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
