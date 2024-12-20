@@ -20,6 +20,7 @@ on:
      
 jobs:
   build-and-release:
+    # XXX: Nobody expects the `contains()` repetition
     if: contains(github.event.workflow_run.head_commit.message, 'Version') || github.event.inputs.release_pypi || github.event.inputs.release_github
     runs-on: windows-latest
     steps:
@@ -36,10 +37,10 @@ jobs:
         python -m pip install -e .
         python setup.py install
     - name: Build package (PyPI)
-      if: github.event.inputs.release_pypi
+      if: contains(github.event.workflow_run.head_commit.message, 'Version') || github.event.inputs.release_pypi
       run: python -m build --no-isolation
     - name: Publish package (PyPI)
-      if: github.event.inputs.release_pypi
+      if: contains(github.event.workflow_run.head_commit.message, 'Version') || github.event.inputs.release_pypi
       env:
         TWINE_USERNAME: __token__
         TWINE_PASSWORD: ${{ secrets.PYPI_API_TOKEN }}
@@ -47,11 +48,11 @@ jobs:
         twine upload ./dist/*.whl --skip-existing
         twine upload ./dist/*.tar.gz --skip-existing
     - name: Build Windows executable (GitHub)
-      if: github.event.inputs.release_github
+      if: contains(github.event.workflow_run.head_commit.message, 'Version') || github.event.inputs.release_github
       run: |          
           pyinstaller sssekai.spec  
     - name : Get Version (GitHub)
-      if: github.event.inputs.release_github
+      if: contains(github.event.workflow_run.head_commit.message, 'Version') || github.event.inputs.release_github
       id   : get_version
       run  : |        
         $message = @(pip show sssekai)
@@ -60,7 +61,7 @@ jobs:
         
         Write-Output "::set-output name=version::$version"          
     - name: Create Release (GitHub)
-      if: github.event.inputs.release_github
+      if: contains(github.event.workflow_run.head_commit.message, 'Version') || github.event.inputs.release_github
       id: create_release
       uses: actions/create-release@v1
       env:
@@ -69,7 +70,7 @@ jobs:
         tag_name: ${{ steps.get_version.outputs.version }}
         release_name: Version ${{ steps.get_version.outputs.version }}
     - name: Upload Release Asset (GitHub)
-      if: github.event.inputs.release_github
+      if: contains(github.event.workflow_run.head_commit.message, 'Version') || github.event.inputs.release_github
       uses: actions/upload-release-asset@v1.0.1
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -79,7 +80,7 @@ jobs:
         asset_name: sssekai.exe
         asset_content_type: application/application/vnd.microsoft.portable-executable
     - name: Publish Release (GitHub)
-      if: github.event.inputs.release_github
+      if: contains(github.event.workflow_run.head_commit.message, 'Version') || github.event.inputs.release_github
       uses: eregon/publish-release@v1
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
