@@ -1,14 +1,19 @@
 # -*- mode: python ; coding: utf-8 -*-
 
 # https://github.com/K0lb3/UnityPy/issues/184
-import UnityPy, os
-unitypy_path = lambda path: os.path.join(os.path.dirname(UnityPy.__file__), path)
+import UnityPy, pyaxmlparser, os
+module_path_func = lambda module:lambda path:os.path.join(os.path.dirname(module.__file__), path)
+
+unitypy_path = module_path_func(UnityPy)
+pyaxmlparser_path = module_path_func(pyaxmlparser)
+
 a = Analysis(
     ['sssekai\\__main__.py'],
     pathex=[],
     binaries=[],
     datas=[
         (unitypy_path('resources/*'), 'UnityPy/resources'),
+        (pyaxmlparser_path('resources/*'), 'pyaxmlparser/resources'),
     ],
     hiddenimports=[],
     hookspath=[],
