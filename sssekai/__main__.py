@@ -259,8 +259,10 @@ This crypto applies to:
     mvdata_parser = subparsers.add_parser(
         "mvdata", help="""Extract MV Data from AssetBundle"""
     )
-    mvdata_parser.add_argument("cache_dir", type=str, help="cache directory")
-    mvdata_parser.add_argument("query", type=str, help="MV ID")
+    mvdata_parser.add_argument(
+        "input", type=str, help="cache directory (live_pv/mv_data)"
+    )
+    mvdata_parser.add_argument("output", type=str, help="output JSON file to dump into")
     mvdata_parser.set_defaults(func=main_mvdata)
     # moc3paths
     moc3paths_parser = subparsers.add_parser(
