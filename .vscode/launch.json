@@ -1,6 +1,7 @@
 {
     "version": "0.2.0",
     "configurations": [
+        
         {
             "name": "Python: SpineExtract test",
             "type": "debugpy",
@@ -46,9 +47,9 @@
                 "--app-region",
                 "jp",
                 "--app-version",
-                "4.1.1",
+                "5.0.0",
                 "--app-appHash",
-                "41fd71f2-f715-bc10-5852-0a9d8542f760"
+                "746b8607-0e65-489d-b060-a8986ba11b47"
             ],
             "justMyCode": true
         },
@@ -188,7 +189,7 @@
                 "--download-dir",
                 "~/.sssekai/bundles/",
                 "--download-filter",
-                "thumbnail/costume"
+                ".*/stage_decoration/0344.*"
             ],
             "justMyCode": false
         },

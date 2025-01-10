@@ -75,7 +75,6 @@ class AbServeHTTPRequestHandler(BaseHTTPRequestHandler):
                 self.send_header("Content-type", "application/octet-stream")
                 # XXX: Size reported by bundles' metadata is not accurate.
                 # If a wrong size is reported, the browser will reject the download.
-                # TODO: Figure out why the size is wrong.
                 # self.send_header("Content-Length", fs.stat(path)["size"])
                 self.end_headers()
                 with fs.open(path, "rb") as f:
