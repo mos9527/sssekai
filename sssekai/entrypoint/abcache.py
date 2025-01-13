@@ -56,37 +56,40 @@ class AbCacheDownloader(ThreadPoolExecutor):
         return self.submit(self._download, file, dest)
 
 
+def dump_dict_by_keys(d: dict, dir: str):
+    for k, v in tqdm(d.items(), desc="Dumping", unit="file"):
+        with open(os.path.join(dir, k + ".json"), "w", encoding="utf-8") as f:
+            json.dump(v, f, indent=4, ensure_ascii=False)
+
+
 def main_abcache(args):
     cache = AbCache(
         AbCacheConfig(
-            args.app_region, args.app_version, args.app_platform, args.app_appHash
+            args.app_region,
+            args.app_version,
+            args.app_platform,
+            args.app_appHash,
+            args.auth_userId,
+            args.auth_credential,
         )
     )
     if args.dump_master_data:
         master_data_path = os.path.expanduser(args.dump_master_data)
+        os.makedirs(master_data_path, exist_ok=True)
         logger.info("Dumping master data to %s", master_data_path)
         cache.update_client_headers()
-        progress = tqdm(
-            total=len(cache.database.sekai_user_auth_data.suiteMasterSplitPath),
-            desc="Pulling",
-            unit="file",
-            bar_format="{desc}: {percentage:.1f}%|{bar}| {n:.1f}/{total_fmt} {rate_fmt} {elapsed}<{remaining}",
-        )
-        for split in cache.database.sekai_user_auth_data.suiteMasterSplitPath:
-            resp = cache.request_packed(
-                "GET", cache.SEKAI_API_ENDPOINT + "/api/" + split
-            )
-            data = cache.response_to_dict(resp)
-            path = master_data_path
-            os.makedirs(path, exist_ok=True)
-            logger.debug("Saving to %s", path)
-            for k, v in data.items():
-                logger.debug("Saving %s", k)
-                fpath = os.path.join(path, k + ".json")
-                with open(fpath, "w", encoding="utf-8") as f:
-                    json.dump(v, f, indent=4, ensure_ascii=False)
-                progress.update(1 / len(data))
+        for url in tqdm(
+            cache.SEKAI_API_MASTER_SUITE_URLS, desc="Downloading", unit="file"
+        ):
+            resp = cache.request_packed("GET", url)
+            dump_dict_by_keys(cache.response_to_dict(resp), master_data_path)
         return
+    if args.dump_user_data:
+        user_data_path = os.path.expanduser(args.dump_user_data)
+        os.makedirs(user_data_path, exist_ok=True)
+        logger.info("Dumping user data to %s", user_data_path)
+        resp = cache.request_packed("GET", cache.SEKAI_API_USER_SUITE)
+        dump_dict_by_keys(cache.response_to_dict(resp), user_data_path)
 
     db_path = os.path.expanduser(args.db)
     os.makedirs(os.path.dirname(db_path), exist_ok=True)

@@ -68,7 +68,8 @@
                 "3.4.0",   
                 "--app-appHash",
                 "a3015fe8-785f-27e1-fb8b-546a23c82c1f",
-                              
+                "--dump-master-data",
+                "/Volumes/mos9527弄丢的盘/Reverse/proseka_reverse/masterdata/tw"
             ],
             "justMyCode": true
         },       

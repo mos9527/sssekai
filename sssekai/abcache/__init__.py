@@ -7,6 +7,10 @@ from functools import cached_property
 
 logger = getLogger("sssekai.abcache")
 
+REGION_JP_EN = {"jp", "en"}
+REGION_ROW = {"tw", "kr", "cn"}
+REGION_OPTIONS = REGION_JP_EN | REGION_ROW
+
 
 def fromdict(klass: type, d: Union[Mapping, List], warn_missing_fields=True):
     """
@@ -68,6 +72,9 @@ class AbCacheConfig:
     app_platform: str
     app_hash: str
 
+    auth_userId: Optional[int]
+    auth_credential: Optional[str]
+
 
 @dataclass
 class AbCacheEntry(dict):
@@ -93,6 +100,10 @@ class AbCacheIndex(dict):
     bundles: Mapping[str, AbCacheEntry] = None
 
 
+# DS for the game's APIs
+# There're *plenty* differences across regions. The implementations here
+#   - Contains all the fields, even if they're not used in all regions
+#   - Only the fields that are common across regions are non Optional[T]
 @dataclass
 class SekaiAppVersion:
     systemProfile: str
@@ -130,18 +141,26 @@ class SekaiGameVersionData:
 @dataclass
 class SekaiUserRegistrationData:
     userId: int
-    signature: str
-    platform: str
-    deviceModel: str
-    operatingSystem: str
-    registeredAt: int
+    # JP/EN only
+    signature: Optional[str] = None
+    platform: Optional[str] = None
+    deviceModel: Optional[str] = None
+    operatingSystem: Optional[str] = None
+    registeredAt: Optional[int] = None
 
 
 @dataclass
 class SekaiUserData:
     userRegistration: SekaiUserRegistrationData
-    credential: str
-    updatedResources: dict
+    # JP/EN Only
+    credential: Optional[str] = None
+    updatedResources: Optional[dict] = None
+    # ROW
+    sessionToken: Optional[str] = None
+
+    @property
+    def user_credentials(self):
+        return self.credential or self.sessionToken
 
 
 @dataclass
@@ -151,14 +170,22 @@ class SekaiUserAuthData:
     multiPlayVersion: str
     dataVersion: str
     assetVersion: str
-    removeAssetVersion: str
-    assetHash: str
-    appVersionStatus: str
-    isStreamingVirtualLiveForceOpenUser: bool
-    deviceId: str
-    updatedResources: dict
-    suiteMasterSplitPath: list
+
+    # JP/EN only
+    removeAssetVersion: Optional[str] = None
+    assetHash: Optional[str] = None
+
+    appVersionStatus: Optional[str] = None
+
+    # JP/EN only
+    isStreamingVirtualLiveForceOpenUser: Optional[bool] = None
+    deviceId: Optional[str] = None
+    updatedResources: Optional[dict] = None
+    suiteMasterSplitPath: Optional[list] = None
     obtainedBondsRewardIds: Optional[list] = None  # JP 4.0+
+
+    # ROW
+    configs: Optional[List[dict]] = None
 
 
 @dataclass
@@ -291,16 +318,64 @@ class AbCache(Session):
         return self.SEKAI_API_ENDPOINT + "/api/user"
 
     @property
+    def SEKAI_USERID(self):
+        return self.config.auth_userId or (
+            self.database.sekai_user_data.userRegistration.userId
+            if self.database.sekai_user_data
+            else None
+        )
+
+    @property
+    def SEKAI_CREDENTIAL(self):
+        """Keyed in SEKAI_API_USER responses. `accessToken` in ROW servers, `credential` in JP/EN."""
+        return self.config.auth_credential or (
+            self.database.sekai_user_data.credential
+            if self.database.sekai_user_data
+            else None
+        )
+
+    @property
     def SEKAI_API_USER_AUTH(self):
-        return f"{self.SEKAI_API_USER}/{self.database.sekai_user_data.userRegistration.userId}/auth?refreshUpdatedResources=False"
+        if self.config.app_region in REGION_JP_EN:
+            assert self.SEKAI_USERID, "User ID must be available"
+            return f"{self.SEKAI_API_USER}/{self.SEKAI_USERID}/auth"
+        else:
+            # For ROW this is the endpoint that retrives SEKAI_API_USER level data as well
+            return f"{self.SEKAI_API_USER}/auth"
 
     @property
     def SEKAI_API_USER_SUITE(self):
-        return f"{self.SEKAI_API_ENDPOINT}/api/suite/user/{self.database.sekai_user_data.userRegistration.userId}"
+        assert self.SEKAI_USERID, "User ID must be available"
+        return f"{self.SEKAI_API_ENDPOINT}/api/suite/user/{self.SEKAI_USERID}"
 
     @property
-    def SEKAI_API_MASTER_SUITE(self):
-        return f"{self.SEKAI_API_ENDPOINT}/api/suite/master"
+    def SEKAI_API_MASTER_SUITE_URLS(self):
+        match self.config.app_region:
+            case "jp":
+                return [
+                    f"{self.SEKAI_API_ENDPOINT}/api/{path}"
+                    for path in self.database.sekai_user_auth_data.suiteMasterSplitPath
+                ]
+            case "en":
+                return [
+                    f"{self.SEKAI_API_ENDPOINT}/api/{path}"
+                    for path in self.database.sekai_user_auth_data.suiteMasterSplitPath
+                ]
+            # NOTE: All ROW servers have hardcoded master data URLs in *one* file as of the time of writing.
+            # NOTE: The MessagePack schema is also *omitted* in these endpoints. Good luck parsing them.
+            case "tw":
+                return [
+                    "https://lf21-mkovscdn-sg.bytedgame.com/obj/sf-game-alisg/gdl_app_5245/MasterData/60001/master-data-138.info"
+                ]
+            case "kr":
+                return [
+                    "https://lf19-mkkr.bytedgame.com/obj/sf-game-alisg/gdl_app_292248/MasterData/60001/master-data-158.info"
+                ]
+            case "cn":
+                # XXX: Unverified. Game's still unreleased in CN
+                return [
+                    "https://lf3-j1gamecdn-cn.dailygn.com/obj/sf-game-lf/gdl_app_5236/MasterData/60001/master-data-138.info"
+                ]
 
     @property
     def SEKAI_API_INFORMATION(self):
@@ -357,8 +432,13 @@ class AbCache(Session):
             # HACK: Per RFC6265, Cookies should not be visible to subdomains since it's not set with Domain attribute (https://github.com/psf/requests/issues/2576)
             # But the other endpoints uses it nontheless. So we have to set it manually.
 
-    def _update_user_data(self):
-        if self.config.app_region in {"jp", "en"}:
+    def _update_user_data_register(self):
+        """Register user data if not available. ONLY works for JP and EN"""
+        if self.config.app_region in REGION_JP_EN:
+            if self.SEKAI_CREDENTIAL:
+                return logger.debug(
+                    "Skipping user registration since credential is available"
+                )
             logger.debug("Updating user data")
             payload = {
                 "platform": self.headers["X-Platform"],
@@ -370,15 +450,30 @@ class AbCache(Session):
             self.database.sekai_user_data = fromdict(SekaiUserData, data)
 
     def _update_user_auth_data(self):
-        if self.config.app_region in {"jp", "en"}:
+        if self.SEKAI_CREDENTIAL:
             logger.debug("Updating user auth data")
-            payload = {
-                "credential": self.database.sekai_user_data.credential,
-                "deviceId": None,
-            }
-            resp = self.request_packed("PUT", self.SEKAI_API_USER_AUTH, data=payload)
+            if self.config.app_region in REGION_JP_EN:
+                resp = self.request_packed(
+                    "PUT",
+                    self.SEKAI_API_USER_AUTH,
+                    data={"credential": self.SEKAI_CREDENTIAL, "deviceId": None},
+                )
+            else:
+                resp = self.request_packed(
+                    "POST",
+                    self.SEKAI_API_USER_AUTH,
+                    data={
+                        "accessToken": self.SEKAI_CREDENTIAL,
+                        "deviceId": None,
+                        "userID": 0,
+                    },
+                )
             data = self.response_to_dict(resp)
-            self.database.sekai_user_auth_data = fromdict(SekaiUserAuthData, data)
+            self.database.sekai_user_auth_data = fromdict(
+                SekaiUserAuthData, data, False
+            )
+            if self.config.app_region in REGION_ROW:
+                self.database.sekai_user_data = fromdict(SekaiUserData, data, False)
 
     def _update_system_data(self):
         logger.debug("Updating system data")
@@ -387,7 +482,7 @@ class AbCache(Session):
         self.database.sekai_system_data = fromdict(SekaiSystemData, data)
 
     def _update_gameversion_data(self):
-        if self.config.app_region in {"jp", "en"}:
+        if self.config.app_region in REGION_JP_EN:
             logger.debug("Updating game version data")
             resp = self.request_packed(
                 "GET",
@@ -448,15 +543,15 @@ class AbCache(Session):
         logger.debug("Set config: %s" % self.config)
         self._update_signatures()
         self._update_system_data()
-        if self.config.app_region in {"jp", "en"}:
+        if self.config.app_region in REGION_JP_EN:
             version_newest = self.database.sekai_system_data.appVersions[-1]
             logger.debug("Newest App version: %s" % version_newest)
             if version_newest.appVersion != self.SEKAI_APP_VERSION:
                 logger.warning("App version mismatch. This may cause issues.")
         self._update_gameversion_data()
-        self._update_user_data()
+        self._update_user_data_register()
         self._update_user_auth_data()
-        if self.config.app_region in {"jp", "en"}:
+        if self.database.sekai_user_auth_data:
             self.headers.update(
                 {
                     "X-Data-Version": self.database.sekai_user_auth_data.dataVersion,
@@ -469,7 +564,7 @@ class AbCache(Session):
     def update(self):
         self.update_client_headers()
         self._update_abcache_index()
-        if self.config.app_region in {"jp", "en"}:
+        if self.config.app_region in REGION_JP_EN:
             logger.debug("Sekai AssetBundle version: %s" % self.SEKAI_ASSET_VERSION)
             logger.debug("Sekai AssetBundle host hash: %s" % self.SEKAI_AB_HOST_HASH)
 
@@ -491,7 +586,7 @@ class AbCache(Session):
         return self.abcache_index.bundles.get(bundleName, None)
 
     def get_entry_download_url(self, entry: AbCacheEntry):
-        if self.config.app_region in {"jp", "en"}:
+        if self.config.app_region in REGION_JP_EN:
             return self.SEKAI_AB_ENDPOINT + self.SEKAI_AB_BASE_PATH + entry.bundleName
         else:
             return self.SEKAI_AB_ENDPOINT + entry.bundleName

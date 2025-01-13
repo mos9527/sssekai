@@ -84,7 +84,7 @@ This crypto applies to:
     usmdemux_parser.set_defaults(func=main_usmdemux)
     # abcache
     abcache_parser = subparsers.add_parser(
-        "abcache", help="""Sekai AssetBundle Metadata Cache"""
+        "abcache", help="""Sekai AssetBundle Metadata Cache / Game API Helper"""
     )
     group = abcache_parser.add_argument_group("save/load options")
     group.add_argument(
@@ -159,7 +159,31 @@ This crypto applies to:
     group.add_argument(
         "--dump-master-data",
         type=str,
-        help="directory to store the dumped master data in JSON",
+        help="directory to store the dumped master data in JSON.",
+        default=None,
+    )
+    group.add_argument(
+        "--dump-user-data",
+        type=str,
+        help="directory to store the dumped master data of the authencicated user in JSON. NOTE: require proper authentication required",
+        default=None,
+    )
+    group = abcache_parser.add_argument_group(
+        "authentication arguments",
+        "Only needed for some functionailties (i.e. --dump-master-data)",
+    )
+    group.add_argument(
+        "--auth-userId",
+        type=str,
+        help="User ID for API authentication. "
+        + "Can be omitted on JP/EN servers, in which case a guest account would be automatically registered and used."
+        + "NOT required on ROW servers since it's retrieved from --auth-credential",
+        default=None,
+    )
+    group.add_argument(
+        "--auth-credential",
+        type=str,
+        help="Credential for API authentication. Can be omitted on JP/EN servers, in which case a guest account would be automatically registered and used.",
         default=None,
     )
     abcache_parser.set_defaults(func=main_abcache)
