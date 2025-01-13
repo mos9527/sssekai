@@ -168,6 +168,11 @@ This crypto applies to:
         help="directory to store the dumped master data of the authencicated user in JSON. NOTE: require proper authentication required",
         default=None,
     )
+    group.add_argument(
+        "--keep-compact",
+        help="keep compacted datasets as is without expanding them to key-value pairs",
+        action="store_true",
+    )
     group = abcache_parser.add_argument_group(
         "authentication arguments",
         "Only needed for some functionailties (i.e. --dump-master-data)",

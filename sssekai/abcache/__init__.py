@@ -411,17 +411,18 @@ class AbCache(Session):
         resp.raise_for_status()
         return resp
 
-    def response_to_dict(self, resp: Response):
+    def response_to_dict(self, resp: Response, **kwargs):
         """Decrypt and unpack a response content to a dictionary.
 
         Args:
             resp (Response): Response object
+            **kwargs: Additional arguments for MessagePack unpackb
 
         Returns:
             dict: Decrypted and unpacked data
         """
         data = decrypt(resp.content, SEKAI_APIMANAGER_KEYSETS[self.config.app_region])
-        data = unpackb(data)
+        data = unpackb(data, **kwargs)
         return data
 
     def _update_signatures(self):

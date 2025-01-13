@@ -56,10 +56,27 @@ class AbCacheDownloader(ThreadPoolExecutor):
         return self.submit(self._download, file, dest)
 
 
-def dump_dict_by_keys(d: dict, dir: str):
+def dump_dict_by_keys(d: dict, dir: str, keep_compact: bool):
     for k, v in tqdm(d.items(), desc="Dumping", unit="file"):
-        with open(os.path.join(dir, k + ".json"), "w", encoding="utf-8") as f:
+        if not keep_compact and k.startswith("compact"):
+            # NOTE: These are emprical and have yet been backed by decompilation
+            # Assumptions:
+            #   - List[Mapping[K,V]] are compacted into Mapping[K,List[V]]
+            #   - Mapping[K,V] does not contain recusive mappings
+            #   - Enums can only be Values and they would be stored as strings. Once compacted
+            #     To 0-indexed array keyed by their parent's key in a special __ENUM__ LUT
+            logger.debug("Decompacting %s", k)
+            enums = v.get("__ENUM__", {})
+            struct = [kk for kk in v if isinstance(v[kk], list)]
+            count = len(v[struct[-1]])
+            getkey = lambda kk, i: enums[kk][v[kk][i] or 0] if kk in enums else v[kk][i]
+            v = [{kk: getkey(kk, i) for kk in struct} for i in range(count)]
+            k = k[len("compact") :]
+            k = k[0].lower() + k[1:]  # Save in the style of JP server's keys
+        save_as = k + ".json"
+        with open(os.path.join(dir, save_as), "w", encoding="utf-8") as f:
             json.dump(v, f, indent=4, ensure_ascii=False)
+            logger.info("Saved %s", save_as)
 
 
 def main_abcache(args):
@@ -82,14 +99,18 @@ def main_abcache(args):
             cache.SEKAI_API_MASTER_SUITE_URLS, desc="Downloading", unit="file"
         ):
             resp = cache.request_packed("GET", url)
-            dump_dict_by_keys(cache.response_to_dict(resp), master_data_path)
+            dump_dict_by_keys(
+                cache.response_to_dict(resp), master_data_path, args.keep_compact
+            )
         return
     if args.dump_user_data:
         user_data_path = os.path.expanduser(args.dump_user_data)
         os.makedirs(user_data_path, exist_ok=True)
         logger.info("Dumping user data to %s", user_data_path)
         resp = cache.request_packed("GET", cache.SEKAI_API_USER_SUITE)
-        dump_dict_by_keys(cache.response_to_dict(resp), user_data_path)
+        dump_dict_by_keys(
+            cache.response_to_dict(resp), user_data_path, args.keep_compact
+        )
 
     db_path = os.path.expanduser(args.db)
     os.makedirs(os.path.dirname(db_path), exist_ok=True)
