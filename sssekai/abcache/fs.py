@@ -64,7 +64,7 @@ class UnidirectionalBlockCache(BaseCache):
             stop = self.size
         if not self.ignore_size:
             stop = min(stop, self.size)  # XXX: why didn't fsspec handle this?
-        if start >= self.size or start >= stop:
+        if (not self.ignore_size and start >= self.size) or start >= stop:
             return b""
         start_blk, start_pos = start // self.blocksize, start % self.blocksize
         end_blk, end_pos = stop // self.blocksize, stop % self.blocksize

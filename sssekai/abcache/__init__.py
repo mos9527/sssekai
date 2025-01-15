@@ -376,7 +376,7 @@ class AbCache(Session):
                     for path in self.database.sekai_user_auth_data.suiteMasterSplitPath
                 ]
             # NOTE: All ROW servers have hardcoded master data URLs in *one* file as of the time of writing.
-            # NOTE: The MessagePack schema is also *omitted* in these endpoints. Good luck parsing them.
+            # NOTE: Some of the MessagePack schemas is also *omitted* in these endpoints. Good luck parsing them.
             case "tw":
                 return [
                     "https://lf21-mkovscdn-sg.bytedgame.com/obj/sf-game-alisg/gdl_app_5245/MasterData/60001/master-data-138.info"
