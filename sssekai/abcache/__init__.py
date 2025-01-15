@@ -1,6 +1,6 @@
 from collections import defaultdict
 from pickle import load, dump
-from typing import BinaryIO, List, Mapping, Optional, Union
+from typing import BinaryIO, List, Mapping, Optional, Union, Tuple
 from logging import getLogger
 from dataclasses import dataclass, fields, is_dataclass
 from functools import cached_property
@@ -60,7 +60,7 @@ def fromdict(klass: type, d: Union[Mapping, List], warn_missing_fields=True):
 from requests import Session, Response
 from msgpack import unpackb, packb
 
-from sssekai import __version__
+from sssekai import __version__, __version_tuple__
 from sssekai.unity import sssekai_get_unity_version
 from sssekai.crypto.APIManager import decrypt, encrypt, SEKAI_APIMANAGER_KEYSETS
 
@@ -72,8 +72,22 @@ class AbCacheConfig:
     app_platform: str
     app_hash: str
 
-    auth_userId: Optional[int]
-    auth_credential: Optional[str]
+    auth_userId: Optional[int] = None
+    auth_credential: Optional[str] = None
+
+    sssekai_version: Optional[Tuple[int, int, int]] = None
+
+    @property
+    def cache_version(self):
+        return getattr(self, "sssekai_version", (0, 0, 0))
+
+    @property
+    def cache_version_string(self):
+        return "%s.%s.%s" % self.cache_version if self.cache_version else "pre-0.5.17"
+
+    @property
+    def is_up_to_date(self):
+        return self.cache_version == __version_tuple__
 
 
 @dataclass
@@ -127,7 +141,7 @@ class SekaiSystemData:
     appVersions: Optional[List[SekaiAppVersion]] = None
 
     @cached_property
-    def appVersionDict(self):
+    def app_version_dict(self):
         return {av.appVersion: av for av in self.appVersions or []}
 
 
@@ -297,7 +311,7 @@ class AbCache(Session):
 
     @property
     def SEKAI_ASSET_VERSION(self):
-        return self.database.sekai_system_data.appVersionDict[
+        return self.database.sekai_system_data.app_version_dict[
             self.SEKAI_APP_VERSION
         ].assetVersion
 
@@ -523,6 +537,9 @@ class AbCache(Session):
                     "X-App-Hash": self.SEKAI_APP_HASH,
                 }
             )
+        else:
+            self.config = AbCacheConfig("unknown", "unknown", "unknown", "unknown")
+        self.config.sssekai_version = __version_tuple__
 
     def update_download_headers(self):
         """Update headers for downloading assetbundles *ONLY*. Functionalities related to user-level data (e.g. Master Data, etc) won't
@@ -576,6 +593,11 @@ class AbCache(Session):
     def load(self, f: BinaryIO):
         logger.debug("Loading cache")
         self.database = load(f)
+        if not self.database.config.is_up_to_date:
+            logger.warning(
+                "Cache is outdated (cache: %s, current: %s). It's HIGHLY recommended to update the cache to avoid issues."
+                % (self.database.config.cache_version_string, __version__)
+            )
         logger.debug("Cache loaded: %s" % self)
 
     def __repr__(self) -> str:
