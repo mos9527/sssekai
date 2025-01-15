@@ -73,7 +73,7 @@ class AbCacheConfig:
     app_hash: str
 
     auth_userID: str = None
-    auth_credential: str = None
+    auth_credential: str = None  # JWT token for JP/EN, Base64 encoded JWT token for ROW
 
     version: Tuple[int, int, int] = (0, 0, 0)
 

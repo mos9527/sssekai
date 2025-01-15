@@ -95,7 +95,13 @@ def main_abcache(args):
 
             logger.info("Registering as anonymous user on SEGA servers")
             config = set_anoymous_acc_sega(config)
-            pass
+        else:
+            if args.dump_user_data:
+                # Otherwise not required
+                from sssekai.abcache.auth import set_anoymous_acc_bytedance
+
+                logger.info("Registering as anonymous user on ByteDance servers")
+                config = set_anoymous_acc_bytedance(config)
         pass
 
     cache = AbCache(config)

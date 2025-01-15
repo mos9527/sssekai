@@ -68,6 +68,8 @@
                 "3.4.0",   
                 "--app-appHash",
                 "a3015fe8-785f-27e1-fb8b-546a23c82c1f",
+                "--dump-user-data",
+                "~/.sssekai/tw_user"
             ],
             "justMyCode": true
         },       
