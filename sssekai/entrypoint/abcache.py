@@ -1,5 +1,5 @@
 import os, re, json
-from sssekai.abcache import AbCache, AbCacheConfig, logger
+from sssekai.abcache import AbCache, AbCacheConfig, logger, REGION_JP_EN, REGION_ROW
 from sssekai.abcache.fs import AbCacheFilesystem, AbCacheFile
 from concurrent.futures import ThreadPoolExecutor
 from requests import Session
@@ -80,16 +80,25 @@ def dump_dict_by_keys(d: dict, dir: str, keep_compact: bool):
 
 
 def main_abcache(args):
-    cache = AbCache(
-        AbCacheConfig(
-            args.app_region,
-            args.app_version,
-            args.app_platform,
-            args.app_appHash,
-            args.auth_userId,
-            args.auth_credential,
-        )
+    config = AbCacheConfig(
+        args.app_region,
+        args.app_version,
+        args.app_platform,
+        args.app_appHash,
+        args.auth_userId,
+        args.auth_credential,
     )
+    if not config.auth_available and not args.no_update:
+        # Register as anonymous user in this case
+        if config.app_region in REGION_JP_EN:
+            from sssekai.abcache.auth import set_anoymous_acc_sega
+
+            logger.info("Registering as anonymous user on SEGA servers")
+            config = set_anoymous_acc_sega(config)
+            pass
+        pass
+
+    cache = AbCache(config)
     if args.dump_master_data:
         master_data_path = os.path.expanduser(args.dump_master_data)
         os.makedirs(master_data_path, exist_ok=True)

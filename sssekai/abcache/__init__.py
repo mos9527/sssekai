@@ -72,14 +72,21 @@ class AbCacheConfig:
     app_platform: str
     app_hash: str
 
-    auth_userId: Optional[int] = None
-    auth_credential: Optional[str] = None
+    auth_userID: str = None
+    auth_credential: str = None
 
-    sssekai_version: Optional[Tuple[int, int, int]] = None
+    version: Tuple[int, int, int] = (0, 0, 0)
+
+    @property
+    def auth_available(self):
+        if self.app_region in REGION_JP_EN:
+            return self.auth_userID and self.auth_credential
+        else:
+            return self.auth_credential
 
     @property
     def cache_version(self):
-        return getattr(self, "sssekai_version", (0, 0, 0))
+        return getattr(self, "version", (0, 0, 0))
 
     @property
     def cache_version_string(self):
@@ -220,6 +227,10 @@ class AbCacheBundleNotFoundError(Exception):
         super().__init__("Bundle not found: %s" % bundleName)
 
 
+class AbCacheUserNotAuthenticatedError(Exception):
+    pass
+
+
 class AbCache(Session):
     database: SSSekaiDatabase
 
@@ -333,7 +344,7 @@ class AbCache(Session):
 
     @property
     def SEKAI_USERID(self):
-        return self.config.auth_userId or (
+        return self.config.auth_userID or (
             self.database.sekai_user_data.userRegistration.userId
             if self.database.sekai_user_data
             else None
@@ -349,6 +360,14 @@ class AbCache(Session):
         )
 
     @property
+    def is_authenticated(self):
+        return self.database.sekai_user_data and self.database.sekai_user_auth_data
+
+    def raise_for_auth(self, *args):
+        if not self.is_authenticated:
+            raise AbCacheUserNotAuthenticatedError(*args)
+
+    @property
     def SEKAI_API_USER_AUTH(self):
         if self.config.app_region in REGION_JP_EN:
             assert self.SEKAI_USERID, "User ID must be available"
@@ -359,18 +378,20 @@ class AbCache(Session):
 
     @property
     def SEKAI_API_USER_SUITE(self):
-        assert self.SEKAI_USERID, "User ID must be available"
+        self.raise_for_auth()
         return f"{self.SEKAI_API_ENDPOINT}/api/suite/user/{self.SEKAI_USERID}"
 
     @property
     def SEKAI_API_MASTER_SUITE_URLS(self):
         match self.config.app_region:
             case "jp":
+                self.raise_for_auth()
                 return [
                     f"{self.SEKAI_API_ENDPOINT}/api/{path}"
                     for path in self.database.sekai_user_auth_data.suiteMasterSplitPath
                 ]
             case "en":
+                self.raise_for_auth()
                 return [
                     f"{self.SEKAI_API_ENDPOINT}/api/{path}"
                     for path in self.database.sekai_user_auth_data.suiteMasterSplitPath
@@ -447,25 +468,8 @@ class AbCache(Session):
             # HACK: Per RFC6265, Cookies should not be visible to subdomains since it's not set with Domain attribute (https://github.com/psf/requests/issues/2576)
             # But the other endpoints uses it nontheless. So we have to set it manually.
 
-    def _update_user_data_register(self):
-        """Register user data if not available. ONLY works for JP and EN"""
-        if self.config.app_region in REGION_JP_EN:
-            if self.SEKAI_CREDENTIAL:
-                return logger.debug(
-                    "Skipping user registration since credential is available"
-                )
-            logger.debug("Updating user data")
-            payload = {
-                "platform": self.headers["X-Platform"],
-                "deviceModel": self.headers["X-DeviceModel"],
-                "operatingSystem": self.headers["X-OperatingSystem"],
-            }
-            resp = self.request_packed("POST", self.SEKAI_API_USER, data=payload)
-            data = self.response_to_dict(resp)
-            self.database.sekai_user_data = fromdict(SekaiUserData, data)
-
     def _update_user_auth_data(self):
-        if self.SEKAI_CREDENTIAL:
+        if self.config.auth_available:
             logger.debug("Updating user auth data")
             if self.config.app_region in REGION_JP_EN:
                 resp = self.request_packed(
@@ -489,6 +493,11 @@ class AbCache(Session):
             )
             if self.config.app_region in REGION_ROW:
                 self.database.sekai_user_data = fromdict(SekaiUserData, data, False)
+        else:
+            if self.config.app_region in REGION_JP_EN:
+                raise AbCacheUserNotAuthenticatedError(
+                    "Auth config is required for accessing JP/EN game server content"
+                )
 
     def _update_system_data(self):
         logger.debug("Updating system data")
@@ -539,11 +548,13 @@ class AbCache(Session):
             )
         else:
             self.config = AbCacheConfig("unknown", "unknown", "unknown", "unknown")
-        self.config.sssekai_version = __version_tuple__
+        self.config.version = __version_tuple__
 
     def update_download_headers(self):
-        """Update headers for downloading assetbundles *ONLY*. Functionalities related to user-level data (e.g. Master Data, etc) won't
-        be available.
+        """Update headers for downloading assetbundles *ONLY*.
+        NOTE:
+            - This *DOES NOT* authenticate the user or update any user-level data and is only used with JP servers.
+            - With EN/ROW servers this is unnecessary and is a NO-OP
 
         Returns:
             dict: Updated headers
@@ -552,10 +563,13 @@ class AbCache(Session):
         return self.headers
 
     def update_client_headers(self):
-        """Update headers for client-level functionalities. This includes user-level data (e.g. Master Data, etc) and assetbundle data.
+        """Authenticate the user and update client headers
 
-        Returns:
-            _type_: _description_
+        NOTE:
+            - For JP/EN servers, `auth_userID` and `auth_credential` NEED to be set or otherwise you won't be able to do anything.
+            - For ROW servers, it's OK to leave them empty.
+                - To access user-level data, however, you still NEED to be authenticated.
+                - In this case, only `auth_credential` is required for ROW servers.
         """
         logger.debug("Updating metadata")
         logger.debug("Set config: %s" % self.config)
@@ -567,9 +581,8 @@ class AbCache(Session):
             if version_newest.appVersion != self.SEKAI_APP_VERSION:
                 logger.warning("App version mismatch. This may cause issues.")
         self._update_gameversion_data()
-        self._update_user_data_register()
         self._update_user_auth_data()
-        if self.database.sekai_user_auth_data:
+        if self.is_authenticated:
             self.headers.update(
                 {
                     "X-Data-Version": self.database.sekai_user_auth_data.dataVersion,
@@ -580,6 +593,12 @@ class AbCache(Session):
         return self.headers
 
     def update(self):
+        """Update the cache with the latest AssetBundle Index data from the server.
+
+        NOTE:
+            AbCache should have been initialized with a valid config before calling this method.
+            Please refer to `update_client_headers` for more information.
+        """
         self.update_client_headers()
         self._update_abcache_index()
         if self.config.app_region in REGION_JP_EN:
