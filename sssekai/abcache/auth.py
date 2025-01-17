@@ -8,6 +8,7 @@ logger = getLogger(__name__)
 def set_anoymous_acc_sega(config: AbCacheConfig):
     logger.info("Registering user data")
     with AbCache(config) as session:
+        session._update_signatures()
         payload = {
             "platform": session.headers["X-Platform"],
             "deviceModel": session.headers["X-DeviceModel"],
