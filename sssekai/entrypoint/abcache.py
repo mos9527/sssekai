@@ -97,12 +97,9 @@ def main_abcache(args):
             config = set_anoymous_acc_sega(config)
         else:
             if args.dump_user_data:
-                # Otherwise not required
-                from sssekai.abcache.auth import set_anoymous_acc_bytedance
-
-                logger.info("Registering as anonymous user on ByteDance servers")
-                config = set_anoymous_acc_bytedance(config)
-        pass
+                raise NotImplementedError(
+                    "Anonymous user registration is not supported on ROW servers"
+                )
 
     cache = AbCache(config)
     if args.dump_master_data:

@@ -31,8 +31,6 @@
             "console": "integratedTerminal",
             "justMyCode": false,
             "args": [
-                "F:\\Sekai\\live_pv\\mv_data",
-                "C:\\Users\\Huang\\Desktop\\mv_data.json"
             ]
         },
         {

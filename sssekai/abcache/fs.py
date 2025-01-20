@@ -133,6 +133,7 @@ class AbCacheFile(AbstractBufferedFile):
     def __resp(self) -> Response:
         url = self.session.get_entry_download_url(self.entry)
         resp = self.session.get(url, stream=True)
+        resp.raise_for_status()
         return resp
 
     @cached_property
