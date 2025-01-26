@@ -1,299 +1,304 @@
-from collections import OrderedDict
-from typing import Dict, List, Tuple
+from collections import defaultdict
+from typing import Dict, List, Generator
+from bisect import bisect_right
+from dataclasses import dataclass, field
 from UnityPy.enums import ClassIDType
-from UnityPy.classes import AnimationClip, StreamedClip, AnimationClipBindingConstant
+from UnityPy.classes import (
+    AnimationClip,
+    StreamedClip,
+    GenericBinding,
+)
 from UnityPy.classes.math import Vector3f as Vector3, Quaternionf as Quaternion
 from UnityPy.streams.EndianBinaryReader import EndianBinaryReader
-from dataclasses import dataclass
-from enum import IntEnum
 from logging import getLogger
 
 logger = getLogger(__name__)
 
+# GenericBinding Attributes
+kBindTransformPosition = 1
+kBindTransformRotation = 2
+kBindTransformScale = 3
+kBindTransformEuler = 4
+# -- Reserved since Unity may uses those
+kBindFloat = 10001
+kBindInt = 10002
+kBindPPtr = 1003
+# ---
+kAttributeSizeof = lambda x: {
+    kBindTransformPosition: 3,
+    kBindTransformRotation: 4,  # Quaternion
+    kBindTransformScale: 3,
+    kBindTransformEuler: 3,
+}.get(x, 1)
 
-# taken from https://github.com/AssetRipper/AssetRipper
-class TransformType(IntEnum):
-    _None = 0
-    Translation = 1
-    Rotation = 2
-    Scaling = 3
-    EulerRotation = 4
+# Interpolation Types
+kInterpolateHermite = 1
+kInterpolateLinear = 2
+kInterpolateStepped = 3
+kInterpolateConstant = 4
 
 
-def DimensionOfTransformType(type: TransformType):
-    if type != TransformType.Rotation:  # Quaternion
-        return 3
-    return 4  # XYZ
+class _StreamedClipKey:
+    """
+    dx = rhs.time - lhs.time;
+    dx = max(dx, 0.0001F);
+    dy = rhs.value - lhs.value;
+    length = 1.0F / (dx * dx);
 
+    m1 = lhs.outSlope;
+    m2 = rhs.inSlope;
+    d1 = m1 * dx;
+    d2 = m2 * dx;
 
-@dataclass
-class KeyFrame:
+    cache.coeff[0] = (d1 + d2 - dy - dy) * length / dx;
+    cache.coeff[1] = (dy + dy + dy - d1 - d1 - d2) * length;
+    cache.coeff[2] = m1;
+    cache.coeff[3] = lhs.value;
+    """
+
+    index: int
+    coeff: List[int]
+
     time: float
-    value: float | Vector3 | Quaternion
-    inSlope: float | Vector3 | Quaternion = 0
-    outSlope: float | Vector3 | Quaternion = 0
-    coeff: float = 0
+    prev: "_StreamedClipKey"
 
-
-@dataclass
-class Track:
-    Attribute: int | str
-    Path: int | str
-    Curve: List[KeyFrame]
-
-    def __init__(self) -> None:
-        self.Curve = list()
-
-    def add_keyframe(self, keyframe: KeyFrame):
-        self.Curve.append(keyframe)
-
-
-class Animation:
-    FloatTracks: Dict[
-        int, Dict[int, Track]
-    ]  # Path crc hash - Attribute crc hash - Track
-    TransformTracks: Dict[
-        TransformType, Dict[int, Track]
-    ]  # TransformType - Path crc hash - Track
-    Framerate: int
-    Duration: int
-
-    def __init__(self) -> None:
-        self.Framerate = 60
-        self.FloatTracks = dict()
-        self.TransformTracks = dict()
-        self.TransformTracks[TransformType.EulerRotation] = dict()
-        self.TransformTracks[TransformType.Rotation] = dict()
-        self.TransformTracks[TransformType.Translation] = dict()
-        self.TransformTracks[TransformType.Scaling] = dict()
-
-
-# Backported from 47b1bde027fd79d78af3de4d5e3bebd05f8ceeb8
-class StreamedCurveKey:
-    def __init__(self, reader):
+    def __init__(self, reader: EndianBinaryReader, time: float):
         self.index = reader.read_int()
         self.coeff = reader.read_float_array(4)
+        self.time = time
 
-        self.outSlope = self.coeff[2]
-        self.value = self.coeff[3]
+    @property
+    def outSlope(self):
+        return self.coeff[2]
 
-    def CalculateNextInSlope(self, dx: float, rhs):
-        """
-        :param dx: float
-        :param rhs: StreamedCurvedKey
-        :return:
-        """
-        # Stepped
-        if self.coeff[0] == 0 and self.coeff[1] == 0 and self.coeff[2] == 0:
+    @property
+    def value(self):
+        return self.coeff[3]
+
+    @property
+    def inSlope(self):
+        if not self.prev:
+            return 0
+        if self.coeff[0] == 0 and self.coeff[1] == 0 and self.coeff[2] == 0:  # Stepped
             return float("inf")
-
-        dx = max(dx, 0.0001)
-        dy = rhs.value - self.value
+        lhs, rhs = self.prev, self
+        dx = max(rhs.time - lhs.time, 0.0001)
+        dy = rhs.value - lhs.value
         length = 1.0 / (dx * dx)
         d1 = self.outSlope * dx
         d2 = dy + dy + dy - d1 - d1 - self.coeff[1] / length
         return d2 / dx
 
 
-class StreamedFrame:
-    def __init__(self, reader):
+class _StreamedClipFrame:
+    time: float
+    keys: List[_StreamedClipKey]
+
+    def __init__(self, reader: EndianBinaryReader):
         self.time = reader.read_float()
-        numKeys = reader.read_int()
-        self.keyList = [StreamedCurveKey(reader) for _ in range(numKeys)]
+        self.keys = [
+            _StreamedClipKey(reader, self.time) for _ in range(reader.read_int())
+        ]
+        for i in range(1, len(self.keys)):
+            # Used to calculate inSlope
+            self.keys[i].prev = self.keys[i - 1]
 
 
-def StreamedClipReadData(self):
-    frameList = []
-    buffer = b"".join(val.to_bytes(4, "big") for val in self.data)
+def _read_streamed_clip_frames(clip: StreamedClip) -> List[_StreamedClipFrame]:
+    frames: List[_StreamedClipFrame] = []
+    buffer = b"".join(val.to_bytes(4, "big") for val in clip.data)
     reader = EndianBinaryReader(buffer)
     while reader.Position < reader.Length:
-        frameList.append(StreamedFrame(reader))
+        frames.append(_StreamedClipFrame(reader))
+    return frames
 
-    for frameIndex in range(2, len(frameList) - 1):
-        frame = frameList[frameIndex]
-        for curveKey in frame.keyList:
-            i = frameIndex - 1
-            while i >= 0:
-                preFrame = frameList[i]
-                try:
-                    preCurveKey = [
-                        x for x in preFrame.keyList if x.index == curveKey.index
-                    ][0]
-                    curveKey.inSlope = preCurveKey.CalculateNextInSlope(
-                        frame.time - preFrame.time, curveKey
-                    )
-                    break
-                except IndexError:
-                    pass
-                i -= 1
-    return frameList
-StreamedClip.ReadData = StreamedClipReadData
 
-def AnimationClipBindingConstantFindBinding(self, index):
-    curves = 0
-    for b in self.genericBindings:
-        if b.typeID == ClassIDType.Transform:  #
-            switch = b.attribute
+@dataclass
+class KeyFrame:
+    time: float
+    typeID: int
+    value: float | Vector3 | Quaternion = 0
 
-            if switch in [1, 3, 4]:
-                # case 1: #kBindTransformPosition
-                # case 3: #kBindTransformScale
-                # case 4: #kBindTransformEuler
-                curves += 3
-            elif switch == 2:  # kBindTransformRotation
-                curves += 4
-            else:
-                curves += 1
+    isDense: bool = False
+    isConstant: bool = False
+    # Used for Hermite curves
+    inSlope: float | Vector3 | Quaternion = 0
+    outSlope: float | Vector3 | Quaternion = 0
+
+    @property
+    def interpolation(self):
+        if self.isConstant:
+            return kInterpolateConstant
+        if self.isDense:
+            return kInterpolateLinear
+        if self.inSlope == float("inf") or self.outSlope == float("inf"):
+            return kInterpolateStepped
+        return kInterpolateHermite
+
+
+@dataclass
+class Curve:
+    Binding: GenericBinding
+    Data: List[KeyFrame] = field(list)
+
+
+@dataclass
+class Animation:
+    Name: str
+    # Dict[internal hash, Curve]
+    RawCurves: Dict[int, Curve] = field(default_factory=dict)
+    # Curves[Attribute][Path Hash] = Curve
+    Curves: Dict[int, Dict[float, Curve]] = field(lambda: defaultdict(dict))
+    # CurvesT[Path Hash][Attribute] = Curve
+    CurvesT: Dict[int, Dict[float, Curve]] = field(lambda: defaultdict(dict))
+
+    @staticmethod
+    def hash_of(binding: GenericBinding):
+        return hash((binding.path, binding.attribute))
+
+    def get_curve(self, binding: GenericBinding):
+        hs = self.hash_of(binding)
+        if not hs in self.RawCurves:
+            curve = Curve(binding)
+            # i love refcounting
+            self.RawCurves[hs] = curve
+            self.Curves[binding.attribute][binding.path] = curve
+            self.CurvesT[binding.path][binding.attribute] = curve
         else:
-            curves += 1
-        if curves > index:
-            return b
-    return None
-AnimationClipBindingConstant.FindBinding = AnimationClipBindingConstantFindBinding
+            return self.RawCurves[hs]
 
-def read_animation(animationClip: AnimationClip) -> Animation:
+
+def _read_clip_keyframe(
+    time: float,
+    binding: GenericBinding,
+    keys: Generator[_StreamedClipKey | KeyFrame, None, None],
+) -> KeyFrame:
+    XYZW = "xyzw"
+    result = KeyFrame(time, binding.typeID)
+    if binding.typeID == ClassIDType.Transform:
+        dimension = kAttributeSizeof(binding.attribute)
+        for i in range(dimension):
+            key = next(keys)
+            setattr(result.value, XYZW[i], key.value)
+            setattr(result.outSlope, XYZW[i], key.outSlope)
+            setattr(result.inSlope, XYZW[i], key.inSlope)
+    else:
+        if binding.isIntCurve:
+            raise NotImplementedError
+        elif binding.isPPtrCurve:
+            raise NotImplementedError
+        else:
+            # Default to float curves
+            key = next(keys)
+            result.value = key.value
+            result.outSlope = key.outSlope
+            result.inSlope = key.inSlope
+    return key
+
+
+def read_animation(src: AnimationClip) -> Animation:
     """Reads AnimationClip data and converts it to a list of Tracks
 
     Args:
-        animationClip (AnimationClip): animationClip
+        src (AnimationClip): animationClip
 
     Returns:
-        List[Track]: List of Tracks
+        Animation
     """
-    m_Clip = animationClip.m_MuscleClip.m_Clip.data
-    streamedFrames = m_Clip.m_StreamedClip.ReadData()
-    m_ClipBindingConstant = animationClip.m_ClipBindingConstant
-    animationTracks = Animation()
-    animationTracks.Framerate = animationClip.m_SampleRate
-    animationTracks.Duration = animationClip.m_MuscleClip.m_StopTime
+    result = Animation(src.m_Name)
+    mClip = src.m_MuscleClip.m_Clip.data
+    mClipBinding = src.m_ClipBindingConstant
+    mClipBindingCurveSizesPfx = [
+        kAttributeSizeof(b.attribute) for b in mClipBinding.genericBindings
+    ]
+    for i in range(1, len(mClipBindingCurveSizesPfx)):
+        mClipBindingCurveSizesPfx[i] += mClipBindingCurveSizesPfx[i - 1]
 
-    def get_transform_track(
-        path: int, type: TransformType
-    ):  # TransformType is attribute. transposed since there are only TRS
-        if not path in animationTracks.TransformTracks[type]:
-            animationTracks.TransformTracks[type][path] = Track()
-        return animationTracks.TransformTracks[type][path]
+    def mClipFindBinding(cur) -> GenericBinding:
+        index = bisect_right(mClipBindingCurveSizesPfx, cur) - 1
+        return mClipBinding.genericBindings[index]
 
-    def get_float_track(path: int, attribute: int = 0) -> Track:
-        if not path in animationTracks.FloatTracks:
-            animationTracks.FloatTracks[path] = dict()
-        if not attribute in animationTracks.FloatTracks[path]:
-            animationTracks.FloatTracks[path][attribute] = Track()
-        return animationTracks.FloatTracks[path][attribute]
-
-    def add_float_curve_data(binding, time, value, inSlope, outSlope, coeff):
-        track = get_float_track(binding.path, binding.attribute)
-        track.Attribute = binding.attribute
-        track.Path = binding.path
-        track.add_keyframe(KeyFrame(time, value, inSlope, outSlope, coeff))
-
-    def add_transform_curve_data(
-        binding, time, datas: List[Tuple[float, float, float]]
-    ):  # value, inSlope, outSlope
-        type = TransformType(binding.attribute)
-        dimension = DimensionOfTransformType(binding.attribute)
-        if dimension == 3:
-            frame = KeyFrame(
-                time,
-                Vector3(datas[0][0], datas[1][0], datas[2][0]),
-                Vector3(datas[0][1], datas[1][1], datas[2][1]),
-                Vector3(datas[0][2], datas[1][2], datas[2][2]),
-            )
-        else:
-            frame = KeyFrame(
-                time,
-                Quaternion(datas[0][0], datas[1][0], datas[2][0], datas[3][0]),
-                Quaternion(datas[0][1], datas[1][1], datas[2][1], datas[3][1]),
-                Quaternion(datas[0][2], datas[1][2], datas[2][2], datas[3][2]),
-            )
-        track = get_transform_track(binding.path, type)
-        track.add_keyframe(frame)
-
-    def get_next_curve_index(current, keyList):
-        i = current
-        while i < len(keyList) and keyList[current].index == keyList[i].index:
+    def mClipGetNextCurve(cur, keys) -> int:
+        i = cur
+        while i < len(keys) and keys[cur].index == keys[i].index:
             i += 1
         return i
 
-    for frame in streamedFrames:
-        curveIndex = 0
-        while curveIndex < len(frame.keyList):
-            curveKey = frame.keyList[curveIndex]
-            binding = m_ClipBindingConstant.FindBinding(curveKey.index)
-            if binding.typeID == ClassIDType.Transform:
-                transformType = TransformType(binding.attribute)
-                dimension = DimensionOfTransformType(transformType)
-                curveData = []
-                for _ in range(dimension):
-                    curveKey = frame.keyList[curveIndex]
-                    curveData.append(
-                        (
-                            curveKey.value,
-                            getattr(curveKey, "inSlope", 0),
-                            curveKey.outSlope,
-                        )
-                    )
-                    curveIndex = get_next_curve_index(curveIndex, frame.keyList)
-                add_transform_curve_data(binding, frame.time, curveData)
-            else:
-                add_float_curve_data(
-                    binding,
-                    frame.time,
-                    curveKey.value,
-                    getattr(curveKey, "inSlope", 0),
-                    curveKey.outSlope,
-                    curveKey.coeff,
-                )
-                curveIndex = get_next_curve_index(curveIndex, frame.keyList)
+    # https://docs.unity3d.com/Manual/class-Animator.html
+    # When actually stored post build, the data is *only* stored with Stream, Dense or Constant clips
+    # Float, TRS curves will be optimized into these formats and will not be available.
 
-    m_DenseClip = m_Clip.m_DenseClip
-    streamCount = m_Clip.m_StreamedClip.curveCount
+    # StreamClip
+    # Animation is stored with Keyframe Reduction
+    # Interpolated with Hermite curves
+    mStreamClipFrames = _read_streamed_clip_frames(mClip)
+    for frame in mStreamClipFrames:
+        curveIndex = 0
+        while curveIndex < len(frame.keys):
+
+            def __keygen():
+                nonlocal curveIndex
+                while True:
+                    yield frame.keys[curveIndex]
+                    curveIndex = mClipGetNextCurve(curveIndex, frame.keys)
+
+            binding = mClipFindBinding(curveIndex)
+            curve = result.get_curve(binding)
+            key = _read_clip_keyframe(frame.time, binding, __keygen())
+            curve.Data.append(key)
+
+    # DenseClip
+    # Animation is stored as a dense clip
+    # Values are to be interpolated linearly
+    m_DenseClip = mClip.m_DenseClip
+    curveOffset = mClip.m_StreamedClip.curveCount
     for frameIndex in range(0, m_DenseClip.m_FrameCount):
         time = m_DenseClip.m_BeginTime + frameIndex / m_DenseClip.m_SampleRate
         frameOffset = frameIndex * m_DenseClip.m_CurveCount
         curveIndex = 0
         while curveIndex < m_DenseClip.m_CurveCount:
-            index = streamCount + curveIndex
-            framePosition = frameOffset + curveIndex
-            binding = m_ClipBindingConstant.FindBinding(index)
-            if binding.typeID == ClassIDType.Transform:
-                transformType = TransformType(binding.attribute)
-                dimension = DimensionOfTransformType(transformType)
-                curveData = []
-                for i in range(dimension):
-                    curveData.append(
-                        (m_DenseClip.m_SampleArray[framePosition + i], 0, 0)
-                    )
-                add_transform_curve_data(binding, time, curveData)
-                curveIndex += dimension
-            else:
-                add_float_curve_data(
-                    binding, time, m_DenseClip.m_SampleArray[framePosition], 0, 0, 0
-                )
-                curveIndex += 1
 
-    m_ConstantClip = m_Clip.m_ConstantClip
-    denseCount = m_Clip.m_DenseClip.m_CurveCount
-    time2 = 0
+            def __keygen():
+                nonlocal curveIndex
+                while True:
+                    yield KeyFrame(
+                        time,
+                        binding.typeID,
+                        m_DenseClip.m_SampleArray[frameOffset + curveIndex],
+                    )
+                    curveIndex += 1
+
+            binding = mClipFindBinding(curveOffset + curveIndex)
+            curve = result.get_curve(binding)
+            key = _read_clip_keyframe(time, binding, __keygen())
+            key.isDense = True
+            curve.Data.append(key)
+
+    # ConstantClip
+    # Unchanging values.
+    m_ConstantClip = mClip.m_ConstantClip
+    curveOffset = mClip.m_StreamedClip.curveCount + mClip.m_DenseClip.m_CurveCount
+    time = 0
     for _ in range(0, 2):  # first and last frame
         curveIndex = 0
         while curveIndex < len(m_ConstantClip.data):
-            index = streamCount + denseCount + curveIndex
-            binding = AnimationClipBindingConstant.FindBinding(
-                m_ClipBindingConstant, index
-            )
-            if binding.typeID == ClassIDType.Transform:
-                transformType = TransformType(binding.attribute)
-                dimension = DimensionOfTransformType(transformType)
-                curveData = []
-                for i in range(dimension):
-                    curveData.append((m_ConstantClip.data[curveIndex + i], 0, 0))
-                add_transform_curve_data(binding, time2, curveData)
-                curveIndex += dimension
-            else:
-                add_float_curve_data(
-                    binding, time2, m_ConstantClip.data[curveIndex], 0, 0, 0
-                )
-                curveIndex += 1
-        time2 = animationClip.m_MuscleClip.m_StopTime
-    return animationTracks
+
+            def __keygen():
+                nonlocal curveIndex
+                while True:
+                    yield KeyFrame(
+                        time,
+                        binding.typeID,
+                        m_ConstantClip.data[curveIndex],
+                    )
+                    curveIndex += 1
+
+            binding = mClipFindBinding(curveOffset + curveIndex)
+            curve = result.get_curve(binding)
+            key = _read_clip_keyframe(time, binding, __keygen())
+            key.isConstant = True
+            curve.Data.append(key)
+            binding = mClipFindBinding(curveOffset + curveIndex)
+        time = src.m_MuscleClip.m_StopTime
+
+    return result
