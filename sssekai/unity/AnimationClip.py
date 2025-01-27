@@ -181,7 +181,8 @@ class KeyFrame:
         """Interpolation of the segment between lhs and rhs"""
         EPS = 0.0001
         rhs = lhs.next
-
+        if not rhs:
+            return [Interpolation.Constant] * len(vec3_quat_as_floats(lhs.value))
         lhsInSlopes = vec3_quat_as_floats(lhs.inSlope)
         lhsOutSlopes = vec3_quat_as_floats(lhs.outSlope)
         rhsInSlopes = vec3_quat_as_floats(rhs.inSlope)

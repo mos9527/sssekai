@@ -1,4 +1,4 @@
-from sssekai.unity.AnimationClip import read_animation
+from sssekai.unity.AnimationClip import read_animation, Interpolation
 from UnityPy.classes import AnimationClip
 from logging import getLogger
 
@@ -41,43 +41,38 @@ def unity_animation_clip_to_motion3(
     for curve in floatCurves:
         segments = list()
         segments.append(0)
-        segments.append(curve.Curve[0].value)
-        curveIndex = 1
-        while curveIndex < len(curve.Data):
-            key = curve.Data[curveIndex]
-            preKey = curve.Data[curveIndex - 1]
-            if abs(key.time - preKey.time - 0.01) < 0.0001:
-                nextCurve = curve.Data[curveIndex + 1]
-                if nextCurve.value == key.value:
-                    segments.append(3)  # InverseSteppedSegment
-                    segments.append(nextCurve.time)
-                    segments.append(nextCurve.value)
+        segments.append(curve.Data[0].value)
+        for key in curve.Data[1:]:
+            ipo = key.interpolation_segment(key.prev, key)[0]
+            match ipo:
+                case Interpolation.Constant:
+                    segments.append(2)  # SteppedSegment
+                    segments.append(key.time)
+                    segments.append(key.value)
                     motion["Meta"]["TotalPointCount"] += 1
-                    motion["Meta"]["TotalSegmentCount"] += 1
-                    curveIndex += 1
-                    continue
-            if key.inSlope == float("+inf"):
-                segments.append(2)  # SteppedSegment
-                segments.append(key.time)
-                segments.append(key.value)
-                motion["Meta"]["TotalPointCount"] += 1
-            elif preKey.outSlope == 0 and abs(key.inSlope) < 0.0001:
-                segments.append(0)  # LinearSegment
-                segments.append(key.time)
-                segments.append(key.value)
-                motion["Meta"]["TotalPointCount"] += 1
-            else:
-                tangentLength = (key.time - preKey.time) / 3
-                segments.append(1)  # BezierSegment
-                segments.append(preKey.time + tangentLength)
-                segments.append(preKey.outSlope * tangentLength + preKey.value)
-                segments.append(key.time - tangentLength)
-                segments.append(key.value - key.inSlope * tangentLength)
-                segments.append(key.time)
-                segments.append(key.value)
-                motion["Meta"]["TotalPointCount"] += 3
+                case Interpolation.Stepped:
+                    segments.append(2)  # SteppedSegment
+                    segments.append(key.time)
+                    segments.append(key.value)
+                    motion["Meta"]["TotalPointCount"] += 1
+                case Interpolation.Hermite:
+                    lhs, rhs = key.prev, key
+                    dx = (rhs.time - lhs.time) / 3
+                    # 1/3rd rule applies to the editor as well
+                    segments.append(1)  # BezierSegment
+                    segments.append(lhs.time + dx)
+                    segments.append(lhs.outSlope * dx + lhs.value)
+                    segments.append(rhs.time - dx)
+                    segments.append(rhs.value - rhs.inSlope * dx)
+                    segments.append(rhs.time)
+                    segments.append(rhs.value)
+                    motion["Meta"]["TotalPointCount"] += 3
+                case Interpolation.HermiteOrLinear:
+                    segments.append(0)  # LinearSegment
+                    segments.append(key.time)
+                    segments.append(key.value)
+                    motion["Meta"]["TotalPointCount"] += 1
             motion["Meta"]["TotalSegmentCount"] += 1
-            curveIndex += 1
         path = curve.Path
         if path in pathTable:
             target, id = pathTable[path].split("/")
