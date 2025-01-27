@@ -1,5 +1,5 @@
 from sssekai.unity.AssetBundle import load_assetbundle
-from sssekai.unity.AnimationClip import read_animation
+from sssekai.unity.AnimationClip import read_animation, vec3_quat_as_floats
 from UnityPy.enums import ClassIDType
 from matplotlib import pyplot as plt
 from numpy import arange
@@ -18,8 +18,8 @@ for anim in filter(lambda obj: obj.type == ClassIDType.AnimationClip, env.object
     fp.close()
     print("Time", "Value", "InSlope", "OutSlope", "Interpolation", sep="\t")
     t = arange(0, anim.Duration, 0.001)
-    for curve in anim.TransformCurves:
-        c = [curve.evaluate(t) for t in arange(0, anim.Duration, 0.001)]
-        plt.plot(c)
-        plt.show()
+    for curve in anim.RawCurves.values():
+        c = [vec3_quat_as_floats(curve.evaluate(x)) for x in t]
+        plt.plot(t, c, label=curve.Path)
+    plt.show()
     pass
