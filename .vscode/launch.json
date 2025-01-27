@@ -302,10 +302,10 @@
             "justMyCode": true
         },
         {
-            "name": "Python: Test File",
+            "name": "Python: Test Animation",
             "type": "python",
             "request": "launch",
-            "program": "${workspaceFolder}/tests/tests_main.py",
+            "program": "${workspaceFolder}/test.animation.py",
             "console": "integratedTerminal",
             "justMyCode": false,
             "args": []

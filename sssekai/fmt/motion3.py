@@ -36,19 +36,19 @@ def unity_animation_clip_to_motion3(
         "UserData": [],
     }
     animation = read_animation(animationClip)
-    floatCurves = animation.FloatTracks
+    floatCurves = list(animation.FloatCurves)
     motion["Meta"]["CurveCount"] = len(floatCurves)
-    for track in [track for path in floatCurves.values() for track in path.values()]:
+    for curve in floatCurves:
         segments = list()
         segments.append(0)
-        segments.append(track.Curve[0].value)
+        segments.append(curve.Curve[0].value)
         curveIndex = 1
-        while curveIndex < len(track.Curve):
-            curve = track.Curve[curveIndex]
-            preCurve = track.Curve[curveIndex - 1]
-            if abs(curve.time - preCurve.time - 0.01) < 0.0001:
-                nextCurve = track.Curve[curveIndex + 1]
-                if nextCurve.value == curve.value:
+        while curveIndex < len(curve.Data):
+            key = curve.Data[curveIndex]
+            preKey = curve.Data[curveIndex - 1]
+            if abs(key.time - preKey.time - 0.01) < 0.0001:
+                nextCurve = curve.Data[curveIndex + 1]
+                if nextCurve.value == key.value:
                     segments.append(3)  # InverseSteppedSegment
                     segments.append(nextCurve.time)
                     segments.append(nextCurve.value)
@@ -56,29 +56,29 @@ def unity_animation_clip_to_motion3(
                     motion["Meta"]["TotalSegmentCount"] += 1
                     curveIndex += 1
                     continue
-            if curve.inSlope == float("+inf"):
+            if key.inSlope == float("+inf"):
                 segments.append(2)  # SteppedSegment
-                segments.append(curve.time)
-                segments.append(curve.value)
+                segments.append(key.time)
+                segments.append(key.value)
                 motion["Meta"]["TotalPointCount"] += 1
-            elif preCurve.outSlope == 0 and abs(curve.inSlope) < 0.0001:
+            elif preKey.outSlope == 0 and abs(key.inSlope) < 0.0001:
                 segments.append(0)  # LinearSegment
-                segments.append(curve.time)
-                segments.append(curve.value)
+                segments.append(key.time)
+                segments.append(key.value)
                 motion["Meta"]["TotalPointCount"] += 1
             else:
-                tangentLength = (curve.time - preCurve.time) / 3
+                tangentLength = (key.time - preKey.time) / 3
                 segments.append(1)  # BezierSegment
-                segments.append(preCurve.time + tangentLength)
-                segments.append(preCurve.outSlope * tangentLength + preCurve.value)
-                segments.append(curve.time - tangentLength)
-                segments.append(curve.value - curve.inSlope * tangentLength)
-                segments.append(curve.time)
-                segments.append(curve.value)
+                segments.append(preKey.time + tangentLength)
+                segments.append(preKey.outSlope * tangentLength + preKey.value)
+                segments.append(key.time - tangentLength)
+                segments.append(key.value - key.inSlope * tangentLength)
+                segments.append(key.time)
+                segments.append(key.value)
                 motion["Meta"]["TotalPointCount"] += 3
             motion["Meta"]["TotalSegmentCount"] += 1
             curveIndex += 1
-        path = track.Path
+        path = curve.Path
         if path in pathTable:
             target, id = pathTable[path].split("/")
             if target == "Parameters":

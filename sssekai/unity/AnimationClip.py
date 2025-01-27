@@ -11,18 +11,34 @@ from UnityPy.classes import (
 from UnityPy.classes.math import Vector3f as Vector3, Quaternionf as Quaternion
 from UnityPy.streams.EndianBinaryReader import EndianBinaryReader
 from logging import getLogger
+from enum import IntEnum
 
 logger = getLogger(__name__)
+
+
+def vec3_quat_as_floats(value):
+    if type(value) == float:
+        return [value]
+    elif type(value) == Vector3:
+        return [value.x, value.y, value.z]
+    else:
+        return [value.x, value.y, value.z, value.w]
+
+
+def vec3_quat_from_floats(*values):
+    if len(values) == 1:
+        return values[0]
+    elif len(values) == 3:
+        return Vector3(*values)
+    else:
+        return Quaternion(*values)
+
 
 # GenericBinding Attributes
 kBindTransformPosition = 1
 kBindTransformRotation = 2
 kBindTransformScale = 3
 kBindTransformEuler = 4
-# -- Reserved since Unity may uses those
-kBindFloat = 10001
-kBindInt = 10002
-kBindPPtr = 1003
 # ---
 kAttributeSizeof = lambda x: {
     kBindTransformPosition: 3,
@@ -31,11 +47,13 @@ kAttributeSizeof = lambda x: {
     kBindTransformEuler: 3,
 }.get(x, 1)
 
+
 # Interpolation Types
-kInterpolateHermite = 1
-kInterpolateLinear = 2
-kInterpolateStepped = 3
-kInterpolateConstant = 4
+class Interpolation(IntEnum):
+    Hermite = 1
+    Linear = 2
+    Stepped = 3
+    Constant = 4
 
 
 class _StreamedClipKey:
@@ -60,12 +78,14 @@ class _StreamedClipKey:
     coeff: List[int]
 
     time: float
-    prev: "_StreamedClipKey"
+    prev: "_StreamedClipKey" = None
 
     def __init__(self, reader: EndianBinaryReader, time: float):
         self.index = reader.read_int()
         self.coeff = reader.read_float_array(4)
         self.time = time
+
+    inSlope: float = float("inf")
 
     @property
     def outSlope(self):
@@ -75,15 +95,13 @@ class _StreamedClipKey:
     def value(self):
         return self.coeff[3]
 
-    @property
-    def inSlope(self):
-        if not self.prev:
-            return 0
-        if self.coeff[0] == 0 and self.coeff[1] == 0 and self.coeff[2] == 0:  # Stepped
+    def calc_next_in_slope(self, dx: float, rhs):
+        # Stepped
+        if self.coeff[0] == 0 and self.coeff[1] == 0 and self.coeff[2] == 0:
             return float("inf")
-        lhs, rhs = self.prev, self
-        dx = max(rhs.time - lhs.time, 0.0001)
-        dy = rhs.value - lhs.value
+
+        dx = max(dx, 0.0001)
+        dy = rhs.value - self.value
         length = 1.0 / (dx * dx)
         d1 = self.outSlope * dx
         d2 = dy + dy + dy - d1 - d1 - self.coeff[1] / length
@@ -99,9 +117,6 @@ class _StreamedClipFrame:
         self.keys = [
             _StreamedClipKey(reader, self.time) for _ in range(reader.read_int())
         ]
-        for i in range(1, len(self.keys)):
-            # Used to calculate inSlope
-            self.keys[i].prev = self.keys[i - 1]
 
 
 def _read_streamed_clip_frames(clip: StreamedClip) -> List[_StreamedClipFrame]:
@@ -110,6 +125,19 @@ def _read_streamed_clip_frames(clip: StreamedClip) -> List[_StreamedClipFrame]:
     reader = EndianBinaryReader(buffer)
     while reader.Position < reader.Length:
         frames.append(_StreamedClipFrame(reader))
+    for frameNum in range(2, len(frames) - 1):
+        frame = frames[frameNum]
+        for curveKey in frame.keys:
+            for i in range(frameNum - 1, 0, -1):
+                preFrame = frames[i]
+                preCurveKey = next(
+                    filter(lambda x: x.index == curveKey.index, preFrame.keys), None
+                )
+                if preCurveKey:
+                    curveKey.inSlope = preCurveKey.calc_next_in_slope(
+                        frame.time - preFrame.time, curveKey
+                    )
+                    break
     return frames
 
 
@@ -125,32 +153,149 @@ class KeyFrame:
     inSlope: float | Vector3 | Quaternion = 0
     outSlope: float | Vector3 | Quaternion = 0
 
-    @property
-    def interpolation(self):
-        if self.isConstant:
-            return kInterpolateConstant
-        if self.isDense:
-            return kInterpolateLinear
-        if self.inSlope == float("inf") or self.outSlope == float("inf"):
-            return kInterpolateStepped
-        return kInterpolateHermite
+    prev: "KeyFrame" = None
+    next: "KeyFrame" = None
+
+    @staticmethod
+    def interpolate_cubic_hermite_unit(t, p0, m0, m1, p1):
+        # https://en.wikipedia.org/wiki/Cubic_Hermite_spline
+        t2 = t * t
+        t3 = t2 * t
+        a = 2 * t3 - 3 * t2 + 1
+        b = t3 - 2 * t2 + t
+        c = -2 * t3 + 3 * t2
+        d = t3 - t2
+        return a * p0 + b * m0 + c * p1 + d * m1
+
+    @staticmethod
+    def interpolate_linear_unit(t, p0, p1):
+        return p0 + t * (p1 - p0)
+
+    @staticmethod
+    def interpolate_stepped(t, p0, p1):
+        return p0
+
+    @staticmethod
+    def interpolation_segment(lhs: "KeyFrame", rhs: "KeyFrame") -> List[Interpolation]:
+        """Interpolation of the segment between lhs and rhs"""
+        EPS = 0.0001
+        rhs = lhs.next
+
+        lhsInSlopes = vec3_quat_as_floats(lhs.inSlope)
+        lhsOutSlopes = vec3_quat_as_floats(lhs.outSlope)
+        rhsInSlopes = vec3_quat_as_floats(rhs.inSlope)
+        rhsOutSlopes = vec3_quat_as_floats(rhs.outSlope)
+        ipo = [Interpolation.Hermite] * len(lhsOutSlopes)
+        if lhs.isConstant or not rhs:
+            ipo = [Interpolation.Constant] * len(lhsOutSlopes)
+        elif lhs.isDense:
+            ipo = [Interpolation.Linear] * len(lhsOutSlopes)
+        else:
+            for i, (lhsInSlope, lhsOutSlope, rhsInSlope, rhsOutSlope) in enumerate(
+                zip(lhsInSlopes, lhsOutSlopes, rhsInSlopes, rhsOutSlopes)
+            ):
+                if any((x == float("inf") for x in (lhsOutSlope, rhsInSlope))):
+                    ipo[i] = Interpolation.Stepped
+                elif abs(rhsInSlope - lhsOutSlope) < EPS:
+                    ipo[i] = Interpolation.Linear
+                else:
+                    ipo[i] = Interpolation.Hermite
+        return ipo
+
+    @staticmethod
+    def interpolate(
+        t, lhs: "KeyFrame", rhs: "KeyFrame", unit_t: bool = False
+    ) -> float | Vector3 | Quaternion:
+        if not rhs:
+            return lhs.value
+        dx = rhs.time - lhs.time
+        if not unit_t:
+            t -= lhs.time
+            t /= dx  # Normalized to [0,1]
+        lhsValues = vec3_quat_as_floats(lhs.value)
+        rhsValues = vec3_quat_as_floats(rhs.value)
+        lhsInSlopes = vec3_quat_as_floats(lhs.inSlope)
+        lhsOutSlopes = vec3_quat_as_floats(lhs.outSlope)
+        rhsInSlopes = vec3_quat_as_floats(rhs.inSlope)
+        rhsOutSlopes = vec3_quat_as_floats(rhs.outSlope)
+        interpolations = KeyFrame.interpolation_segment(lhs, rhs)
+        result = [0] * len(lhsValues)
+        for i, (
+            lhsValue,
+            rhsValue,
+            lhsInSlope,
+            lhsOutSlope,
+            rhsInSlope,
+            rhsOutSlope,
+            interpolation,
+        ) in enumerate(
+            zip(
+                lhsValues,
+                rhsValues,
+                lhsInSlopes,
+                lhsOutSlopes,
+                rhsInSlopes,
+                rhsOutSlopes,
+                interpolations,
+            )
+        ):
+            match interpolation:
+                case Interpolation.Hermite:
+                    result[i] = KeyFrame.interpolate_cubic_hermite_unit(
+                        t, lhsValue, lhsOutSlope * dx, rhsInSlope * dx, rhsValue
+                    )
+                case Interpolation.Linear:
+                    result[i] = KeyFrame.interpolate_linear_unit(t, lhsValue, rhsValue)
+                case Interpolation.Stepped:
+                    result[i] = KeyFrame.interpolate_stepped(t, lhsValue, rhsValue)
+                case Interpolation.Constant:
+                    result[i] = lhsValue
+        return result[0] if len(result) == 1 else vec3_quat_from_floats(*result)
 
 
 @dataclass
 class Curve:
     Binding: GenericBinding
-    Data: List[KeyFrame] = field(list)
+    Data: List[KeyFrame] = field(default_factory=list)
+
+    def evaluate(self, t: float) -> float | Vector3 | Quaternion:
+        lhs = bisect_right(self.Data, t, key=lambda x: x.time) - 1
+        lhs = max(lhs, 0)
+        lhs = self.Data[lhs]
+        rhs = lhs.next
+        return KeyFrame.interpolate(t, lhs, rhs)
+
+    @property
+    def Duration(self):
+        return self.Data[-1].time - self.Data[0].time
+
+    @property
+    def Path(self):
+        return self.Binding.path
+
+    @property
+    def Attribute(self):
+        return self.attribute
+
+    @property
+    def is_transform_curve(self):
+        return self.Binding.typeID == ClassIDType.Transform
 
 
 @dataclass
 class Animation:
     Name: str
+    Duration: float
     # Dict[internal hash, Curve]
     RawCurves: Dict[int, Curve] = field(default_factory=dict)
     # Curves[Attribute][Path Hash] = Curve
-    Curves: Dict[int, Dict[float, Curve]] = field(lambda: defaultdict(dict))
+    Curves: Dict[int, Dict[float, Curve]] = field(
+        default_factory=lambda: defaultdict(dict)
+    )
     # CurvesT[Path Hash][Attribute] = Curve
-    CurvesT: Dict[int, Dict[float, Curve]] = field(lambda: defaultdict(dict))
+    CurvesT: Dict[int, Dict[float, Curve]] = field(
+        default_factory=lambda: defaultdict(dict)
+    )
 
     @staticmethod
     def hash_of(binding: GenericBinding):
@@ -164,8 +309,17 @@ class Animation:
             self.RawCurves[hs] = curve
             self.Curves[binding.attribute][binding.path] = curve
             self.CurvesT[binding.path][binding.attribute] = curve
+            return curve
         else:
             return self.RawCurves[hs]
+
+    @property
+    def FloatCurves(self):
+        return filter(lambda c: not c.is_transform_curve, self.RawCurves.values())
+
+    @property
+    def TransformCurves(self):
+        return filter(lambda c: c.is_transform_curve, self.RawCurves.values())
 
 
 def _read_clip_keyframe(
@@ -173,15 +327,18 @@ def _read_clip_keyframe(
     binding: GenericBinding,
     keys: Generator[_StreamedClipKey | KeyFrame, None, None],
 ) -> KeyFrame:
-    XYZW = "xyzw"
     result = KeyFrame(time, binding.typeID)
     if binding.typeID == ClassIDType.Transform:
         dimension = kAttributeSizeof(binding.attribute)
+        values, outSlopes, inSlopes = [0] * dimension, [0] * dimension, [0] * dimension
         for i in range(dimension):
             key = next(keys)
-            setattr(result.value, XYZW[i], key.value)
-            setattr(result.outSlope, XYZW[i], key.outSlope)
-            setattr(result.inSlope, XYZW[i], key.inSlope)
+            values[i] = key.value
+            outSlopes[i] = key.outSlope
+            inSlopes[i] = key.inSlope
+        result.value = vec3_quat_from_floats(*values)
+        result.outSlope = vec3_quat_from_floats(*outSlopes)
+        result.inSlope = vec3_quat_from_floats(*inSlopes)
     else:
         if binding.isIntCurve:
             raise NotImplementedError
@@ -193,11 +350,11 @@ def _read_clip_keyframe(
             result.value = key.value
             result.outSlope = key.outSlope
             result.inSlope = key.inSlope
-    return key
+    return result
 
 
 def read_animation(src: AnimationClip) -> Animation:
-    """Reads AnimationClip data and converts it to a list of Tracks
+    """Reads AnimationClip data and converts it to an Animation object
 
     Args:
         src (AnimationClip): animationClip
@@ -205,7 +362,7 @@ def read_animation(src: AnimationClip) -> Animation:
     Returns:
         Animation
     """
-    result = Animation(src.m_Name)
+    result = Animation(src.m_Name, src.m_MuscleClip.m_StopTime)
     mClip = src.m_MuscleClip.m_Clip.data
     mClipBinding = src.m_ClipBindingConstant
     mClipBindingCurveSizesPfx = [
@@ -215,7 +372,8 @@ def read_animation(src: AnimationClip) -> Animation:
         mClipBindingCurveSizesPfx[i] += mClipBindingCurveSizesPfx[i - 1]
 
     def mClipFindBinding(cur) -> GenericBinding:
-        index = bisect_right(mClipBindingCurveSizesPfx, cur) - 1
+        index = bisect_right(mClipBindingCurveSizesPfx, cur + 1) - 1
+        index = max(index, 0)
         return mClipBinding.genericBindings[index]
 
     def mClipGetNextCurve(cur, keys) -> int:
@@ -231,20 +389,22 @@ def read_animation(src: AnimationClip) -> Animation:
     # StreamClip
     # Animation is stored with Keyframe Reduction
     # Interpolated with Hermite curves
-    mStreamClipFrames = _read_streamed_clip_frames(mClip)
+    mStreamClipFrames = _read_streamed_clip_frames(mClip.m_StreamedClip)
     for frame in mStreamClipFrames:
         curveIndex = 0
+
+        def __keygen():
+            nonlocal curveIndex
+            while True:
+                currIndex = curveIndex
+                curveIndex = mClipGetNextCurve(curveIndex, frame.keys)
+                yield frame.keys[currIndex]
+
+        __keygen_g = __keygen()
         while curveIndex < len(frame.keys):
-
-            def __keygen():
-                nonlocal curveIndex
-                while True:
-                    yield frame.keys[curveIndex]
-                    curveIndex = mClipGetNextCurve(curveIndex, frame.keys)
-
-            binding = mClipFindBinding(curveIndex)
+            binding = mClipFindBinding(frame.keys[curveIndex].index)
             curve = result.get_curve(binding)
-            key = _read_clip_keyframe(frame.time, binding, __keygen())
+            key = _read_clip_keyframe(frame.time, binding, __keygen_g)
             curve.Data.append(key)
 
     # DenseClip
@@ -256,21 +416,23 @@ def read_animation(src: AnimationClip) -> Animation:
         time = m_DenseClip.m_BeginTime + frameIndex / m_DenseClip.m_SampleRate
         frameOffset = frameIndex * m_DenseClip.m_CurveCount
         curveIndex = 0
+
+        def __keygen():
+            nonlocal curveIndex
+            while True:
+                currIndex = curveIndex
+                curveIndex += 1
+                yield KeyFrame(
+                    time,
+                    binding.typeID,
+                    m_DenseClip.m_SampleArray[frameOffset + currIndex],
+                )
+
+        __keygen_g = __keygen()
         while curveIndex < m_DenseClip.m_CurveCount:
-
-            def __keygen():
-                nonlocal curveIndex
-                while True:
-                    yield KeyFrame(
-                        time,
-                        binding.typeID,
-                        m_DenseClip.m_SampleArray[frameOffset + curveIndex],
-                    )
-                    curveIndex += 1
-
             binding = mClipFindBinding(curveOffset + curveIndex)
             curve = result.get_curve(binding)
-            key = _read_clip_keyframe(time, binding, __keygen())
+            key = _read_clip_keyframe(time, binding, __keygen_g)
             key.isDense = True
             curve.Data.append(key)
 
@@ -281,24 +443,30 @@ def read_animation(src: AnimationClip) -> Animation:
     time = 0
     for _ in range(0, 2):  # first and last frame
         curveIndex = 0
+
+        def __keygen():
+            nonlocal curveIndex
+            while True:
+                currIndex = curveIndex
+                curveIndex += 1
+                yield KeyFrame(
+                    time,
+                    binding.typeID,
+                    m_ConstantClip.data[currIndex],
+                )
+
+        __keygen_g = __keygen()
         while curveIndex < len(m_ConstantClip.data):
-
-            def __keygen():
-                nonlocal curveIndex
-                while True:
-                    yield KeyFrame(
-                        time,
-                        binding.typeID,
-                        m_ConstantClip.data[curveIndex],
-                    )
-                    curveIndex += 1
-
             binding = mClipFindBinding(curveOffset + curveIndex)
             curve = result.get_curve(binding)
-            key = _read_clip_keyframe(time, binding, __keygen())
+            key = _read_clip_keyframe(time, binding, __keygen_g)
             key.isConstant = True
             curve.Data.append(key)
             binding = mClipFindBinding(curveOffset + curveIndex)
         time = src.m_MuscleClip.m_StopTime
 
+    for curve in result.RawCurves.values():
+        for i in range(1, len(curve.Data)):
+            curve.Data[i].prev = curve.Data[i - 1]
+            curve.Data[i - 1].next = curve.Data[i]
     return result
