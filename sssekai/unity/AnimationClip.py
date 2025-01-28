@@ -296,6 +296,7 @@ class Curve:
 class Animation:
     Name: str
     Duration: float
+    SampleRate: float
     # Dict[internal hash, Curve]
     RawCurves: Dict[int, Curve] = field(default_factory=dict)
     # Curves[Attribute][Path Hash] = Curve
@@ -372,7 +373,7 @@ def read_animation(src: AnimationClip) -> Animation:
     Returns:
         Animation
     """
-    result = Animation(src.m_Name, src.m_MuscleClip.m_StopTime)
+    result = Animation(src.m_Name, src.m_MuscleClip.m_StopTime, src.m_SampleRate)
     mClip = src.m_MuscleClip.m_Clip.data
     mClipBinding = src.m_ClipBindingConstant
     mClipBindingCurveSizesPfx = [

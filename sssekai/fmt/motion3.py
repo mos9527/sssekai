@@ -67,7 +67,7 @@ def unity_animation_clip_to_motion3(
                     segments.append(rhs.time)
                     segments.append(rhs.value)
                     motion["Meta"]["TotalPointCount"] += 3
-                case Interpolation.HermiteOrLinear:
+                case Interpolation.Linear:
                     segments.append(0)  # LinearSegment
                     segments.append(key.time)
                     segments.append(key.value)
