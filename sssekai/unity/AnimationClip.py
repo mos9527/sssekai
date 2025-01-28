@@ -1,3 +1,4 @@
+import struct
 from collections import defaultdict
 from typing import Dict, List, Generator
 from bisect import bisect_right
@@ -75,14 +76,23 @@ class _StreamedClipKey:
     """
 
     index: int
-    coeff: List[int]
+
+    coeff: List[float]
+    int_coeff: List[int]
+
+    raw_coeff: bytes
 
     time: float
     prev: "_StreamedClipKey" = None
 
     def __init__(self, reader: EndianBinaryReader, time: float):
         self.index = reader.read_int()
-        self.coeff = reader.read_float_array(4)
+        endian = reader.endian
+
+        self.raw_coeff = reader.read_bytes(4 * 4)
+        self.coeff = struct.unpack(endian + "4f", self.raw_coeff)
+        self.int_coeff = struct.unpack(endian + "4i", self.raw_coeff)
+
         self.time = time
 
     inSlope: float = float("inf")
@@ -94,6 +104,10 @@ class _StreamedClipKey:
     @property
     def value(self):
         return self.coeff[3]
+
+    @property
+    def int_value(self):
+        return self.int_coeff[3]
 
     def calc_next_in_slope(self, dx: float, rhs):
         # Stepped
@@ -352,9 +366,13 @@ def _read_clip_keyframe(
         result.inSlope = vec3_quat_from_floats(*inSlopes)
     else:
         if binding.isIntCurve:
-            raise NotImplementedError
+            key = next(keys)
+            result.value = key.int_value
+            # Can only be stepped
+            result.outSlope = float("inf")
+            result.inSlope = float("inf")
         elif binding.isPPtrCurve:
-            raise NotImplementedError
+            raise NotImplementedError("PPtr curves not yet implemented")
         else:
             # Default to float curves
             key = next(keys)

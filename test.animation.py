@@ -4,15 +4,16 @@ from UnityPy.enums import ClassIDType
 from matplotlib import pyplot as plt
 from numpy import arange
 
+# Not going in the auto tests yet
 fp = open(
-    r"/Volumes/mos9527弄丢的盘/Reverse/unity_ik/HumanoidIK/Build.app/Contents/Resources/Data/sharedassets0.assets",
+    r"tests/animation/0095",
     "rb",
 )
 env = load_assetbundle(fp)
 
 for anim in filter(lambda obj: obj.type == ClassIDType.AnimationClip, env.objects):
     anim = anim.read()
-    if not anim.m_Name == "CameraCut":
+    if not anim.m_Name.startswith("camera_adjustment"):
         continue
     anim = read_animation(anim)
     fp.close()
