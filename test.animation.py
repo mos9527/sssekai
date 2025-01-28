@@ -16,7 +16,6 @@ for anim in filter(lambda obj: obj.type == ClassIDType.AnimationClip, env.object
         continue
     anim = read_animation(anim)
     fp.close()
-    print(anim)
     print("Time", "Value", "InSlope", "OutSlope", "Interpolation", sep="\t")
     t = arange(0, anim.Duration, 0.001)
     for curve in anim.RawCurves.values():

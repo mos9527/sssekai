@@ -51,7 +51,7 @@ kAttributeSizeof = lambda x: {
 # Interpolation Types
 class Interpolation(IntEnum):
     Hermite = 1
-    HermiteOrLinear = 2
+    Linear = 2
     Stepped = 3
     Constant = 4
 
@@ -193,7 +193,7 @@ class KeyFrame:
         if lhs.isConstant or not rhs:
             ipo = [Interpolation.Constant] * len(lhsOutSlopes)
         elif lhs.isDense:
-            ipo = [Interpolation.HermiteOrLinear] * len(lhsOutSlopes)
+            ipo = [Interpolation.Linear] * len(lhsOutSlopes)
         else:
             for i, (lhsInSlope, lhsOutSlope, rhsInSlope, rhsOutSlope) in enumerate(
                 zip(lhsInSlopes, lhsOutSlopes, rhsInSlopes, rhsOutSlopes)
@@ -201,7 +201,7 @@ class KeyFrame:
                 if any((x == float("inf") for x in (lhsOutSlope, rhsInSlope))):
                     ipo[i] = Interpolation.Stepped
                 elif abs(rhsInSlope - lhsOutSlope) < EPS:
-                    ipo[i] = Interpolation.HermiteOrLinear
+                    ipo[i] = Interpolation.Linear
                 else:
                     ipo[i] = Interpolation.Hermite
         return ipo
@@ -248,13 +248,14 @@ class KeyFrame:
                     result[i] = KeyFrame.interpolate_cubic_hermite_unit(
                         t, lhsValue, lhsOutSlope * dx, rhsInSlope * dx, rhsValue
                     )
-                case Interpolation.HermiteOrLinear:
+                case Interpolation.Linear:
                     # Lerp doesn't seem to be explicitly used as a cubic hermite curve when correctly
                     # setup can produce results of a linear interpolation
-                    # result[i] = KeyFrame.interpolate_linear_unit(t, lhsValue, rhsValue)
-                    result[i] = KeyFrame.interpolate_cubic_hermite_unit(
-                        t, lhsValue, lhsOutSlope * dx, rhsInSlope * dx, rhsValue
-                    )
+                    # However this is necessary for Dense curves. So we'll keep it here.
+                    result[i] = KeyFrame.interpolate_linear_unit(t, lhsValue, rhsValue)
+                    # result[i] = KeyFrame.interpolate_cubic_hermite_unit(
+                    #     t, lhsValue, lhsOutSlope * dx, rhsInSlope * dx, rhsValue
+                    # )
                 case Interpolation.Stepped:
                     result[i] = KeyFrame.interpolate_stepped(t, lhsValue, rhsValue)
                 case Interpolation.Constant:
