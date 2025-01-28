@@ -16,9 +16,19 @@ for anim in filter(lambda obj: obj.type == ClassIDType.AnimationClip, env.object
         continue
     anim = read_animation(anim)
     fp.close()
+    print(anim)
     print("Time", "Value", "InSlope", "OutSlope", "Interpolation", sep="\t")
     t = arange(0, anim.Duration, 0.001)
     for curve in anim.RawCurves.values():
+        for key in curve.Data:
+            print(
+                key.time,
+                key.value,
+                key.inSlope,
+                key.outSlope,
+                key.interpolation_segment(key, key.next),
+                sep="\t",
+            )
         c = [vec3_quat_as_floats(curve.evaluate(x)) for x in t]
         plt.plot(t, c, label=curve.Path)
     plt.show()

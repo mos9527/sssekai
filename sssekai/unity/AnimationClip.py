@@ -156,6 +156,9 @@ class KeyFrame:
     prev: "KeyFrame" = None
     next: "KeyFrame" = None
 
+    def __repr__(self):
+        return f"KeyFrame({self.time}, {self.value}, inSlope={self.inSlope}, outSlope={self.outSlope})"
+
     @staticmethod
     def interpolate_cubic_hermite_unit(t, p0, m0, m1, p1):
         # https://en.wikipedia.org/wiki/Cubic_Hermite_spline
@@ -169,7 +172,6 @@ class KeyFrame:
 
     @staticmethod
     def interpolate_linear_unit(t, p0, p1):
-        raise DeprecationWarning("Use interpolate_cubic_hermite_unit instead")
         return p0 + t * (p1 - p0)
 
     @staticmethod
@@ -179,7 +181,7 @@ class KeyFrame:
     @staticmethod
     def interpolation_segment(lhs: "KeyFrame", rhs: "KeyFrame") -> List[Interpolation]:
         """Interpolation of the segment between lhs and rhs"""
-        EPS = 0.0001
+        EPS = 1e-5
         rhs = lhs.next
         if not rhs:
             return [Interpolation.Constant] * len(vec3_quat_as_floats(lhs.value))
@@ -248,7 +250,8 @@ class KeyFrame:
                     )
                 case Interpolation.HermiteOrLinear:
                     # Lerp doesn't seem to be explicitly used as a cubic hermite curve when correctly
-                    # setup can produce results very close to linear interpolation
+                    # setup can produce results of a linear interpolation
+                    # result[i] = KeyFrame.interpolate_linear_unit(t, lhsValue, rhsValue)
                     result[i] = KeyFrame.interpolate_cubic_hermite_unit(
                         t, lhsValue, lhsOutSlope * dx, rhsInSlope * dx, rhsValue
                     )
@@ -281,7 +284,7 @@ class Curve:
 
     @property
     def Attribute(self):
-        return self.attribute
+        return self.Binding.attribute
 
     @property
     def is_transform_curve(self):
@@ -378,8 +381,9 @@ def read_animation(src: AnimationClip) -> Animation:
         mClipBindingCurveSizesPfx[i] += mClipBindingCurveSizesPfx[i - 1]
 
     def mClipFindBinding(cur) -> GenericBinding:
-        index = bisect_right(mClipBindingCurveSizesPfx, cur + 1) - 1
+        index = bisect_right(mClipBindingCurveSizesPfx, cur)
         index = max(index, 0)
+        index = min(index, len(mClipBinding.genericBindings) - 1)
         return mClipBinding.genericBindings[index]
 
     def mClipGetNextCurve(cur, keys) -> int:
