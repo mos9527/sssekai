@@ -128,6 +128,12 @@ This crypto applies to:
         help="PJSK app hash. This is required unless --no-update is specified",
         default="",
     )
+    group.add_argument(
+        "--app-abVersion",
+        type=str,
+        help="PJSK AssetBundle URL version. This is used for ROW servers since it may differ.",
+        default=None,
+    )
     group = abcache_parser.add_argument_group("download options")
     group.add_argument(
         "--download-filter",
