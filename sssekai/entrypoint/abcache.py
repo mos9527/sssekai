@@ -85,6 +85,7 @@ def main_abcache(args):
         args.app_version,
         args.app_platform,
         args.app_appHash,
+        args.app_abVersion,
         args.auth_userId,
         args.auth_credential,
     )

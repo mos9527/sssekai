@@ -45,9 +45,9 @@
                 "--app-region",
                 "jp",
                 "--app-version",
-                "5.0.0",
+                "5.0.2",
                 "--app-appHash",
-                "746b8607-0e65-489d-b060-a8986ba11b47"
+                "a87fc6e2-689c-b5a4-1608-968c93685dd8"
             ],
             "justMyCode": true
         },
@@ -63,9 +63,11 @@
                 "--app-region",
                 "tw",
                 "--app-version",
-                "3.4.0",   
+                "3.4.2",
                 "--app-appHash",
                 "a3015fe8-785f-27e1-fb8b-546a23c82c1f",
+                "--app-abVersion",
+                "3.4.0",
                 "--dump-user-data",
                 "~/.sssekai/tw_user"
             ],
@@ -83,9 +85,11 @@
                 "--app-region",
                 "kr",
                 "--app-version",
-                "3.4.0",   
+                "3.4.3",
                 "--app-appHash",
                 "a3015fe8-785f-27e1-fb8b-546a23c82c1f"
+                "--app-abVersion",
+                "3.4.0"
             ],
             "justMyCode": true
         },        
@@ -101,9 +105,9 @@
                 "--app-region",
                 "en",
                 "--app-version",
-                "3.1.0",
+                "3.2.0",
                 "--app-appHash",
-                "a892dc93-798e-4007-8d07-54cb13c9500a"
+                "1380836d-de9e-49a8-afe5-c52ba589c8c9"
             ],
             "justMyCode": true
         },
@@ -137,9 +141,9 @@
                 "--app-region",
                 "en",
                 "--app-version",
-                "3.1.0",
+                "3.2.0",
                 "--app-appHash",
-                "a892dc93-798e-4007-8d07-54cb13c9500a",
+                "1380836d-de9e-49a8-afe5-c52ba589c8c9",
                 "--dump-master-data",
                 "~/.sssekai/master_data"
             ],
