@@ -71,6 +71,7 @@ class AbCacheConfig:
     app_version: str
     app_platform: str
     app_hash: str
+    ab_version: str = None # Override AB version in url for ROW
 
     auth_userID: str = None
     auth_credential: str = None  # JWT token for JP/EN, Base64 encoded JWT token for ROW
@@ -276,11 +277,11 @@ class AbCache(Session):
             case "en":
                 return f"https://assetbundle-info.sekai-en.com/api/version/{self.SEKAI_ASSET_VERSION}/os/{self.config.app_platform}"
             case "tw":  # NOTE: Android only
-                return f"https://lf16-mkovscdn-sg.bytedgame.com/obj/sf-game-alisg/gdl_app_5245/AssetBundle/{self.config.app_version}/Release/online/android49/AssetBundleInfoNew.json"
+                return f"https://lf16-mkovscdn-sg.bytedgame.com/obj/sf-game-alisg/gdl_app_5245/AssetBundle/{self.config.ab_version or self.config.app_version}/Release/online/android49/AssetBundleInfoNew.json"
             case "kr":  # NOTE: Android only
-                return f"https://lf16-mkkr.bytedgame.com/obj/sf-game-alisg/gdl_app_292248/AssetBundle/{self.config.app_version}/Release/kr_online/android53/AssetBundleInfoNew.json"
+                return f"https://lf16-mkkr.bytedgame.com/obj/sf-game-alisg/gdl_app_292248/AssetBundle/{self.config.ab_version or self.config.app_version}/Release/kr_online/android53/AssetBundleInfoNew.json"
             case "cn":  # NOTE: Android only
-                return f"https://lf3-mkcncdn-tos.dailygn.com/obj/sf-game-lf/gdl_app_5236/AssetBundle/{self.config.app_version}/Release/cn_online/android50/AssetBundleInfoNew.json"
+                return f"https://lf3-mkcncdn-tos.dailygn.com/obj/sf-game-lf/gdl_app_5236/AssetBundle/{self.config.ab_version or self.config.app_version}/Release/cn_online/android50/AssetBundleInfoNew.json"
             case _:
                 raise NotImplementedError
 
@@ -292,11 +293,11 @@ class AbCache(Session):
             case "en":
                 return f"https://assetbundle.sekai-en.com/"
             case "tw":  # NOTE: Android only
-                return f"https://lf16-mkovscdn-sg.bytedgame.com/obj/sf-game-alisg/gdl_app_5245/AssetBundle/{self.config.app_version}/Release/online/android1/"
+                return f"https://lf16-mkovscdn-sg.bytedgame.com/obj/sf-game-alisg/gdl_app_5245/AssetBundle/{self.config.ab_version or self.config.app_version}/Release/online/android1/"
             case "kr":  # NOTE: Android only
-                return f"https://lf16-mkkr.bytedgame.com/obj/sf-game-alisg/gdl_app_292248/AssetBundle/{self.config.app_version}/Release/kr_online/android1/"
+                return f"https://lf16-mkkr.bytedgame.com/obj/sf-game-alisg/gdl_app_292248/AssetBundle/{self.config.ab_version or self.config.app_version}/Release/kr_online/android1/"
             case "cn":  # NOTE: Android only
-                return f"https://lf3-j1gamecdn-cn.dailygn.com/obj/sf-game-lf/gdl_app_5236/AssetBundle/{self.config.app_version}/Release/cn_online/android1/"
+                return f"https://lf3-j1gamecdn-cn.dailygn.com/obj/sf-game-lf/gdl_app_5236/AssetBundle/{self.config.ab_version or self.config.app_version}/Release/cn_online/android1/"
             case _:
                 raise NotImplementedError
 
