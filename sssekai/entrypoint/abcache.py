@@ -92,10 +92,11 @@ def main_abcache(args):
     if not config.auth_available and not args.no_update:
         # Register as anonymous user in this case
         if config.app_region in REGION_JP_EN:
-            from sssekai.abcache.auth import set_anoymous_acc_sega
+            from sssekai.abcache.auth import set_anonymous_acc_sega
 
             logger.info("Registering as anonymous user on SEGA servers")
-            config = set_anoymous_acc_sega(config)
+            auth_data = set_anonymous_acc_sega(config)
+            logger.info("Auth data= %s" % auth_data)
         else:
             if args.dump_user_data:
                 raise NotImplementedError(

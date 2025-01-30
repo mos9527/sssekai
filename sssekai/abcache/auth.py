@@ -1,10 +1,10 @@
-from . import AbCache, AbCacheConfig
+from . import AbCache, AbCacheConfig, SekaiUserData, fromdict
 from logging import getLogger
 
 logger = getLogger(__name__)
 
 
-def set_anoymous_acc_sega(config: AbCacheConfig):
+def set_anonymous_acc_sega(config: AbCacheConfig) -> SekaiUserData:
     logger.info("Registering user data")
     with AbCache(config) as session:
         session._update_signatures()
@@ -18,4 +18,4 @@ def set_anoymous_acc_sega(config: AbCacheConfig):
         config.auth_userID = data["userRegistration"]["userId"]
         config.auth_credential = data["credential"]
         logger.info("Success. User ID=%s" % config.auth_userID)
-    return config
+    return fromdict(SekaiUserData, data)
