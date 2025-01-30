@@ -96,7 +96,6 @@ def main_abcache(args):
 
             logger.info("Registering as anonymous user on SEGA servers")
             auth_data = set_anonymous_acc_sega(config)
-            logger.info("Auth data= %s" % auth_data)
         else:
             if args.dump_user_data:
                 raise NotImplementedError(

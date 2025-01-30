@@ -5,6 +5,14 @@ logger = getLogger(__name__)
 
 
 def set_anonymous_acc_sega(config: AbCacheConfig) -> SekaiUserData:
+    """Registers an anonymous account on SEGA servers, and writes relavant data to the AbCacheConfig object.
+
+    Args:
+        config: The AbCacheConfig object to write the user data to.
+
+    Returns:
+        SekaiUserData: The user data object.
+    """
     logger.info("Registering user data")
     with AbCache(config) as session:
         session._update_signatures()
