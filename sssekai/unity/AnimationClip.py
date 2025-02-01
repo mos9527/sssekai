@@ -133,25 +133,21 @@ class _StreamedClipFrame:
         ]
 
 
-def _read_streamed_clip_frames(clip: StreamedClip) -> List[_StreamedClipFrame]:
+def _read_streamed_clip_frames(clip: StreamedClip) -> List[_StreamedClipFrame]:  # O(n)
     frames: List[_StreamedClipFrame] = []
     buffer = b"".join(val.to_bytes(4, "big") for val in clip.data)
     reader = EndianBinaryReader(buffer)
     while reader.Position < reader.Length:
         frames.append(_StreamedClipFrame(reader))
-    for frameNum in range(2, len(frames) - 1):
-        frame = frames[frameNum]
+    preKeys: Dict[int, _StreamedClipKey] = dict()
+    for frame in frames:
         for curveKey in frame.keys:
-            for i in range(frameNum - 1, 0, -1):
-                preFrame = frames[i]
-                preCurveKey = next(
-                    filter(lambda x: x.index == curveKey.index, preFrame.keys), None
+            preKey = preKeys.get(curveKey.index, None)
+            if preKey:
+                curveKey.inSlope = preKey.calc_next_in_slope(
+                    frame.time - preKey.time, curveKey
                 )
-                if preCurveKey:
-                    curveKey.inSlope = preCurveKey.calc_next_in_slope(
-                        frame.time - preFrame.time, curveKey
-                    )
-                    break
+            preKeys[curveKey.index] = curveKey
     return frames
 
 
@@ -279,7 +275,7 @@ class Curve:
     Binding: GenericBinding
     Data: List[KeyFrame] = field(default_factory=list)
 
-    def evaluate(self, t: float) -> float | Vector3 | Quaternion:
+    def evaluate(self, t: float) -> float | Vector3 | Quaternion:  # O(log n)
         lhs = bisect_right(self.Data, t, key=lambda x: x.time) - 1
         lhs = max(lhs, 0)
         lhs = self.Data[lhs]
@@ -397,13 +393,15 @@ def read_animation(src: AnimationClip) -> Animation:
     for i in range(1, len(mClipBindingCurveSizesPfx)):
         mClipBindingCurveSizesPfx[i] += mClipBindingCurveSizesPfx[i - 1]
 
-    def mClipFindBinding(cur) -> GenericBinding:
+    def mClipFindBinding(cur) -> GenericBinding:  # O(log n)
         index = bisect_right(mClipBindingCurveSizesPfx, cur)
         index = max(index, 0)
         index = min(index, len(mClipBinding.genericBindings) - 1)
         return mClipBinding.genericBindings[index]
 
-    def mClipGetNextCurve(cur, keys) -> int:
+    def mClipGetNextCurve(
+        cur, keys
+    ) -> int:  # O(1) since curve counts are between 1 and 4
         i = cur
         while i < len(keys) and keys[cur].index == keys[i].index:
             i += 1
