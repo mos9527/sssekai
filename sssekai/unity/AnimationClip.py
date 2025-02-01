@@ -195,7 +195,6 @@ class KeyFrame:
     @staticmethod
     def interpolation_segment(lhs: "KeyFrame", rhs: "KeyFrame") -> List[Interpolation]:
         """Interpolation of the segment between lhs and rhs"""
-        EPS = 1e-5
         rhs = lhs.next
         if not rhs:
             return [Interpolation.Constant] * len(vec3_quat_as_floats(lhs.value))
@@ -214,8 +213,6 @@ class KeyFrame:
             ):
                 if any((x == float("inf") for x in (lhsOutSlope, rhsInSlope))):
                     ipo[i] = Interpolation.Stepped
-                elif abs(rhsInSlope - lhsOutSlope) < EPS:
-                    ipo[i] = Interpolation.Linear
                 else:
                     ipo[i] = Interpolation.Hermite
         return ipo
