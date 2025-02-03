@@ -195,19 +195,16 @@ class KeyFrame:
     @staticmethod
     def interpolation_segment(lhs: "KeyFrame", rhs: "KeyFrame") -> List[Interpolation]:
         """Interpolation of the segment between lhs and rhs"""
-        rhs = lhs.next
-        if not rhs:
-            return [Interpolation.Constant] * len(vec3_quat_as_floats(lhs.value))
-        lhsInSlopes = vec3_quat_as_floats(lhs.inSlope)
-        lhsOutSlopes = vec3_quat_as_floats(lhs.outSlope)
-        rhsInSlopes = vec3_quat_as_floats(rhs.inSlope)
-        rhsOutSlopes = vec3_quat_as_floats(rhs.outSlope)
-        ipo = [Interpolation.Hermite] * len(lhsOutSlopes)
-        if lhs.isConstant or not rhs:
-            ipo = [Interpolation.Constant] * len(lhsOutSlopes)
-        elif lhs.isDense:
+        if lhs.isDense:
             ipo = [Interpolation.Linear] * len(lhsOutSlopes)
+        elif lhs.isConstant or not rhs:
+            ipo = [Interpolation.Constant] * len(lhsOutSlopes)
         else:
+            lhsInSlopes = vec3_quat_as_floats(lhs.inSlope)
+            lhsOutSlopes = vec3_quat_as_floats(lhs.outSlope)
+            rhsInSlopes = vec3_quat_as_floats(rhs.inSlope)
+            rhsOutSlopes = vec3_quat_as_floats(rhs.outSlope)
+            ipo = [Interpolation.Hermite] * len(lhsOutSlopes)
             for i, (lhsInSlope, lhsOutSlope, rhsInSlope, rhsOutSlope) in enumerate(
                 zip(lhsInSlopes, lhsOutSlopes, rhsInSlopes, rhsOutSlopes)
             ):
