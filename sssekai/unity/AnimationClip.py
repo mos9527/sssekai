@@ -196,9 +196,9 @@ class KeyFrame:
     def interpolation_segment(lhs: "KeyFrame", rhs: "KeyFrame") -> List[Interpolation]:
         """Interpolation of the segment between lhs and rhs"""
         if lhs.isDense:
-            ipo = [Interpolation.Linear] * len(lhsOutSlopes)
+            ipo = [Interpolation.Linear] * len(vec3_quat_as_floats(lhs.value))
         elif lhs.isConstant or not rhs:
-            ipo = [Interpolation.Constant] * len(lhsOutSlopes)
+            ipo = [Interpolation.Constant] * len(vec3_quat_as_floats(lhs.value))
         else:
             lhsInSlopes = vec3_quat_as_floats(lhs.inSlope)
             lhsOutSlopes = vec3_quat_as_floats(lhs.outSlope)
