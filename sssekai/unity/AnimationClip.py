@@ -153,6 +153,10 @@ def _read_streamed_clip_frames(clip: StreamedClip) -> List[_StreamedClipFrame]: 
 
 @dataclass
 class KeyFrame:
+    """Custom KeyFrame container/lookup type analogus to Unity's Keyframe
+    whilst providing dynamic type support (float/int/Euler/Vector/Quaternion) and interpolation
+    """
+
     time: float
     typeID: int
     value: float | Vector3 | Quaternion = 0
@@ -270,76 +274,6 @@ class KeyFrame:
         return result[0] if len(result) == 1 else vec3_quat_from_floats(*result)
 
 
-@dataclass
-class Curve:
-    Binding: GenericBinding
-    Data: List[KeyFrame] = field(default_factory=list)
-
-    def evaluate(self, t: float) -> float | Vector3 | Quaternion:  # O(log n)
-        lhs = bisect_right(self.Data, t, key=lambda x: x.time) - 1
-        lhs = max(lhs, 0)
-        lhs = self.Data[lhs]
-        rhs = lhs.next
-        return KeyFrame.interpolate(t, lhs, rhs)
-
-    @property
-    def Duration(self):
-        return self.Data[-1].time - self.Data[0].time
-
-    @property
-    def Path(self):
-        return self.Binding.path
-
-    @property
-    def Attribute(self):
-        return self.Binding.attribute
-
-    @property
-    def is_transform_curve(self):
-        return self.Binding.typeID == ClassIDType.Transform
-
-
-@dataclass
-class Animation:
-    Name: str
-    Duration: float
-    SampleRate: float
-    # Dict[internal hash, Curve]
-    RawCurves: Dict[int, Curve] = field(default_factory=dict)
-    # Curves[Attribute][Path Hash] = Curve
-    Curves: Dict[int, Dict[float, Curve]] = field(
-        default_factory=lambda: defaultdict(dict)
-    )
-    # CurvesT[Path Hash][Attribute] = Curve
-    CurvesT: Dict[int, Dict[float, Curve]] = field(
-        default_factory=lambda: defaultdict(dict)
-    )
-
-    @staticmethod
-    def hash_of(binding: GenericBinding):
-        return hash((binding.path, binding.attribute))
-
-    def get_curve(self, binding: GenericBinding):
-        hs = self.hash_of(binding)
-        if not hs in self.RawCurves:
-            curve = Curve(binding)
-            # i love refcounting
-            self.RawCurves[hs] = curve
-            self.Curves[binding.attribute][binding.path] = curve
-            self.CurvesT[binding.path][binding.attribute] = curve
-            return curve
-        else:
-            return self.RawCurves[hs]
-
-    @property
-    def FloatCurves(self):
-        return filter(lambda c: not c.is_transform_curve, self.RawCurves.values())
-
-    @property
-    def TransformCurves(self):
-        return filter(lambda c: c.is_transform_curve, self.RawCurves.values())
-
-
 def _read_clip_keyframe(
     time: float,
     binding: GenericBinding,
@@ -375,123 +309,237 @@ def _read_clip_keyframe(
     return result
 
 
-def read_animation(src: AnimationClip) -> Animation:
-    """Reads AnimationClip data and converts it to an Animation object
+@dataclass
+class Curve:
+    """Custom Curve container/lookup type analogus to Unity's AnimationCurve
 
-    Args:
-        src (AnimationClip): animationClip
-
-    Returns:
-        Animation
+    Note:
+        - Properties here aren't prefixed with `m_` like in Unity's AnimationClip
+        - For more information, read docs on `sssekai.unity.KeyFrame`
     """
-    result = Animation(src.m_Name, src.m_MuscleClip.m_StopTime, src.m_SampleRate)
-    mClip = src.m_MuscleClip.m_Clip.data
-    mClipBinding = src.m_ClipBindingConstant
-    mClipBindingCurveSizesPfx = [
-        kAttributeSizeof(b.attribute) for b in mClipBinding.genericBindings
-    ]
-    for i in range(1, len(mClipBindingCurveSizesPfx)):
-        mClipBindingCurveSizesPfx[i] += mClipBindingCurveSizesPfx[i - 1]
 
-    def mClipFindBinding(cur) -> GenericBinding:  # O(log n)
-        index = bisect_right(mClipBindingCurveSizesPfx, cur)
-        index = max(index, 0)
-        index = min(index, len(mClipBinding.genericBindings) - 1)
-        return mClipBinding.genericBindings[index]
+    Binding: GenericBinding
+    Data: List[KeyFrame] = field(default_factory=list)
 
-    def mClipGetNextCurve(
-        cur, keys
-    ) -> int:  # O(1) since curve counts are between 1 and 4
-        i = cur
-        while i < len(keys) and keys[cur].index == keys[i].index:
-            i += 1
-        return i
+    def evaluate(self, t: float) -> float | Vector3 | Quaternion:  # O(log n)
+        lhs = bisect_right(self.Data, t, key=lambda x: x.time) - 1
+        lhs = max(lhs, 0)
+        lhs = self.Data[lhs]
+        rhs = lhs.next
+        return KeyFrame.interpolate(t, lhs, rhs)
 
-    # https://docs.unity3d.com/Manual/class-Animator.html
-    # When actually stored post build, the data is *only* stored with Stream, Dense or Constant clips
-    # Float, TRS curves will be optimized into these formats and will not be available.
+    @property
+    def Duration(self):
+        return self.Data[-1].time - self.Data[0].time
 
-    # StreamClip
-    # Animation is stored with Keyframe Reduction
-    # Interpolated with Hermite curves
-    mStreamClipFrames = _read_streamed_clip_frames(mClip.m_StreamedClip)
-    for frame in mStreamClipFrames:
-        curveIndex = 0
+    @property
+    def Path(self):
+        return self.Binding.path
 
-        def __keygen():
-            nonlocal curveIndex
-            while True:
-                currIndex = curveIndex
-                curveIndex = mClipGetNextCurve(curveIndex, frame.keys)
-                yield frame.keys[currIndex]
+    @property
+    def Attribute(self):
+        return self.Binding.attribute
 
-        __keygen_g = __keygen()
-        while curveIndex < len(frame.keys):
-            binding = mClipFindBinding(frame.keys[curveIndex].index)
-            curve = result.get_curve(binding)
-            key = _read_clip_keyframe(frame.time, binding, __keygen_g)
-            curve.Data.append(key)
+    @property
+    def is_transform_curve(self):
+        return self.Binding.typeID == ClassIDType.Transform
 
-    # DenseClip
-    # Animation is stored as a dense clip
-    # Values are to be interpolated linearly
-    m_DenseClip = mClip.m_DenseClip
-    curveOffset = mClip.m_StreamedClip.curveCount
-    for frameIndex in range(0, m_DenseClip.m_FrameCount):
-        time = m_DenseClip.m_BeginTime + frameIndex / m_DenseClip.m_SampleRate
-        frameOffset = frameIndex * m_DenseClip.m_CurveCount
-        curveIndex = 0
 
-        def __keygen():
-            nonlocal curveIndex
-            while True:
-                currIndex = curveIndex
-                curveIndex += 1
-                yield KeyFrame(
-                    time,
-                    binding.typeID,
-                    m_DenseClip.m_SampleArray[frameOffset + currIndex],
-                )
+@dataclass
+class Animation:
+    """Custom Animation container/lookup type analogus to Unity's AnimationClip
 
-        __keygen_g = __keygen()
-        while curveIndex < m_DenseClip.m_CurveCount:
-            binding = mClipFindBinding(curveOffset + curveIndex)
-            curve = result.get_curve(binding)
-            key = _read_clip_keyframe(time, binding, __keygen_g)
-            key.isDense = True
-            curve.Data.append(key)
+    Note:
+        - Properties here aren't prefixed with `m_` like in Unity's AnimationClip
+        - Mapping of functionality isn't 1:1 with Unity's AnimationClip since
+          there's no access to post-build clip data. Everything here is ready for use.
+        - For more information, read docs on `sssekai.unity.Curve` and `sssekai.unity.KeyFrame`
+    """
 
-    # ConstantClip
-    # Unchanging values.
-    m_ConstantClip = mClip.m_ConstantClip
-    curveOffset = mClip.m_StreamedClip.curveCount + mClip.m_DenseClip.m_CurveCount
-    time = 0
-    for _ in range(0, 2):  # first and last frame
-        curveIndex = 0
+    Name: str
+    Duration: float
+    SampleRate: float
+    # Dict[internal hash, Curve]
+    RawCurves: Dict[int, Curve] = field(default_factory=dict)
+    # Curves[Attribute][Path Hash] = Curve
+    Curves: Dict[int, Dict[float, Curve]] = field(
+        default_factory=lambda: defaultdict(dict)
+    )
+    # CurvesT[Path Hash][Attribute] = Curve
+    CurvesT: Dict[int, Dict[float, Curve]] = field(
+        default_factory=lambda: defaultdict(dict)
+    )
 
-        def __keygen():
-            nonlocal curveIndex
-            while True:
-                currIndex = curveIndex
-                curveIndex += 1
-                yield KeyFrame(
-                    time,
-                    binding.typeID,
-                    m_ConstantClip.data[currIndex],
-                )
+    @staticmethod
+    def hash_of(binding: GenericBinding):
+        return hash((binding.path, binding.attribute))
 
-        __keygen_g = __keygen()
-        while curveIndex < len(m_ConstantClip.data):
-            binding = mClipFindBinding(curveOffset + curveIndex)
-            curve = result.get_curve(binding)
-            key = _read_clip_keyframe(time, binding, __keygen_g)
-            key.isConstant = True
-            curve.Data.append(key)
-            binding = mClipFindBinding(curveOffset + curveIndex)
-        time = src.m_MuscleClip.m_StopTime
+    def get_curve(self, binding: GenericBinding):
+        hs = self.hash_of(binding)
+        if not hs in self.RawCurves:
+            curve = Curve(binding)
+            # i love refcounting
+            self.RawCurves[hs] = curve
+            self.Curves[binding.attribute][binding.path] = curve
+            self.CurvesT[binding.path][binding.attribute] = curve
+            return curve
+        else:
+            return self.RawCurves[hs]
 
-    for curve in result.RawCurves.values():
-        for i in range(1, len(curve.Data)):
-            curve.Data[i].prev = curve.Data[i - 1]
-            curve.Data[i - 1].next = curve.Data[i]
-    return result
+    # Shorthands for Unity-like access
+    @property
+    def TransformCurves(self):
+        return filter(lambda c: c.is_transform_curve, self.RawCurves.values())
+
+    @property
+    def FloatCurves(self):
+        return filter(lambda c: not c.is_transform_curve, self.RawCurves.values())
+
+    @property
+    def PositionCurves(self):
+        return self.Curves[kBindTransformPosition].values()
+
+    @property
+    def RotationCurves(self):
+        return self.Curves[kBindTransformRotation].values()
+
+    @property
+    def ScaleCurves(self):
+        return self.Curves[kBindTransformScale].values()
+
+    @property
+    def EulerCurves(self):
+        return self.Curves[kBindTransformEuler].values()
+
+    @property
+    def PPtrCurves(self):
+        raise NotImplementedError
+
+    @staticmethod
+    def from_built_animation_clip(src: AnimationClip) -> "Animation":
+        """Reads post-build AnimationClip data and converts it to an Animation
+
+        Note:
+            `Animation` in this context is NOT a part of Unity (which coincidentally also has an `Animation` class)
+            Read `sssekai.unity.Animation`'s docs for more information
+
+        Args:
+            src (AnimationClip): An Unity AnimationClip object
+
+        Returns:
+            sssekai.unity.Animation
+        """
+        result = Animation(src.m_Name, src.m_MuscleClip.m_StopTime, src.m_SampleRate)
+        mClip = src.m_MuscleClip.m_Clip.data
+        mClipBinding = src.m_ClipBindingConstant
+        mClipBindingCurveSizesPfx = [
+            kAttributeSizeof(b.attribute) for b in mClipBinding.genericBindings
+        ]
+        for i in range(1, len(mClipBindingCurveSizesPfx)):
+            mClipBindingCurveSizesPfx[i] += mClipBindingCurveSizesPfx[i - 1]
+
+        def mClipFindBinding(cur) -> GenericBinding:  # O(log n)
+            index = bisect_right(mClipBindingCurveSizesPfx, cur)
+            index = max(index, 0)
+            index = min(index, len(mClipBinding.genericBindings) - 1)
+            return mClipBinding.genericBindings[index]
+
+        def mClipGetNextCurve(
+            cur, keys
+        ) -> int:  # O(1) since curve counts are between 1 and 4
+            i = cur
+            while i < len(keys) and keys[cur].index == keys[i].index:
+                i += 1
+            return i
+
+        # https://docs.unity3d.com/Manual/class-Animator.html
+        # When actually stored post build, the data is *only* stored with Stream, Dense or Constant clips
+        # Float, TRS curves will be optimized into these formats and will not be available.
+
+        # StreamClip
+        # Animation is stored with Keyframe Reduction
+        # Interpolated with Hermite curves
+        mStreamClipFrames = _read_streamed_clip_frames(mClip.m_StreamedClip)
+        for frame in mStreamClipFrames:
+            curveIndex = 0
+
+            def __keygen():
+                nonlocal curveIndex
+                while True:
+                    currIndex = curveIndex
+                    curveIndex = mClipGetNextCurve(curveIndex, frame.keys)
+                    yield frame.keys[currIndex]
+
+            __keygen_g = __keygen()
+            while curveIndex < len(frame.keys):
+                binding = mClipFindBinding(frame.keys[curveIndex].index)
+                curve = result.get_curve(binding)
+                key = _read_clip_keyframe(frame.time, binding, __keygen_g)
+                curve.Data.append(key)
+
+        # DenseClip
+        # Animation is stored as a dense clip
+        # Values are to be interpolated linearly
+        m_DenseClip = mClip.m_DenseClip
+        curveOffset = mClip.m_StreamedClip.curveCount
+        for frameIndex in range(0, m_DenseClip.m_FrameCount):
+            time = m_DenseClip.m_BeginTime + frameIndex / m_DenseClip.m_SampleRate
+            frameOffset = frameIndex * m_DenseClip.m_CurveCount
+            curveIndex = 0
+
+            def __keygen():
+                nonlocal curveIndex
+                while True:
+                    currIndex = curveIndex
+                    curveIndex += 1
+                    yield KeyFrame(
+                        time,
+                        binding.typeID,
+                        m_DenseClip.m_SampleArray[frameOffset + currIndex],
+                    )
+
+            __keygen_g = __keygen()
+            while curveIndex < m_DenseClip.m_CurveCount:
+                binding = mClipFindBinding(curveOffset + curveIndex)
+                curve = result.get_curve(binding)
+                key = _read_clip_keyframe(time, binding, __keygen_g)
+                key.isDense = True
+                curve.Data.append(key)
+
+        # ConstantClip
+        # Unchanging values.
+        m_ConstantClip = mClip.m_ConstantClip
+        curveOffset = mClip.m_StreamedClip.curveCount + mClip.m_DenseClip.m_CurveCount
+        time = 0
+        for _ in range(0, 2):  # first and last frame
+            curveIndex = 0
+
+            def __keygen():
+                nonlocal curveIndex
+                while True:
+                    currIndex = curveIndex
+                    curveIndex += 1
+                    yield KeyFrame(
+                        time,
+                        binding.typeID,
+                        m_ConstantClip.data[currIndex],
+                    )
+
+            __keygen_g = __keygen()
+            while curveIndex < len(m_ConstantClip.data):
+                binding = mClipFindBinding(curveOffset + curveIndex)
+                curve = result.get_curve(binding)
+                key = _read_clip_keyframe(time, binding, __keygen_g)
+                key.isConstant = True
+                curve.Data.append(key)
+                binding = mClipFindBinding(curveOffset + curveIndex)
+            time = src.m_MuscleClip.m_StopTime
+
+        for curve in result.RawCurves.values():
+            for i in range(1, len(curve.Data)):
+                curve.Data[i].prev = curve.Data[i - 1]
+                curve.Data[i - 1].next = curve.Data[i]
+        return result
+
+
+read_animation = Animation.from_built_animation_clip
