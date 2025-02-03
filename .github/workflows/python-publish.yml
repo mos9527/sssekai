@@ -21,7 +21,7 @@ on:
 jobs:
   build-and-release:
     # XXX: Nobody expects the `contains()` repetition
-    if: contains(github.event.workflow_run.head_commit.message, 'Version') || github.event.inputs.release_pypi || github.event.inputs.release_github
+    if: github.event.workflow_run.conclusion == 'success' && contains(github.event.workflow_run.head_commit.message, 'Version') || github.event.inputs.release_pypi || github.event.inputs.release_github
     runs-on: windows-latest
     steps:
     - uses: actions/checkout@v2
