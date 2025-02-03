@@ -71,7 +71,7 @@ class AbCacheConfig:
     app_version: str
     app_platform: str
     app_hash: str
-    ab_version: str = None # Override AB version in url for ROW
+    ab_version: str = None  # Override AB version in url for ROW
 
     auth_userID: str = None
     auth_credential: str = None  # JWT token for JP/EN, Base64 encoded JWT token for ROW
@@ -445,11 +445,11 @@ class AbCache(Session):
             data = encrypt(data, SEKAI_APIMANAGER_KEYSETS[self.config.app_region])
         resp = self.request(method=method, url=url, data=data, **kwargs)
         if 400 <= resp.status_code < 600:
-            try: # log the error message provided by the API.
+            try:  # log the error message provided by the API.
                 self.response_to_dict(resp)
-                logger.warn("%s" % resp)
+                logger.error("HTTP %3d, response=%s" % (resp.status_code, resp.content))
             except:
-                logger.warn("%s" % resp)
+                logger.error("HTTP %3d, response=%s" % (resp.status_code, resp.content))
             resp.raise_for_status()
         return resp
 
