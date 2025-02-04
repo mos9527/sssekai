@@ -446,8 +446,8 @@ class AbCache(Session):
         resp = self.request(method=method, url=url, data=data, **kwargs)
         if 400 <= resp.status_code < 600:
             try:  # log the error message provided by the API.
-                self.response_to_dict(resp)
-                logger.error("HTTP %3d, response=%s" % (resp.status_code, resp.content))
+                content = self.response_to_dict(resp)
+                logger.error("HTTP %3d, response=%s" % (resp.status_code, content))
             except:
                 logger.error("HTTP %3d, response=%s" % (resp.status_code, resp.content))
             resp.raise_for_status()
