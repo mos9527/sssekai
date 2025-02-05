@@ -2,7 +2,7 @@ from dataclasses import dataclass, field
 from sssekai.__main__ import create_parser
 from typing import Any, List
 from argparse import ArgumentParser
-from logging import basicConfig
+from logging import basicConfig, getLogger
 
 try:
     from gooey import Gooey, GooeyParser
@@ -62,20 +62,22 @@ def __Gooey_120_patch_tqdm():
             line = []
             while ch := process.stdout.read(1):
                 if ch in (b"\r", b"\n"):
-                    line.append(b"\n")
                     break
                 line.append(ch)
-            if not line:
+            if ch is None:
                 break
             line = b"".join(line)
-            _progress = line.find(b"%")
-            if _progress in range(0, 4):
-                _progress = int(line[:_progress].strip())
-            else:
-                _progress = None
-            pub.send_message(events.PROGRESS_UPDATE, progress=_progress)
-            if _progress is None or self.hide_progress_msg is False:
-                pub.send_message(events.CONSOLE_UPDATE, msg=line.decode(self.encoding))
+            line = line.decode(self.encoding)
+            line = line.strip("\r\n")  # Windows CRLF
+            if line:
+                _progress = line.find("%")
+                if _progress in range(0, 4):
+                    _progress = int(line[:_progress].strip())
+                else:
+                    _progress = None
+                pub.send_message(events.PROGRESS_UPDATE, progress=_progress)
+                if _progress is None or self.hide_progress_msg is False:
+                    pub.send_message(events.CONSOLE_UPDATE, msg=line + "\n")
         pub.send_message(events.EXECUTION_COMPLETE)
 
     ProcessController._forward_stdout = __patch
@@ -144,6 +146,7 @@ def __main__():
         level="DEBUG",
         format="[%(levelname).4s] %(name)s %(message)s",
     )
+    getLogger("pyaxmlparser.axmlprinter").setLevel("ERROR")
     # override unity version
     sssekai_set_unity_version(args.unity_version)
     if "func" in args:
