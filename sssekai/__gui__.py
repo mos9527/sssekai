@@ -83,16 +83,16 @@ def __Gooey_120_patch_tqdm():
 
 
 def __Gooey_120_patch_Applications():
-    from gooey.gui.containers.application import TabbedConfigPage
+    from gooey.gui.containers.application import ConfigPage
     from gooey.gui.lang.i18n import _
 
-    __original = TabbedConfigPage.layoutComponent
+    __original = ConfigPage.layoutComponent
 
     def __patch(self):
         self.rawWidgets["contents"][0]["description"] = self.rawWidgets["help"]
         __original(self)
 
-    TabbedConfigPage.layoutComponent = __patch
+    ConfigPage.layoutComponent = __patch
 
 
 from sssekai.unity import sssekai_set_unity_version
@@ -129,7 +129,7 @@ class GooeyParser(GooeyParser):
 @Gooey(
     show_preview_warning=False,
     program_name="sssekai",
-    tabbed_groups=True,
+    tabbed_groups=False,
     advanced=True,
 )
 def __main__():

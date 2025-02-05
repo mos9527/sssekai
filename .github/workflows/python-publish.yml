@@ -51,6 +51,14 @@ jobs:
       if: contains(github.event.workflow_run.head_commit.message, 'Version') || github.event.inputs.release_github
       run: |          
           pyinstaller sssekai.spec  
+    - name: Install GUI Dependencies
+      if: contains(github.event.workflow_run.head_commit.message, 'Version') || github.event.inputs.release_github
+      run: |
+          python -m pip install -e .[gui]
+    - name: Build Windows executable (GUI, GitHub)
+      if: contains(github.event.workflow_run.head_commit.message, 'Version') || github.event.inputs.release_github
+      run: |          
+          pyinstaller sssekai-gui.spec   
     - name : Get Version (GitHub)
       if: contains(github.event.workflow_run.head_commit.message, 'Version') || github.event.inputs.release_github
       id   : get_version
@@ -69,7 +77,7 @@ jobs:
       with:
         tag_name: ${{ steps.get_version.outputs.version }}
         release_name: Version ${{ steps.get_version.outputs.version }}
-    - name: Upload Release Asset (GitHub)
+    - name: Upload Windows EXE (GitHub)
       if: contains(github.event.workflow_run.head_commit.message, 'Version') || github.event.inputs.release_github
       uses: actions/upload-release-asset@v1.0.1
       env:
@@ -79,6 +87,16 @@ jobs:
         asset_path: dist/sssekai.exe
         asset_name: sssekai.exe
         asset_content_type: application/application/vnd.microsoft.portable-executable
+    - name: Upload Windows EXE (GUI, GitHub)
+      if: contains(github.event.workflow_run.head_commit.message, 'Version') || github.event.inputs.release_github
+      uses: actions/upload-release-asset@v1.0.1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ steps.create_release.outputs.upload_url }}
+        asset_path: dist/sssekai-gui.exe
+        asset_name: sssekai-gui.exe
+        asset_content_type: application/application/vnd.microsoft.portable-executable        
     - name: Publish Release (GitHub)
       if: contains(github.event.workflow_run.head_commit.message, 'Version') || github.event.inputs.release_github
       uses: eregon/publish-release@v1
