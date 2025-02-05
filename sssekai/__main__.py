@@ -15,19 +15,8 @@ from sssekai.entrypoint.moc3paths import main_moc3paths
 from sssekai.unity import sssekai_get_unity_version, sssekai_set_unity_version
 
 
-def __main__():
-    from tqdm.std import tqdm as tqdm_c
-
-    class SemaphoreStdout:
-        @staticmethod
-        def write(__s):
-            # Blocks tqdm's output until write on this stream is done
-            # Solves cases where progress bars gets re-rendered when logs
-            # spews out too fast
-            with tqdm_c.external_write_mode(file=sys.stdout, nolock=False):
-                return sys.stdout.write(__s)
-
-    parser = argparse.ArgumentParser(
+def create_parser(clazz=argparse.ArgumentParser):
+    parser = clazz(
         description="""Project SEKAI Asset Utility / PJSK 资源工具""",
         formatter_class=argparse.RawTextHelpFormatter,
     )
@@ -295,9 +284,9 @@ This crypto applies to:
         "mvdata", help="""Extract MV Data from AssetBundle"""
     )
     mvdata_parser.add_argument(
-        "input", type=str, help="cache directory (live_pv/mv_data)"
+        "infile", type=str, help="cache directory (live_pv/mv_data)"
     )
-    mvdata_parser.add_argument("output", type=str, help="output JSON file to dump into")
+    mvdata_parser.add_argument("outdir", type=str, help="output JSON file to dump into")
     mvdata_parser.set_defaults(func=main_mvdata)
     # moc3paths
     moc3paths_parser = subparsers.add_parser(
@@ -305,7 +294,23 @@ This crypto applies to:
     )
     moc3paths_parser.add_argument("indir", type=str, help="input directory")
     moc3paths_parser.set_defaults(func=main_moc3paths)
+    return parser
+
+
+def __main__():
+    from tqdm.std import tqdm as tqdm_c
+
+    class SemaphoreStdout:
+        @staticmethod
+        def write(__s):
+            # Blocks tqdm's output until write on this stream is done
+            # Solves cases where progress bars gets re-rendered when logs
+            # spews out too fast
+            with tqdm_c.external_write_mode(file=sys.stdout, nolock=False):
+                return sys.stdout.write(__s)
+
     # parse args
+    parser = create_parser(argparse.ArgumentParser)
     args = parser.parse_args()
     # set logging level
     import coloredlogs

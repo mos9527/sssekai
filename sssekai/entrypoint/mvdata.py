@@ -5,7 +5,7 @@ import os, json
 def main_mvdata(args):
     from UnityPy.enums import ClassIDType
 
-    source = args.input
+    source = args.infile
     source = os.path.expanduser(source)
     source = os.path.abspath(source)
     os.chdir(source)
@@ -29,8 +29,8 @@ def main_mvdata(args):
                             break
         except Exception as e:
             print(f"skipping {key}: {e}")
-    outdir = os.path.dirname(args.output)
+    outdir = os.path.dirname(args.outdir)
     if outdir:
         os.makedirs(outdir, exist_ok=True)
-    with open(args.output, "w", encoding="utf-8") as f:
+    with open(args.outdir, "w", encoding="utf-8") as f:
         json.dump(mvdata_items, f, indent=4, ensure_ascii=False)

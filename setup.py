@@ -34,6 +34,9 @@ setuptools.setup(
         "requests",
         "pyaxmlparser",
     ],
+    extras_require={
+        "gui": ["Gooey @ git+https://github.com/nicolasbraun/Gooey@11bd412"]
+    },
     entry_points={
         "console_scripts": ["sssekai = sssekai.__main__:__main__"],
         "fsspec.specs": ["abcache = sssekai.abcache.fs.AbCacheFilesystem"],

@@ -9,6 +9,7 @@ import UnityPy.classes
 import UnityPy.enums
 import UnityPy.enums.ClassIDType
 from sssekai.unity.AssetBundle import load_assetbundle
+from tqdm import tqdm
 
 HASHREGEX = re.compile(b"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}")
 REGION_MAP = {
@@ -51,9 +52,11 @@ def main_apphash(args):
                 stream=True,
             )
             size = resp.headers.get("Content-Length", -1)
-            for chunck in resp.iter_content(chunk_size=2**20):
-                src.write(chunck)
-                logger.debug("Downloading %d/%s" % (src.tell(), size))
+            with tqdm(total=int(size), unit="B", unit_scale=True) as progress:
+                progress.sp = print
+                for chunck in resp.iter_content(chunk_size=2**20):
+                    src.write(chunck)
+                    progress.update(len(chunck))
             src.seek(0)
         else:
             src = open(args.apk_src, "rb")

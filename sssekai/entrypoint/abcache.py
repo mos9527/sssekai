@@ -15,7 +15,6 @@ class AbCacheDownloader(ThreadPoolExecutor):
     def _ensure_progress(self):
         if not self.progress:
             self.progress = tqdm(
-                bar_format="{desc}: {percentage:.1f}%|{bar}| {n_fmt}/{total_fmt} {rate_fmt} {elapsed}<{remaining}",
                 total=0,
                 unit="B",
                 unit_scale=True,

@@ -1,7 +1,12 @@
 {
     "version": "0.2.0",
     "configurations": [
-        
+        {
+            "name": "GUI Test",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/sssekai/__gui__.py",
+        }
         {
             "name": "Python: SpineExtract test",
             "type": "debugpy",
