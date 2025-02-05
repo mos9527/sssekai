@@ -38,7 +38,10 @@ setuptools.setup(
         "gui": ["Gooey @ git+https://github.com/nicolasbraun/Gooey@11bd412"]
     },
     entry_points={
-        "console_scripts": ["sssekai = sssekai.__main__:__main__"],
+        "console_scripts": [
+            "sssekai = sssekai.__main__:__main__",
+            "sssekai-gui = sssekai.__gui__:__main__",
+        ],
         "fsspec.specs": ["abcache = sssekai.abcache.fs.AbCacheFilesystem"],
     },
     python_requires=">=3.10",
