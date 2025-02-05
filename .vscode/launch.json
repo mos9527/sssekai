@@ -6,7 +6,8 @@
             "type": "debugpy",
             "request": "launch",
             "program": "${workspaceFolder}/sssekai/__gui__.py",
-        }
+            "justMyCode": false
+        },
         {
             "name": "Python: SpineExtract test",
             "type": "debugpy",

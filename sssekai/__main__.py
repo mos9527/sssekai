@@ -42,7 +42,7 @@ If you encounter any issues, try switching to the old version, or vice versa."""
     # apidecrypt
     apidecrypt_parser = subparsers.add_parser(
         "apidecrypt",
-        help="""API crypto dumper
+        usage="""API crypto dumper
 This crypto applies to:
     - API request/response body dumped by packet sniffer (mitmproxy, wireshark, etc.)
     - AssetBundleInfo (see sssekai.abcache)""",
@@ -59,21 +59,21 @@ This crypto applies to:
     apidecrypt_parser.set_defaults(func=main_apidecrypt)
     # abdecrypt
     abdecrypt_parser = subparsers.add_parser(
-        "abdecrypt", help="""Decrypt Sekai AssetBundle"""
+        "abdecrypt", usage="""Decrypt Sekai AssetBundle"""
     )
     abdecrypt_parser.add_argument("indir", type=str, help="input directory")
     abdecrypt_parser.add_argument("outdir", type=str, help="output directory")
     abdecrypt_parser.set_defaults(func=main_abdecrypt)
     # usmdemux
     usmdemux_parser = subparsers.add_parser(
-        "usmdemux", help="""Demux Sekai USM Video in a AssetBundle"""
+        "usmdemux", usage="""Demux Sekai USM Video in a AssetBundle"""
     )
     usmdemux_parser.add_argument("infile", type=str, help="input file")
     usmdemux_parser.add_argument("outdir", type=str, help="output directory")
     usmdemux_parser.set_defaults(func=main_usmdemux)
     # abcache
     abcache_parser = subparsers.add_parser(
-        "abcache", help="""Sekai AssetBundle Metadata Cache / Game API Helper"""
+        "abcache", usage="""Sekai AssetBundle Metadata Cache / Game API Helper"""
     )
     group = abcache_parser.add_argument_group("save/load options")
     group.add_argument(
@@ -188,7 +188,7 @@ This crypto applies to:
     )
     abcache_parser.set_defaults(func=main_abcache)
     abserve_parser = subparsers.add_parser(
-        "abserve", help="""AbCache Filesystem Server / Backend"""
+        "abserve", usage="""AbCache Filesystem Server / Backend"""
     )
     abserve_parser.add_argument(
         "--db",
@@ -217,7 +217,7 @@ This crypto applies to:
     abserve_parser.set_defaults(func=main_abserve)
     # live2dextract
     live2dextract_parser = subparsers.add_parser(
-        "live2dextract", help="""Extract Sekai Live2D Models in a AssetBundle"""
+        "live2dextract", usage="""Extract Sekai Live2D Models in a AssetBundle"""
     )
     live2dextract_parser.add_argument("infile", type=str, help="input file")
     live2dextract_parser.add_argument("outdir", type=str, help="output directory")
@@ -228,7 +228,7 @@ This crypto applies to:
     # spineextract
     spineextract_parser = subparsers.add_parser(
         "spineextract",
-        help="""Extract Sekai Spine (Esoteric Spine2D) Models in a AssetBundle""",
+        usage="""Extract Sekai Spine (Esoteric Spine2D) Models in a AssetBundle""",
     )
     spineextract_parser.add_argument("infile", type=str, help="input file")
     spineextract_parser.add_argument("outdir", type=str, help="output directory")
@@ -236,7 +236,7 @@ This crypto applies to:
     # rla2json
     rla2json_parser = subparsers.add_parser(
         "rla2json",
-        help="""Read streaming_live/archive files and dump their information to JSON""",
+        usage="""Read streaming_live/archive files and dump their information to JSON""",
     )
     rla2json_parser.add_argument(
         "infile",
@@ -260,7 +260,7 @@ This crypto applies to:
     # apphash
     apphash_parser = subparsers.add_parser(
         "apphash",
-        help="""Download/extract game AppHash values
+        usage="""Download/extract game AppHash values
 *NOTE*: Only [app version] [app region] [app hash] are written to stdout if successful. Fields are separated by space. Unavailable fields are left as 'unknown'.""",
     )
     apphash_parser.add_argument(
@@ -281,7 +281,7 @@ This crypto applies to:
     apphash_parser.set_defaults(func=main_apphash)
     # mvdata
     mvdata_parser = subparsers.add_parser(
-        "mvdata", help="""Extract MV Data from AssetBundle"""
+        "mvdata", usage="""Extract MV Data from AssetBundle"""
     )
     mvdata_parser.add_argument(
         "infile", type=str, help="cache directory (live_pv/mv_data)"
@@ -290,7 +290,7 @@ This crypto applies to:
     mvdata_parser.set_defaults(func=main_mvdata)
     # moc3paths
     moc3paths_parser = subparsers.add_parser(
-        "moc3paths", help="""Extract animation path CRCs from raw .moc3 binaries"""
+        "moc3paths", usage="""Extract animation path CRCs from raw .moc3 binaries"""
     )
     moc3paths_parser.add_argument("indir", type=str, help="input directory")
     moc3paths_parser.set_defaults(func=main_moc3paths)

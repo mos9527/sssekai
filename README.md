@@ -7,20 +7,24 @@ Command-line tool (w/Python API support) for Project SEKAI (JP: プロジェク�
 **For Windows Users** : Builds are available [here](https://github.com/mos9527/sssekai/releases)
 
 Python >=3.10 is required to run this tool.
-## Installation
-Or get the latest version from PyPI:
-```bash
-    pip install sssekai    
-```
-...Or install it from source:
-```bash
-    pip install git+https://github.com/mos9527/sssekai
-```
-## Updating
-```bash
-    pip install sssekai --upgrade
-```
 
+You can install the latest version of `sssekai` from PyPI using pip:
+```bash
+pip install -U sssekai
+```
+To use the latest development version, you can install directly from GitHub:
+```bash
+pip install -U  git+https://github.com/mos9527/sssekai
+```
+## Using the GUI version
+Additionally, you can use the GUI version of `sssekai` by installing the `[gui]` extra, which in turn installs [nicolasbraun's `Gooey` fork](https://github.com/nicolasbraun/Gooey)
+```bash
+pip install -U sssekai[gui]
+```
+Then you can run the GUI version by:
+```bash
+sssekai-gui
+```
 # Documentation
 See the [wiki page!](https://github.com/mos9527/sssekai/wiki)
 

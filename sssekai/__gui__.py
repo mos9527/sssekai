@@ -82,6 +82,19 @@ def __Gooey_120_patch_tqdm():
     pass
 
 
+def __Gooey_120_patch_Applications():
+    from gooey.gui.containers.application import TabbedConfigPage
+    from gooey.gui.lang.i18n import _
+
+    __original = TabbedConfigPage.layoutComponent
+
+    def __patch(self):
+        self.rawWidgets["contents"][0]["description"] = self.rawWidgets["help"]
+        __original(self)
+
+    TabbedConfigPage.layoutComponent = __patch
+
+
 from sssekai.unity import sssekai_set_unity_version
 
 
@@ -113,11 +126,17 @@ class GooeyParser(GooeyParser):
         return super().add_argument(name, *args, **kwargs)
 
 
-@Gooey(show_preview_warning=False)
+@Gooey(
+    show_preview_warning=False,
+    program_name="sssekai",
+    tabbed_groups=True,
+    advanced=True,
+)
 def __main__():
     __Gooey_120_patch_TaskBar()
     __Gooey_120_patch_wxTimer()
     __Gooey_120_patch_tqdm()
+    __Gooey_120_patch_Applications()
     # ooh ooh aah aah monkey patching
     parser = create_parser(GooeyParser)
     args = parser.parse_args()
