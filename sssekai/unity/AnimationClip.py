@@ -170,6 +170,14 @@ class KeyFrame:
     prev: "KeyFrame" = None
     next: "KeyFrame" = None
 
+    endian: str = ">"
+
+    @property
+    def int_value(self):
+        assert type(self.value) == float
+        b = struct.pack("<f", self.value)
+        return struct.unpack(self.endian + "i", b)[0]
+
     def __repr__(self):
         return f"KeyFrame({self.time}, {self.value}, inSlope={self.inSlope}, outSlope={self.outSlope})"
 
