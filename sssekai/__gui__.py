@@ -64,7 +64,7 @@ def __Gooey_120_patch_tqdm():
                 if ch in (b"\r", b"\n"):
                     break
                 line.append(ch)
-            if ch is None:
+            if not ch:  # EOF
                 break
             line = b"".join(line)
             line = line.decode(self.encoding)
