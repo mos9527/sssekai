@@ -17,7 +17,6 @@ def __Gooey_120_patch_TaskBar():
     from rewx.widgets import set_basic_props, dirname
     from rewx.dispatch import update
     import wx
-    import sys
 
     @update.register(wx.Frame)
     def frame(element, instance: wx.Frame):
@@ -85,60 +84,85 @@ def __Gooey_120_patch_tqdm():
 
 
 def __Gooey_120_patch_Applications():
-    from gooey.gui.containers.application import ConfigPage
+    from gooey.gui.containers.application import TabbedConfigPage
     from gooey.gui.lang.i18n import _
 
-    __original = ConfigPage.layoutComponent
+    __original = TabbedConfigPage.layoutComponent
 
     def __patch(self):
         self.rawWidgets["contents"][0]["description"] = self.rawWidgets["help"]
         __original(self)
 
-    ConfigPage.layoutComponent = __patch
+    TabbedConfigPage.layoutComponent = __patch
+
+
+WIDGET_MAP = {
+    "infile": "FileChooser",
+    "outfile": "FileSaver",
+    "indir": "DirChooser",
+    "outdir": "DirChooser",
+    # Special cases
+    # AppHash
+    "--apk-src": "FileChooser",
+    "--ab-src": "FileChooser",
+    # AbCache
+    "--db": "FileChooser",
+    "--download-dir": "DirChooser",
+    "--dump-master-data": "DirChooser",
+    "--dump-user-data": "DirChooser",
+}
+
+
+def __Gooey_120_patch_ArgumentGroup():
+    from gooey.python_bindings.gooey_parser import (
+        GooeyArgumentGroup,
+        GooeyMutuallyExclusiveGroup,
+    )
+
+    for clazz in [GooeyArgumentGroup, GooeyMutuallyExclusiveGroup, GooeyParser]:
+        __original = clazz.add_argument
+
+        def __patch(self, name, *args, __original=__original, **kwargs):
+            # XXX: Capturing the og function is necessary otherwise the reference would be updated
+            kwargs |= {"widget": WIDGET_MAP.get(name, None)}
+            kwargs["help"] = kwargs.get("help", "") % kwargs
+            return __original(self, name, *args, **kwargs)
+
+        clazz.add_argument = __patch
 
 
 from sssekai.unity import sssekai_set_unity_version
 
 
-class GooeyParser(GooeyParser):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-
-    # It's guaranteed that with file input/outputs
-    # that we have
-    # infile, outfile, indir, outdir as names
-    # Map them to File Widgets
-    def add_argument(self, name, *args, **kwargs):
-        WIDGET_MAP = {
-            "infile": "FileChooser",
-            "outfile": "FileSaver",
-            "indir": "DirChooser",
-            "outdir": "DirChooser",
-            # Special cases
-            # AppHash
-            "--apk_src": "FileChooser",
-            "--ab_src": "FileChooser",
-            # AbCache
-            "--db": "FileChooser",
-            "--download_dir": "DirChooser",
-            "--dump_master_data": "DirChooser",
-            "--dump_user_data": "DirChooser",
-        }
-        kwargs |= {"widget": WIDGET_MAP.get(name, None)}
-        return super().add_argument(name, *args, **kwargs)
-
-
 @Gooey(
     show_preview_warning=False,
     program_name="sssekai",
-    tabbed_groups=False,
+    tabbed_groups=True,
     advanced=True,
+    menu=[
+        {
+            "name": "Help",
+            "items": [
+                {
+                    "type": "Link",
+                    "menuTitle": "Project Wiki",
+                    "url": "https://github.com/mos9527/sssekai/wiki",
+                },
+                {
+                    "type": "Link",
+                    "menuTitle": "GitHub",
+                    "url": "https://github.com/mos9527/sssekai",
+                },
+            ],
+        }
+    ],
 )
 def __main__():
     __Gooey_120_patch_TaskBar()
     __Gooey_120_patch_wxTimer()
     __Gooey_120_patch_tqdm()
     __Gooey_120_patch_Applications()
+    __Gooey_120_patch_ArgumentGroup()
     # ooh ooh aah aah monkey patching
     parser = create_parser(GooeyParser)
     args = parser.parse_args()
