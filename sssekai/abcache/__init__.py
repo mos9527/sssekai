@@ -362,7 +362,7 @@ class AbCache(Session):
 
     @property
     def is_authenticated(self):
-        return self.database.sekai_user_data and self.database.sekai_user_auth_data
+        return self.database.sekai_user_auth_data is not None
 
     def raise_for_auth(self, *args):
         if not self.is_authenticated:
