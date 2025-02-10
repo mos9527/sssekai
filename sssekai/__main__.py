@@ -83,9 +83,14 @@ This crypto applies to:
         default=DEFAULT_CACHE_DB_FILE,
     )
     group.add_argument(
+        "--keep-auth",
+        action="store_false",
+        help="keep authentication data in the cache database during the update",
+    )
+    group.add_argument(
         "--no-update",
         action="store_true",
-        help="skip all metadata updates and use cached ones as is.",
+        help="skip all metadata updates and use cached ones as is. this supercedes 'game version options' and 'authentication options'",
     )
     group = abcache_parser.add_argument_group(
         "game version options",
@@ -171,14 +176,6 @@ This crypto applies to:
     group = abcache_parser.add_argument_group(
         "authentication arguments",
         "Only needed for some functionailties (i.e. --dump-master-data)",
-    )
-    group.add_argument(
-        "--auth-userId",
-        type=str,
-        help="User ID for API authentication. "
-        + "Can be omitted on JP/EN servers, in which case a guest account would be automatically registered and used."
-        + "NOT required on ROW servers since it's retrieved from --auth-credential",
-        default=None,
     )
     group.add_argument(
         "--auth-credential",
@@ -318,13 +315,15 @@ def __main__():
 
     coloredlogs.install(
         level=args.log_level,
-        fmt="%(asctime)s %(name)s [%(levelname).4s] %(message)s",
+        format="%(asctime)s | %(levelname).1s | %(name)s %(message)s",
+        datefmt="%H:%M:%S",
         isatty=True,
         stream=SemaphoreStdout,
     )
     basicConfig(
         level=args.log_level,
-        format="[%(levelname).4s] %(name)s %(message)s",
+        format="%(asctime)s | %(levelname).1s | %(name)s %(message)s",
+        datefmt="%H:%M:%S",
         stream=SemaphoreStdout,
     )
     # override unity version

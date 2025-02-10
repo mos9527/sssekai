@@ -139,6 +139,7 @@ from sssekai.unity import sssekai_set_unity_version
     program_name="sssekai",
     tabbed_groups=True,
     advanced=True,
+    monospace_display=True,
     menu=[
         {
             "name": "Help",
@@ -168,7 +169,8 @@ def __main__():
     args = parser.parse_args()
     basicConfig(
         level="DEBUG",
-        format="[%(levelname).4s] %(name)s %(message)s",
+        format="%(asctime)s | %(levelname).1s | %(name)s %(message)s",
+        datefmt="%H:%M:%S",
     )
     getLogger("pyaxmlparser.axmlprinter").setLevel("ERROR")
     # override unity version

@@ -19,7 +19,6 @@ class AbCacheDownloader(ThreadPoolExecutor):
                 unit="B",
                 unit_scale=True,
                 unit_divisor=1024,
-                desc="Downloading",
             )
 
     def _download(self, src: AbCacheFile, dest: str):
@@ -56,7 +55,7 @@ class AbCacheDownloader(ThreadPoolExecutor):
 
 
 def dump_dict_by_keys(d: dict, dir: str, keep_compact: bool):
-    for k, v in tqdm(d.items(), desc="Dumping", unit="file"):
+    for k, v in tqdm(d.items(), unit="file"):
         if not keep_compact and k.startswith("compact"):
             # NOTE: These are emprical and have yet been backed by decompilation
             # Assumptions:
@@ -79,37 +78,51 @@ def dump_dict_by_keys(d: dict, dir: str, keep_compact: bool):
 
 
 def main_abcache(args):
-    config = AbCacheConfig(
-        args.app_region,
-        args.app_version,
-        args.app_platform,
-        args.app_appHash,
-        args.app_abVersion,
-        args.auth_userId,
-        args.auth_credential,
-    )
-    if not config.auth_available and not args.no_update:
-        # Register as anonymous user in this case
-        if config.app_region in REGION_JP_EN:
-            from sssekai.abcache.auth import set_anonymous_acc_sega
+    db_path = os.path.expanduser(args.db)
+    cache: AbCache = AbCache()
+    try:
+        with open(db_path, "rb") as f:
+            cache = AbCache.from_file(f)
+    except Exception as e:
+        logger.error("Failed to load cache from %s: %s", db_path, e)
+        logger.warning("Force rebuilding cache from scratch.")
+        args.no_update = False
+    if not args.no_update:
+        assert (
+            args.app_version and args.app_appHash
+        ), "You need --app-version and --app-appHash to perform a cache update!"
+        config = cache.config
+        config.app_region = args.app_region
+        config.app_version = args.app_version
+        config.app_platform = args.app_platform
+        config.app_hash = args.app_appHash
+        config.ab_version = args.app_abVersion
+        if not args.keep_auth:
+            config.auth_credential = args.auth_credential
+        if not config.auth_available and not args.no_update:
+            logger.warning("No auth info provided.")
+            # Register as anonymous user in this case
+            if config.app_region in REGION_JP_EN:
+                from sssekai.abcache.auth import set_anonymous_acc_sega
 
-            logger.info("Registering as anonymous user on SEGA servers")
-            auth_data = set_anonymous_acc_sega(config)
-        else:
-            if args.dump_user_data:
-                raise NotImplementedError(
-                    "Anonymous user registration is not supported on ROW servers"
+                logger.warning("Registering as an anonymous user on SEGA servers.")
+                auth_data = set_anonymous_acc_sega(config)
+            else:
+                logger.warning("No auth info provided for ROW region.")
+                logger.warning(
+                    "Anonymous user registration is not supported for those regions. You may encounter errors."
                 )
+        os.makedirs(os.path.dirname(db_path), exist_ok=True)
+        with open(db_path, "wb") as f:
+            cache.update()
+            cache.save(f)
 
-    cache = AbCache(config)
     if args.dump_master_data:
         master_data_path = os.path.expanduser(args.dump_master_data)
         os.makedirs(master_data_path, exist_ok=True)
         logger.info("Dumping master data to %s", master_data_path)
         cache.update_client_headers()
-        for url in tqdm(
-            cache.SEKAI_API_MASTER_SUITE_URLS, desc="Downloading", unit="file"
-        ):
+        for url in tqdm(cache.SEKAI_API_MASTER_SUITE_URLS, unit="file"):
             resp = cache.request_packed("GET", url)
             dump_dict_by_keys(
                 cache.response_to_dict(resp), master_data_path, args.keep_compact
@@ -123,19 +136,6 @@ def main_abcache(args):
         dump_dict_by_keys(
             cache.response_to_dict(resp), user_data_path, args.keep_compact
         )
-
-    db_path = os.path.expanduser(args.db)
-    os.makedirs(os.path.dirname(db_path), exist_ok=True)
-    if not args.no_update:
-        assert (
-            args.app_version and args.app_appHash
-        ), "You need --app-version and --app-appHash to perform a cache index update!"
-        with open(db_path, "wb") as f:
-            cache.update()
-            cache.save(f)
-    else:
-        with open(db_path, "rb") as f:
-            cache.load(f)
 
     if args.download_dir:
         download_dir = os.path.expanduser(args.download_dir)

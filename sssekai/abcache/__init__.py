@@ -4,6 +4,8 @@ from typing import BinaryIO, List, Mapping, Optional, Union, Tuple
 from logging import getLogger
 from dataclasses import dataclass, fields, is_dataclass
 from functools import cached_property
+from base64 import b64encode, b64decode
+import json
 
 logger = getLogger("sssekai.abcache")
 
@@ -71,19 +73,31 @@ class AbCacheConfig:
     app_version: str
     app_platform: str
     app_hash: str
-    ab_version: str = None  # Override AB version in url for ROW
 
-    auth_userID: str = None
+    ab_version: str = None  # Override AB version in url for ROW
     auth_credential: str = None  # JWT token for JP/EN, Base64 encoded JWT token for ROW
 
-    version: Tuple[int, int, int] = (0, 0, 0)
+    version: Tuple[int, int, int] = (0, 0, 0)  # Internal versioning
+
+    @property
+    def auth_jwt(self) -> str:
+        if self.app_region in REGION_JP_EN:
+            return self.auth_credential
+        else:
+            return b64decode(self.auth_credential).encode()
+
+    @property
+    def auth_jwt_payload(self) -> dict:
+        header, payload, signature = self.auth_jwt.split(".")
+        return json.loads(b64decode(payload + "=="))
+
+    @property
+    def auth_userID(self) -> str:
+        return self.auth_jwt_payload.get("userId", None)
 
     @property
     def auth_available(self):
-        if self.app_region in REGION_JP_EN:
-            return self.auth_userID and self.auth_credential
-        else:
-            return self.auth_credential
+        return self.auth_credential is not None
 
     @property
     def cache_version(self):
@@ -467,6 +481,22 @@ class AbCache(Session):
         data = unpackb(data, **kwargs)
         return data
 
+    def _update_request_headers(self):
+        self.headers.update(
+            {
+                "Accept": "application/octet-stream",
+                "Content-Type": "application/octet-stream",
+                "Accept-Encoding": "deflate, gzip",
+                "User-Agent": "UnityPlayer/%s" % sssekai_get_unity_version(),
+                "X-Platform": self.config.app_platform.capitalize(),
+                "X-DeviceModel": "sssekai/%s" % __version__,
+                "X-OperatingSystem": self.config.app_platform.capitalize(),
+                "X-Unity-Version": sssekai_get_unity_version(),
+                "X-App-Version": self.SEKAI_APP_VERSION,
+                "X-App-Hash": self.SEKAI_APP_HASH,
+            }
+        )
+
     def _update_signatures(self):
         if self.config.app_region in {"jp"}:
             logger.debug("Updating signatures")
@@ -536,25 +566,9 @@ class AbCache(Session):
     def __init__(self, config: Optional[AbCacheConfig] = None):
         super().__init__()
         self.database = SSSekaiDatabase()
-        if config is not None:
-            self.config = config
-            self.config.app_platform = self.config.app_platform.lower()
-            self.headers.update(
-                {
-                    "Accept": "application/octet-stream",
-                    "Content-Type": "application/octet-stream",
-                    "Accept-Encoding": "deflate, gzip",
-                    "User-Agent": "UnityPlayer/%s" % sssekai_get_unity_version(),
-                    "X-Platform": self.config.app_platform.capitalize(),
-                    "X-DeviceModel": "sssekai/%s" % __version__,
-                    "X-OperatingSystem": self.config.app_platform.capitalize(),
-                    "X-Unity-Version": sssekai_get_unity_version(),
-                    "X-App-Version": self.SEKAI_APP_VERSION,
-                    "X-App-Hash": self.SEKAI_APP_HASH,
-                }
-            )
-        else:
-            self.config = AbCacheConfig("unknown", "unknown", "unknown", "unknown")
+        self.config = config or AbCacheConfig(
+            "unknown", "unknown", "unknown", "unknown"
+        )
         self.config.version = __version_tuple__
 
     def update_download_headers(self):
@@ -566,6 +580,7 @@ class AbCache(Session):
         Returns:
             dict: Updated headers
         """
+        self._update_request_headers()
         self._update_signatures()
         return self.headers
 
@@ -573,13 +588,13 @@ class AbCache(Session):
         """Authenticate the user and update client headers
 
         NOTE:
-            - For JP/EN servers, `auth_userID` and `auth_credential` NEED to be set or otherwise you won't be able to do anything.
+            - For JP/EN servers, `auth_credential` NEED to be set or otherwise you won't be able to do anything.
             - For ROW servers, it's OK to leave them empty.
                 - To access user-level data, however, you still NEED to be authenticated.
-                - In this case, only `auth_credential` is required for ROW servers.
         """
         logger.debug("Updating metadata")
         logger.debug("Set config: %s" % self.config)
+        self._update_request_headers()
         self._update_signatures()
         self._update_system_data()
         if self.config.app_region in REGION_JP_EN:
@@ -606,6 +621,7 @@ class AbCache(Session):
             AbCache should have been initialized with a valid config before calling this method.
             Please refer to `update_client_headers` for more information.
         """
+        self._update_request_headers()
         self.update_client_headers()
         self._update_abcache_index()
         if self.config.app_region in REGION_JP_EN:
@@ -625,6 +641,12 @@ class AbCache(Session):
                 % (self.database.config.cache_version_string, __version__)
             )
         logger.debug("Cache loaded: %s" % self)
+
+    @staticmethod
+    def from_file(f: BinaryIO):
+        cache = AbCache()
+        cache.load(f)
+        return cache
 
     def __repr__(self) -> str:
         return (
