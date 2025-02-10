@@ -54,9 +54,10 @@
                 "5.0.2",
                 "--app-appHash",
                 "a87fc6e2-689c-b5a4-1608-968c93685dd8",
-                "--dump-master-data",
-                "~/.sssekai/jp_master",
-                "--no-update"
+                // "--no-keep-auth"
+                // "--dump-master-data",
+                // "~/.sssekai/jp_master",
+                // "--no-update"
             ],
             "justMyCode": true
         },

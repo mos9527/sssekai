@@ -83,9 +83,9 @@ This crypto applies to:
         default=DEFAULT_CACHE_DB_FILE,
     )
     group.add_argument(
-        "--keep-auth",
+        "--no-keep-auth",
         action="store_false",
-        help="keep authentication data in the cache database during the update",
+        help="don't keep authentication data in the cache database during the update",
     )
     group.add_argument(
         "--no-update",

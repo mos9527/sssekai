@@ -97,16 +97,16 @@ def main_abcache(args):
         config.app_platform = args.app_platform
         config.app_hash = args.app_appHash
         config.ab_version = args.app_abVersion
-        if not args.keep_auth:
+        if not args.no_keep_auth:
             config.auth_credential = args.auth_credential
         if not config.auth_available and not args.no_update:
             logger.warning("No auth info provided.")
             # Register as anonymous user in this case
             if config.app_region in REGION_JP_EN:
-                from sssekai.abcache.auth import set_anonymous_acc_sega
+                from sssekai.abcache.auth import sega_register_anonymous_user
 
                 logger.warning("Registering as an anonymous user on SEGA servers.")
-                auth_data = set_anonymous_acc_sega(config)
+                sega_register_anonymous_user(cache)
             else:
                 logger.warning("No auth info provided for ROW region.")
                 logger.warning(

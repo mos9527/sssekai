@@ -2,7 +2,7 @@ from collections import defaultdict
 from pickle import load, dump
 from typing import BinaryIO, List, Mapping, Optional, Union, Tuple
 from logging import getLogger
-from dataclasses import dataclass, fields, is_dataclass
+from dataclasses import dataclass, fields, is_dataclass, field
 from functools import cached_property
 from base64 import b64encode, b64decode
 import json
@@ -59,7 +59,7 @@ def fromdict(klass: type, d: Union[Mapping, List], warn_missing_fields=True):
     return d
 
 
-from requests import Session, Response
+from requests import Session, Response, HTTPError
 from msgpack import unpackb, packb
 
 from sssekai import __version__, __version_tuple__
@@ -227,6 +227,8 @@ class SekaiUserAuthData:
 @dataclass
 class SSSekaiDatabase:
     config: AbCacheConfig = None
+    cached_headers: dict = field(default_factory=dict)
+
     sekai_user_data: SekaiUserData = None
     sekai_user_auth_data: SekaiUserAuthData = None
     sekai_abcache_index: AbCacheIndex = None
@@ -314,6 +316,22 @@ class AbCache(Session):
                 return f"https://lf3-j1gamecdn-cn.dailygn.com/obj/sf-game-lf/gdl_app_5236/AssetBundle/{self.config.ab_version or self.config.app_version}/Release/cn_online/android1/"
             case _:
                 raise NotImplementedError
+
+    def _update_request_headers(self):
+        self.headers.update(
+            {
+                "Accept": "application/octet-stream",
+                "Content-Type": "application/octet-stream",
+                "Accept-Encoding": "deflate, gzip",
+                "User-Agent": "UnityPlayer/%s" % sssekai_get_unity_version(),
+                "X-Platform": self.config.app_platform.capitalize(),
+                "X-DeviceModel": "sssekai/%s" % __version__,
+                "X-OperatingSystem": self.config.app_platform.capitalize(),
+                "X-Unity-Version": sssekai_get_unity_version(),
+                "X-App-Version": self.SEKAI_APP_VERSION,
+                "X-App-Hash": self.SEKAI_APP_HASH,
+            }
+        )
 
     @property
     def config(self):
@@ -454,6 +472,7 @@ class AbCache(Session):
         Returns:
             Response: Response object
         """
+        self._update_request_headers()
         if data is not None:
             data = packb(data)
             data = encrypt(data, SEKAI_APIMANAGER_KEYSETS[self.config.app_region])
@@ -480,30 +499,6 @@ class AbCache(Session):
         data = decrypt(resp.content, SEKAI_APIMANAGER_KEYSETS[self.config.app_region])
         data = unpackb(data, **kwargs)
         return data
-
-    def _update_request_headers(self):
-        self.headers.update(
-            {
-                "Accept": "application/octet-stream",
-                "Content-Type": "application/octet-stream",
-                "Accept-Encoding": "deflate, gzip",
-                "User-Agent": "UnityPlayer/%s" % sssekai_get_unity_version(),
-                "X-Platform": self.config.app_platform.capitalize(),
-                "X-DeviceModel": "sssekai/%s" % __version__,
-                "X-OperatingSystem": self.config.app_platform.capitalize(),
-                "X-Unity-Version": sssekai_get_unity_version(),
-                "X-App-Version": self.SEKAI_APP_VERSION,
-                "X-App-Hash": self.SEKAI_APP_HASH,
-            }
-        )
-
-    def _update_signatures(self):
-        if self.config.app_region in {"jp"}:
-            logger.debug("Updating signatures")
-            resp = self.request_packed("POST", self.SEKAI_ISSUE_SIGNATURE_ENDPOINT)
-            self.headers["Cookie"] = resp.headers["Set-Cookie"]
-            # HACK: Per RFC6265, Cookies should not be visible to subdomains since it's not set with Domain attribute (https://github.com/psf/requests/issues/2576)
-            # But the other endpoints uses it nontheless. So we have to set it manually.
 
     def _update_user_auth_data(self):
         if self.config.auth_available:
@@ -563,6 +558,15 @@ class AbCache(Session):
         self.database.sekai_abcache_index = fromdict(AbCacheIndex, data)
         return self.database.sekai_abcache_index
 
+    def _update_signatures(self):
+        """Only required for JP for the initial setup. After which the game would cache the signature/cookies."""
+        if self.config.app_region in {"jp"}:
+            logger.debug("Updating signatures")
+            resp = self.request_packed("POST", self.SEKAI_ISSUE_SIGNATURE_ENDPOINT)
+            self.headers["Cookie"] = resp.headers["Set-Cookie"]
+            # HACK: Per RFC6265, Cookies should not be visible to subdomains since it's not set with Domain attribute (https://github.com/psf/requests/issues/2576)
+            # But the other endpoints uses it nontheless. So we have to set it manually.
+
     def __init__(self, config: Optional[AbCacheConfig] = None):
         super().__init__()
         self.database = SSSekaiDatabase()
@@ -571,21 +575,8 @@ class AbCache(Session):
         )
         self.config.version = __version_tuple__
 
-    def update_download_headers(self):
-        """Update headers for downloading assetbundles *ONLY*.
-        NOTE:
-            - This *DOES NOT* authenticate the user or update any user-level data and is only used with JP servers.
-            - With EN/ROW servers this is unnecessary and is a NO-OP
-
-        Returns:
-            dict: Updated headers
-        """
-        self._update_request_headers()
-        self._update_signatures()
-        return self.headers
-
     def update_client_headers(self):
-        """Authenticate the user and update client headers
+        """Authenticate the user and update client headers WITHOUT updating the AssetBundle Index.
 
         NOTE:
             - For JP/EN servers, `auth_credential` NEED to be set or otherwise you won't be able to do anything.
@@ -594,9 +585,12 @@ class AbCache(Session):
         """
         logger.debug("Updating metadata")
         logger.debug("Set config: %s" % self.config)
-        self._update_request_headers()
-        self._update_signatures()
-        self._update_system_data()
+        try:
+            self._update_system_data()
+        except HTTPError as e:
+            logger.warning("Attempting to update signatures: %s" % e)
+            self._update_signatures()
+            self._update_system_data()
         if self.config.app_region in REGION_JP_EN:
             version_newest = self.database.sekai_system_data.appVersions[-1]
             logger.debug("Newest App version: %s" % version_newest)
@@ -621,7 +615,6 @@ class AbCache(Session):
             AbCache should have been initialized with a valid config before calling this method.
             Please refer to `update_client_headers` for more information.
         """
-        self._update_request_headers()
         self.update_client_headers()
         self._update_abcache_index()
         if self.config.app_region in REGION_JP_EN:
@@ -629,6 +622,8 @@ class AbCache(Session):
             logger.debug("Sekai AssetBundle host hash: %s" % self.SEKAI_AB_HOST_HASH)
 
     def save(self, f: BinaryIO):
+        self._update_request_headers()
+        self.database.cached_headers = self.headers
         logger.debug("Saving cache")
         dump(self.database, f)
 
@@ -640,6 +635,7 @@ class AbCache(Session):
                 "Cache is outdated (cache: %s, current: %s). It's HIGHLY recommended to update the cache to avoid issues."
                 % (self.database.config.cache_version_string, __version__)
             )
+        self.headers.update(self.database.cached_headers)
         logger.debug("Cache loaded: %s" % self)
 
     @staticmethod

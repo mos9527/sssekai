@@ -1,28 +1,28 @@
-from . import AbCache, AbCacheConfig, SekaiUserData, fromdict
+from . import AbCache, SekaiUserData, fromdict
 from logging import getLogger
 
 logger = getLogger(__name__)
 
 
-def set_anonymous_acc_sega(config: AbCacheConfig) -> SekaiUserData:
-    """Registers an anonymous account on SEGA servers, and writes relavant data to the AbCacheConfig object.
+def sega_register_anonymous_user(cache: AbCache) -> SekaiUserData:
+    """Registers an anonymous account on SEGA servers, and writes relavant data to the AbCacheobject.
 
     Args:
-        config: The AbCacheConfig object to write the user data to.
+        cache: The AbCache object to write the user data to.
 
     Returns:
         SekaiUserData: The user data object.
     """
     logger.info("Registering user data")
-    with AbCache(config) as session:
-        session._update_signatures()
-        payload = {
-            "platform": session.headers["X-Platform"],
-            "deviceModel": session.headers["X-DeviceModel"],
-            "operatingSystem": session.headers["X-OperatingSystem"],
-        }
-        resp = session.request_packed("POST", session.SEKAI_API_USER, data=payload)
-        data = session.response_to_dict(resp)
-        config.auth_credential = data["credential"]
-        logger.info("Success. User ID=%s" % config.auth_userID)
+    cache._update_signatures()
+    payload = {
+        "platform": cache.headers["X-Platform"],
+        "deviceModel": cache.headers["X-DeviceModel"],
+        "operatingSystem": cache.headers["X-OperatingSystem"],
+    }
+    resp = cache.request_packed("POST", cache.SEKAI_API_USER, data=payload)
+    data = cache.response_to_dict(resp)
+    cache.config.auth_credential = data["credential"]
+    logger.info("Success. User ID=%s" % cache.config.auth_userID)
+    cache.database.sekai_user_data = data
     return fromdict(SekaiUserData, data)
