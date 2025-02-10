@@ -178,7 +178,7 @@ class AbCacheFilesystem(AbstractArchiveFileSystem):
                     self.cache.load(f)
             else:
                 self.cache.load(fo)
-            self.cache.update_download_headers()
+            self.cache.update_client_headers()
 
     @cached_property
     def dir_cache(self):

@@ -117,11 +117,11 @@ def main_abcache(args):
             cache.update()
             cache.save(f)
 
+    cache.update_client_headers()
     if args.dump_master_data:
         master_data_path = os.path.expanduser(args.dump_master_data)
         os.makedirs(master_data_path, exist_ok=True)
         logger.info("Dumping master data to %s", master_data_path)
-        cache.update_client_headers()
         for url in tqdm(cache.SEKAI_API_MASTER_SUITE_URLS, unit="file"):
             resp = cache.request_packed("GET", url)
             dump_dict_by_keys(
@@ -169,7 +169,6 @@ def main_abcache(args):
                 logger.info("   - %s", dep)
         fs = AbCacheFilesystem(cache_obj=cache)
         with AbCacheDownloader(fs, max_workers=args.download_workers) as downloader:
-            cache.update_download_headers()
             logger.info("Downloading %d bundles to %s" % (len(bundles), download_dir))
             for bundleName in bundles:
                 fname = os.path.join(download_dir, bundleName)
