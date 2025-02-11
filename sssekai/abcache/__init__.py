@@ -562,6 +562,9 @@ class AbCache(Session):
         """Only required for JP for the initial setup. After which the game would cache the signature/cookies."""
         if self.config.app_region in {"jp"}:
             logger.debug("Updating signatures")
+            # XXX: Clear all cookies, it 403s otherwise. Does this trigger a rate limit/expiry check since our session would be tracked?
+            self.headers["Cookie"] = ""
+            self.cookies.clear()
             resp = self.request_packed("POST", self.SEKAI_ISSUE_SIGNATURE_ENDPOINT)
             self.headers["Cookie"] = resp.headers["Set-Cookie"]
             # HACK: Per RFC6265, Cookies should not be visible to subdomains since it's not set with Domain attribute (https://github.com/psf/requests/issues/2576)
@@ -586,6 +589,7 @@ class AbCache(Session):
         logger.debug("Updating metadata")
         logger.debug("Set config: %s" % self.config)
         try:
+            self._update_signatures()
             self._update_system_data()
         except HTTPError as e:
             logger.warning("Attempting to update signatures: %s" % e)
