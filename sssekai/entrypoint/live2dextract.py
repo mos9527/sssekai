@@ -59,11 +59,13 @@ def main_live2dextract(args):
         # Animations are serialized into AnimationClip
         if not args.no_anim:
             from sssekai.unity.constant.SekaiLive2DPathNames import NAMES_CRC_TBL
-            from sssekai.fmt.motion3 import unity_animation_clip_to_motion3
+            from sssekai.unity.AnimationClip import AnimationHelper
+            from sssekai.fmt.motion3 import to_motion3
 
             for clipName, clip in animations.items():
                 logger.info("Extracting Animation %s" % clipName)
-                data = unity_animation_clip_to_motion3(clip, NAMES_CRC_TBL)
+                anim = AnimationHelper.from_clip(clip)
+                data = to_motion3(anim, NAMES_CRC_TBL, clip)
                 json.dump(
                     data,
                     open(path.join(args.outdir, clipName + ".motion3.json"), "w"),
