@@ -17,7 +17,16 @@ from enum import IntEnum
 logger = getLogger(__name__)
 
 
-def vec3_quat_as_floats(value):
+def num_floats(value):
+    if type(value) == Vector3:
+        return 3
+    elif type(value) == Quaternion:
+        return 4
+    else:
+        return 1
+
+
+def as_floats(value):
     if type(value) == Vector3:
         return [value.x, value.y, value.z]
     elif type(value) == Quaternion:
@@ -26,7 +35,7 @@ def vec3_quat_as_floats(value):
         return [value]
 
 
-def vec3_quat_from_floats(*values):
+def from_floats(*values):
     if len(values) == 1:
         return values[0]
     elif len(values) == 3:
@@ -57,7 +66,7 @@ class Interpolation(IntEnum):
     Constant = 4
 
 
-class _StreamedClipKey:
+class StreamedClipKey:
     """
     dx = rhs.time - lhs.time;
     dx = max(dx, 0.0001F);
@@ -83,7 +92,7 @@ class _StreamedClipKey:
     raw_coeff: bytes
 
     time: float
-    prev: "_StreamedClipKey" = None
+    prev: "StreamedClipKey" = None
 
     def __init__(self, reader: EndianBinaryReader, time: float):
         self.index = reader.read_int()
@@ -122,24 +131,24 @@ class _StreamedClipKey:
         return d2 / dx
 
 
-class _StreamedClipFrame:
+class StreamedClipFrame:
     time: float
-    keys: List[_StreamedClipKey]
+    keys: List[StreamedClipKey]
 
     def __init__(self, reader: EndianBinaryReader):
         self.time = reader.read_float()
         self.keys = [
-            _StreamedClipKey(reader, self.time) for _ in range(reader.read_int())
+            StreamedClipKey(reader, self.time) for _ in range(reader.read_int())
         ]
 
 
-def _read_streamed_clip_frames(clip: StreamedClip) -> List[_StreamedClipFrame]:  # O(n)
-    frames: List[_StreamedClipFrame] = []
+def read_streamed_clip_frames(clip: StreamedClip) -> List[StreamedClipFrame]:  # O(n)
+    frames: List[StreamedClipFrame] = []
     buffer = b"".join(val.to_bytes(4, "big") for val in clip.data)
     reader = EndianBinaryReader(buffer)
     while reader.Position < reader.Length:
-        frames.append(_StreamedClipFrame(reader))
-    preKeys: Dict[int, _StreamedClipKey] = dict()
+        frames.append(StreamedClipFrame(reader))
+    preKeys: Dict[int, StreamedClipKey] = dict()
     for frame in frames:
         for curveKey in frame.keys:
             preKey = preKeys.get(curveKey.index, None)
@@ -152,7 +161,7 @@ def _read_streamed_clip_frames(clip: StreamedClip) -> List[_StreamedClipFrame]: 
 
 
 @dataclass
-class KeyFrame:
+class KeyframeHelper:
     """Custom KeyFrame container/lookup type analogus to Unity's Keyframe
     whilst providing dynamic type support (float/int/Euler/Vector/Quaternion) and interpolation
     """
@@ -167,8 +176,8 @@ class KeyFrame:
     inSlope: float | Vector3 | Quaternion = 0
     outSlope: float | Vector3 | Quaternion = 0
 
-    prev: "KeyFrame" = None
-    next: "KeyFrame" = None
+    prev: "KeyframeHelper" = None
+    next: "KeyframeHelper" = None
 
     endian: str = ">"
 
@@ -201,20 +210,23 @@ class KeyFrame:
         return p0
 
     @staticmethod
-    def interpolation_segment(lhs: "KeyFrame", rhs: "KeyFrame") -> List[Interpolation]:
+    def interpolation_segment(
+        lhs: "KeyframeHelper", rhs: "KeyframeHelper"
+    ) -> List[Interpolation]:
         """Interpolation of the segment between lhs and rhs"""
         if lhs.isDense:
-            ipo = [Interpolation.Linear] * len(vec3_quat_as_floats(lhs.value))
+            ipo = [Interpolation.Linear] * num_floats(lhs.value)
         elif lhs.isConstant or not rhs:
-            ipo = [Interpolation.Constant] * len(vec3_quat_as_floats(lhs.value))
+            ipo = [Interpolation.Constant] * num_floats(lhs.value)
         else:
-            lhsInSlopes = vec3_quat_as_floats(lhs.inSlope)
-            lhsOutSlopes = vec3_quat_as_floats(lhs.outSlope)
-            rhsInSlopes = vec3_quat_as_floats(rhs.inSlope)
-            rhsOutSlopes = vec3_quat_as_floats(rhs.outSlope)
-            ipo = [Interpolation.Hermite] * len(lhsOutSlopes)
+            ipo = [Interpolation.Hermite] * num_floats(lhs.value)
             for i, (lhsInSlope, lhsOutSlope, rhsInSlope, rhsOutSlope) in enumerate(
-                zip(lhsInSlopes, lhsOutSlopes, rhsInSlopes, rhsOutSlopes)
+                zip(
+                    as_floats(lhs.inSlope),
+                    as_floats(lhs.outSlope),
+                    as_floats(rhs.inSlope),
+                    as_floats(rhs.outSlope),
+                )
             ):
                 if any((x == float("inf") for x in (lhsOutSlope, rhsInSlope))):
                     ipo[i] = Interpolation.Stepped
@@ -224,7 +236,7 @@ class KeyFrame:
 
     @staticmethod
     def interpolate(
-        t, lhs: "KeyFrame", rhs: "KeyFrame", unit_t: bool = False
+        t, lhs: "KeyframeHelper", rhs: "KeyframeHelper", unit_t: bool = False
     ) -> float | Vector3 | Quaternion:
         if not rhs:
             return lhs.value
@@ -232,14 +244,7 @@ class KeyFrame:
         if not unit_t:
             t -= lhs.time
             t /= dx  # Normalized to [0,1]
-        lhsValues = vec3_quat_as_floats(lhs.value)
-        rhsValues = vec3_quat_as_floats(rhs.value)
-        lhsInSlopes = vec3_quat_as_floats(lhs.inSlope)
-        lhsOutSlopes = vec3_quat_as_floats(lhs.outSlope)
-        rhsInSlopes = vec3_quat_as_floats(rhs.inSlope)
-        rhsOutSlopes = vec3_quat_as_floats(rhs.outSlope)
-        interpolations = KeyFrame.interpolation_segment(lhs, rhs)
-        result = [0] * len(lhsValues)
+        result = [0] * num_floats(lhs.value)
         for i, (
             lhsValue,
             rhsValue,
@@ -250,41 +255,45 @@ class KeyFrame:
             interpolation,
         ) in enumerate(
             zip(
-                lhsValues,
-                rhsValues,
-                lhsInSlopes,
-                lhsOutSlopes,
-                rhsInSlopes,
-                rhsOutSlopes,
-                interpolations,
+                as_floats(lhs.value),
+                as_floats(rhs.value),
+                as_floats(lhs.inSlope),
+                as_floats(lhs.outSlope),
+                as_floats(rhs.inSlope),
+                as_floats(rhs.outSlope),
+                KeyframeHelper.interpolation_segment(lhs, rhs),
             )
         ):
             match interpolation:
                 case Interpolation.Hermite:
-                    result[i] = KeyFrame.interpolate_cubic_hermite_unit(
+                    result[i] = KeyframeHelper.interpolate_cubic_hermite_unit(
                         t, lhsValue, lhsOutSlope * dx, rhsInSlope * dx, rhsValue
                     )
                 case Interpolation.Linear:
                     # Lerp doesn't seem to be explicitly used as a cubic hermite curve when correctly
                     # setup can produce results of a linear interpolation
                     # However this is necessary for Dense curves. So we'll keep it here.
-                    result[i] = KeyFrame.interpolate_linear_unit(t, lhsValue, rhsValue)
+                    result[i] = KeyframeHelper.interpolate_linear_unit(
+                        t, lhsValue, rhsValue
+                    )
                     # result[i] = KeyFrame.interpolate_cubic_hermite_unit(
                     #     t, lhsValue, lhsOutSlope * dx, rhsInSlope * dx, rhsValue
                     # )
                 case Interpolation.Stepped:
-                    result[i] = KeyFrame.interpolate_stepped(t, lhsValue, rhsValue)
+                    result[i] = KeyframeHelper.interpolate_stepped(
+                        t, lhsValue, rhsValue
+                    )
                 case Interpolation.Constant:
                     result[i] = lhsValue
-        return result[0] if len(result) == 1 else vec3_quat_from_floats(*result)
+        return result[0] if len(result) == 1 else from_floats(*result)
 
 
 def _read_clip_keyframe(
     time: float,
     binding: GenericBinding,
-    keys: Generator[_StreamedClipKey | KeyFrame, None, None],
-) -> KeyFrame:
-    result = KeyFrame(time, binding.typeID)
+    keys: Generator[StreamedClipKey | KeyframeHelper, None, None],
+) -> KeyframeHelper:
+    result = KeyframeHelper(time, binding.typeID)
     if binding.typeID == ClassIDType.Transform:
         dimension = kAttributeSizeof(binding.attribute)
         values, outSlopes, inSlopes = [0] * dimension, [0] * dimension, [0] * dimension
@@ -293,9 +302,9 @@ def _read_clip_keyframe(
             values[i] = key.value
             outSlopes[i] = key.outSlope
             inSlopes[i] = key.inSlope
-        result.value = vec3_quat_from_floats(*values)
-        result.outSlope = vec3_quat_from_floats(*outSlopes)
-        result.inSlope = vec3_quat_from_floats(*inSlopes)
+        result.value = from_floats(*values)
+        result.outSlope = from_floats(*outSlopes)
+        result.inSlope = from_floats(*inSlopes)
     else:
         if binding.isIntCurve:
             key = next(keys)
@@ -315,7 +324,7 @@ def _read_clip_keyframe(
 
 
 @dataclass
-class Curve:
+class CurveHelper:
     """Custom Curve container/lookup type analogus to Unity's AnimationCurve
 
     Note:
@@ -324,14 +333,14 @@ class Curve:
     """
 
     Binding: GenericBinding
-    Data: List[KeyFrame] = field(default_factory=list)
+    Data: List[KeyframeHelper] = field(default_factory=list)
 
     def evaluate(self, t: float) -> float | Vector3 | Quaternion:  # O(log n)
         lhs = bisect_right(self.Data, t, key=lambda x: x.time) - 1
         lhs = max(lhs, 0)
         lhs = self.Data[lhs]
         rhs = lhs.next
-        return KeyFrame.interpolate(t, lhs, rhs)
+        return KeyframeHelper.interpolate(t, lhs, rhs)
 
     @property
     def Duration(self):
@@ -351,7 +360,7 @@ class Curve:
 
 
 @dataclass
-class Animation:
+class AnimationHelper:
     """Custom Animation container/lookup type analogus to Unity's AnimationClip
 
     Note:
@@ -365,13 +374,13 @@ class Animation:
     Duration: float
     SampleRate: float
     # Dict[internal hash, Curve]
-    RawCurves: Dict[int, Curve] = field(default_factory=dict)
+    RawCurves: Dict[int, CurveHelper] = field(default_factory=dict)
     # Curves[Attribute][Path Hash] = Curve
-    Curves: Dict[int, Dict[float, Curve]] = field(
+    Curves: Dict[int, Dict[float, CurveHelper]] = field(
         default_factory=lambda: defaultdict(dict)
     )
     # CurvesT[Path Hash][Attribute] = Curve
-    CurvesT: Dict[int, Dict[float, Curve]] = field(
+    CurvesT: Dict[int, Dict[float, CurveHelper]] = field(
         default_factory=lambda: defaultdict(dict)
     )
 
@@ -382,7 +391,7 @@ class Animation:
     def get_curve(self, binding: GenericBinding):
         hs = self.hash_of(binding)
         if not hs in self.RawCurves:
-            curve = Curve(binding)
+            curve = CurveHelper(binding)
             # i love refcounting
             self.RawCurves[hs] = curve
             self.Curves[binding.attribute][binding.path] = curve
@@ -420,8 +429,7 @@ class Animation:
     def PPtrCurves(self):
         raise NotImplementedError
 
-    @staticmethod
-    def from_built_animation_clip(src: AnimationClip) -> "Animation":
+    def process(self, src: AnimationClip) -> "AnimationHelper":
         """Reads post-build AnimationClip data and converts it to an Animation
 
         Note:
@@ -434,7 +442,6 @@ class Animation:
         Returns:
             sssekai.unity.Animation
         """
-        result = Animation(src.m_Name, src.m_MuscleClip.m_StopTime, src.m_SampleRate)
         mClip = src.m_MuscleClip.m_Clip.data
         mClipBinding = src.m_ClipBindingConstant
         mClipBindingCurveSizesPfx = [
@@ -464,7 +471,7 @@ class Animation:
         # StreamClip
         # Animation is stored with Keyframe Reduction
         # Interpolated with Hermite curves
-        mStreamClipFrames = _read_streamed_clip_frames(mClip.m_StreamedClip)
+        mStreamClipFrames = read_streamed_clip_frames(mClip.m_StreamedClip)
         for frame in mStreamClipFrames:
             curveIndex = 0
 
@@ -478,7 +485,7 @@ class Animation:
             __keygen_g = __keygen()
             while curveIndex < len(frame.keys):
                 binding = mClipFindBinding(frame.keys[curveIndex].index)
-                curve = result.get_curve(binding)
+                curve = self.get_curve(binding)
                 key = _read_clip_keyframe(frame.time, binding, __keygen_g)
                 curve.Data.append(key)
 
@@ -497,7 +504,7 @@ class Animation:
                 while True:
                     currIndex = curveIndex
                     curveIndex += 1
-                    yield KeyFrame(
+                    yield KeyframeHelper(
                         time,
                         binding.typeID,
                         m_DenseClip.m_SampleArray[frameOffset + currIndex],
@@ -506,7 +513,7 @@ class Animation:
             __keygen_g = __keygen()
             while curveIndex < m_DenseClip.m_CurveCount:
                 binding = mClipFindBinding(curveOffset + curveIndex)
-                curve = result.get_curve(binding)
+                curve = self.get_curve(binding)
                 key = _read_clip_keyframe(time, binding, __keygen_g)
                 key.isDense = True
                 curve.Data.append(key)
@@ -524,7 +531,7 @@ class Animation:
                 while True:
                     currIndex = curveIndex
                     curveIndex += 1
-                    yield KeyFrame(
+                    yield KeyframeHelper(
                         time,
                         binding.typeID,
                         m_ConstantClip.data[currIndex],
@@ -533,18 +540,33 @@ class Animation:
             __keygen_g = __keygen()
             while curveIndex < len(m_ConstantClip.data):
                 binding = mClipFindBinding(curveOffset + curveIndex)
-                curve = result.get_curve(binding)
+                curve = self.get_curve(binding)
                 key = _read_clip_keyframe(time, binding, __keygen_g)
                 key.isConstant = True
                 curve.Data.append(key)
                 binding = mClipFindBinding(curveOffset + curveIndex)
             time = src.m_MuscleClip.m_StopTime
 
-        for curve in result.RawCurves.values():
+        for curve in self.RawCurves.values():
             for i in range(1, len(curve.Data)):
                 curve.Data[i].prev = curve.Data[i - 1]
                 curve.Data[i - 1].next = curve.Data[i]
-        return result
+        return self
+
+    @staticmethod
+    def from_clip(src: AnimationClip):
+        helper = AnimationHelper(
+            src.m_Name, src.m_MuscleClip.m_StopTime, src.m_SampleRate
+        )
+        helper.process(src)
+        return helper
 
 
-read_animation = Animation.from_built_animation_clip
+# Backwards compatibility
+Animation = AnimationHelper
+KeyFrame = KeyframeHelper
+Curve = CurveHelper
+
+vec3_quat_as_floats = as_floats
+vec3_quat_from_floats = from_floats
+read_animation = AnimationHelper.from_clip
