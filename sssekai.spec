@@ -1,7 +1,7 @@
 # -*- mode: python ; coding: utf-8 -*-
 
 # https://github.com/K0lb3/UnityPy/issues/184
-import UnityPy, pyaxmlparser, os
+import UnityPy, pyaxmlparser, archspec, os
 
 module_path_func = lambda module: lambda path: os.path.join(
     os.path.dirname(module.__file__), path
@@ -9,7 +9,7 @@ module_path_func = lambda module: lambda path: os.path.join(
 
 unitypy_path = module_path_func(UnityPy)
 pyaxmlparser_path = module_path_func(pyaxmlparser)
-
+archspec_path = module_path_func(archspec)
 a = Analysis(
     ["sssekai\\__main__.py"],
     pathex=[],
@@ -17,6 +17,7 @@ a = Analysis(
     datas=[
         (unitypy_path("resources/*"), "UnityPy/resources"),
         (pyaxmlparser_path("resources/*"), "pyaxmlparser/resources"),
+        (archspec_path('json'), 'archspec/json'),
     ],
     hiddenimports=[],
     hookspath=[],
