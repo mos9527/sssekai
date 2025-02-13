@@ -117,8 +117,8 @@ def main_abcache(args):
             cache.update()
             cache.save(f)
 
-    cache.update_client_headers()
     if args.dump_master_data:
+        cache.update_client_headers()
         master_data_path = os.path.expanduser(args.dump_master_data)
         os.makedirs(master_data_path, exist_ok=True)
         logger.info("Dumping master data to %s", master_data_path)
@@ -129,6 +129,7 @@ def main_abcache(args):
             )
         return
     if args.dump_user_data:
+        cache.update_client_headers()
         user_data_path = os.path.expanduser(args.dump_user_data)
         os.makedirs(user_data_path, exist_ok=True)
         logger.info("Dumping user data to %s", user_data_path)
@@ -136,8 +137,8 @@ def main_abcache(args):
         dump_dict_by_keys(
             cache.response_to_dict(resp), user_data_path, args.keep_compact
         )
-
     if args.download_dir:
+        cache.update_client_headers()
         download_dir = os.path.expanduser(args.download_dir)
         bundles = set()
 

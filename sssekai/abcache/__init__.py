@@ -478,11 +478,12 @@ class AbCache(Session):
             data = encrypt(data, SEKAI_APIMANAGER_KEYSETS[self.config.app_region])
         resp = self.request(method=method, url=url, data=data, **kwargs)
         if 400 <= resp.status_code < 600:
+            logger.error(f"{method} {url} {resp.status_code}")
             try:  # log the error message provided by the API.
                 content = self.response_to_dict(resp)
-                logger.error("HTTP %3d, response=%s" % (resp.status_code, content))
+                logger.error("response=%s" % content)
             except:
-                logger.error("HTTP %3d, response=%s" % (resp.status_code, resp.content))
+                logger.error("response=%s" % resp.content)
             resp.raise_for_status()
         return resp
 
