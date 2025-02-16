@@ -84,7 +84,7 @@ class AbCacheConfig:
         if self.app_region in REGION_JP_EN:
             return self.auth_credential
         else:
-            return b64decode(self.auth_credential).encode()
+            return b64decode(self.auth_credential).decode()
 
     @property
     def auth_jwt_payload(self) -> dict:
