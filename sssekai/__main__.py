@@ -238,12 +238,20 @@ This crypto applies to:
     rla2json_parser.add_argument(
         "infile",
         type=str,
-        help="input file. either a streaming_live bundle or a zip file with the same file hierarchy (i.e. containing sekai.rlh, sekai_xx_xxxxxx.rla files)",
+        help="input file. either a streaming_live bundle or a zip file with the same file hierarchy (i.e. containing sekai.rlh, sekai_xx_xxxxxx.rla files), or a single packet - in which case outputs to stdout.",
     )
     rla2json_parser.add_argument(
-        "outdir",
+        "--outdir",
         type=str,
         help="output directory. RLA files in JSON format will be saved, unless otherwise specified.",
+        default="rla2json_out",
+    )
+    rla2json_parser.add_argument(
+        "--version",
+        type=str,
+        help="RLA version. must be specified if the input is a single packet.",
+        default="1.4",
+        choices=["1.0", "1.1", "1.2", "1.3", "1.4", "1.5"],
     )
     rla2json_parser.add_argument(
         "--dump-audio",

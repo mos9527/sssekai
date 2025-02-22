@@ -1,12 +1,12 @@
 from os import path, makedirs
-from json import loads, dump
+from json import loads, dump, dumps
 from io import BytesIO
 from logging import getLogger
 from concurrent.futures import ProcessPoolExecutor
 from time import sleep
 from sssekai.unity.AssetBundle import load_assetbundle
 from UnityPy.enums import ClassIDType
-from sssekai.fmt.rla import read_rla
+from sssekai.fmt.rla import read_rla, read_rla_frame
 from tqdm import tqdm
 import zipfile, base64
 
@@ -42,6 +42,14 @@ def main_rla2json(args):
                 for name in z.namelist():
                     with z.open(name) as zf:
                         datas[name] = zf.read()
+        f.seek(0)
+        if f.read(4) == b"RTVL":
+            f.seek(0)
+            frame = read_rla_frame(
+                f.read(), version=tuple(map(int, args.version.split(".")))
+            )
+            print(dumps(frame, indent=4, ensure_ascii=False))
+            return
         else:
             f.seek(0)
             rla_env = load_assetbundle(f)
