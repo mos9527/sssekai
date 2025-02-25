@@ -492,11 +492,12 @@ def read_archive_rla_frames(
 
     def __packet_gen():
         nonlocal tick
-        tick = read_int(src, 8)
-        if tick:
-            buffer_length = read_int(src, 4)
-            buffer = src.read(buffer_length)
-            yield tick, buffer
+
+        while tick := read_int(src, 8):
+            if tick:
+                buffer_length = read_int(src, 4)
+                buffer = src.read(buffer_length)
+                yield tick, buffer
 
     packets = __packet_gen()
     for tick, frame in read_rla_frames(packets, version, strict):
