@@ -172,6 +172,12 @@ def decode_streaming_data(
         get_next_ushort() * 0.01,
         get_next_ushort() * 0.01,
     )  # ReadUShortVector3
+    get_next_quaternion = lambda: (
+        get_next_float(),
+        get_next_float(),
+        get_next_float(),
+        get_next_float(),
+    )  # ReadQuaternion
     get_next_tiny_int = lambda type: {
         "+": lambda: read_int(stream, 2),
         "*": lambda: read_int(stream, 1, True),
@@ -316,9 +322,17 @@ def decode_streaming_data(
                     if version >= (1, 5)
                     else {}
                 ),
+                **(
+                    {
+                        "eyeLookAtUvLimit": get_next_quaternion(),
+                    }
+                    if version >= (1, 6)
+                    else {}
+                ),
             }
             read_character_status = lambda: {
                 "costumeIndex": get_next_int(),
+                **({"visible": get_next_mask()} if version >= (1, 6) else {}),
                 **({"useFx": get_next_mask()} if version >= (1, 2) else {}),
                 "timeStamp": get_next_long(),
             }
@@ -389,7 +403,7 @@ def read_rla(src: BytesIO, version=(1, 0), strict=True) -> dict:
 
     Args:
         src (BytesIO): Source RLA file stream
-        version (tuple, optional): RLA version, found in respective RLH (JSON) header files. range: (1,0) to (1,5). Defaults to (1,0).
+        version (tuple, optional): RLA version, found in respective RLH (JSON) header files. range: (1,0) to (1,6). Defaults to (1,0).
         strict (bool, optional): If False, incomplete packets will be returned as is. Defaults to True.
 
     Returns:
