@@ -1,6 +1,18 @@
 from . import *
 
 
+def test_rla_1_6_split():
+    PATHS = [
+        sample_file_path("rla", "1740309585940-0.bin"),
+        sample_file_path("rla", "1740309585941-0.bin"),
+    ]
+    from sssekai.fmt.rla import read_rla_frames
+
+    bingen = (open(f, "rb").read() for f in PATHS)
+    for frame in read_rla_frames(bingen, (1, 6)):
+        print("ok", frame["type"])
+
+
 def test_rla_1_5():
     PATH = sample_file_path("rla", "1728191806276-0.bin")
     from sssekai.fmt.rla import read_rla_frame

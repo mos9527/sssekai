@@ -2,6 +2,7 @@ from base64 import b64decode, b64encode
 from struct import unpack as s_unpack
 from io import BytesIO
 from collections import defaultdict
+from typing import Generator
 import math, gzip
 import msgpack
 
@@ -32,7 +33,7 @@ def decode_buffer_base64(buffer: bytes) -> tuple[int, bytes]:
         SSEDataLengthOutOfRangeException: If the buffer length does not match the expected length.
 
     Returns:
-        (int, bytes): Header Signature and decoded data payload
+        ((splitId, splitIndex, splitNum, dataLength, totalDataLength, base64) or None, decoder signature, data in decoded bytes)
     """
     # They really want you to believe it's Base64...
     # [4 bytes: RTVL][6 bytes : length in hex][Base64 T/F][Split T/F][3 bytes: Signature][data, Base64]
@@ -52,9 +53,33 @@ def decode_buffer_base64(buffer: bytes) -> tuple[int, bytes]:
     current_length = len(data) + 15
     if current_length != encoded_length:
         raise SSEDataLengthOutOfRangeException(encoded_length, current_length)
-    if is_base64_encoded:
-        data = b64decode(data)
-    return header_signature, data
+    if is_split:
+        __sizes_pre = (0, 5, 10, 15, 25, 35)
+        splitInfo = data[: __sizes_pre[-1]]
+        splitId, splitIndex, splitNum, dataLength, totalDataLength = map(
+            int,
+            (
+                splitInfo[__sizes_pre[i] : __sizes_pre[i + 1]].decode()
+                for i in range(len(__sizes_pre) - 1)
+            ),
+        )
+        data = data[__sizes_pre[-1] :]
+        return (
+            (
+                splitId,
+                splitIndex,
+                splitNum,
+                dataLength,
+                totalDataLength,
+                is_base64_encoded,
+            ),
+            header_signature,
+            data,
+        )
+    else:
+        if is_base64_encoded:
+            data = b64decode(data)
+        return None, header_signature, data
 
 
 # Sekai_Streaming_SubscribeDecoder__Deserialize
@@ -378,24 +403,40 @@ def decode_streaming_data(
 result = defaultdict(dict)
 
 
-def read_rla_frame(buffer: bytes, version=(1, 0), strict=True) -> dict:
-    """Parses a single frame of the Sekai RLA file format used in 'streaming_live/archive' assets.
+def read_rla_frames(
+    reader: Generator[bytes, None, None], version=(1, 0), strict=True
+) -> Generator[dict, None, None]:
+    """Parses a stream of rla fragments and automatically processes split data"""
+    __buffers = defaultdict(list)  # splitIndex:([splitInfo, header_signature, data])
 
-    Args:
-        buffer (bytes): Frame buffer
-        version (tuple, optional): RLA version, found in respective RLH (JSON) header files. range: (1,0) to (1,5). Defaults to (1,0).
-        strict (bool, optional): If False, incomplete packets will be returned as is. Defaults to True.
+    def decode_buffer(header_signature, data):
+        decoder_signature, data = decode_buffer_payload(data)
+        assert (
+            header_signature == decoder_signature
+        ), "mismatching signature (header/decoder). packet may be corrupt"
+        payload = decode_streaming_data(version, decoder_signature, data, strict)
+        return payload
 
-    Returns:
-        dict: Parsed frame data
-    """
-    header_signature, data = decode_buffer_base64(buffer)
-    decoder_signature, data = decode_buffer_payload(data)
-    assert (
-        header_signature == decoder_signature
-    ), "mismatching signature (header/decoder). packet may be corrupt"
-    payload = decode_streaming_data(version, decoder_signature, data, strict)
-    return payload
+    for buffer in reader:
+        split_info, header_signature, data = decode_buffer_base64(buffer)
+        if split_info:
+            splitId, splitIndex, splitNum, dataLength, totalDataLength, base64 = (
+                split_info
+            )
+            __buffers[splitId].append((split_info, header_signature, data))
+            if len(__buffers[splitId]) == splitNum:
+                buffer = b"".join(
+                    data
+                    for _, _, data in sorted(__buffers[splitId], key=lambda x: x[1])
+                )
+                assert len(buffer) == totalDataLength, "incomplete split data"
+                del __buffers[splitId]
+                if base64:
+                    buffer = b64decode(buffer)
+                yield decode_buffer(header_signature, buffer)
+        else:
+            yield decode_buffer(header_signature, data)
+    pass
 
 
 def read_rla(src: BytesIO, version=(1, 0), strict=True) -> dict:
@@ -409,29 +450,21 @@ def read_rla(src: BytesIO, version=(1, 0), strict=True) -> dict:
     Returns:
         dict: Parsed RLA data. The dictionary is sorted by the frame ticks.
     """
-    result = defaultdict(dict)
+    result = defaultdict(list)
 
-    def read_frames():
-        ticks = read_int(src, 8)
-        if ticks:
+    tick = 0
+
+    def __packet_gen():
+        nonlocal tick
+        tick = read_int(src, 8)
+        if tick:
             buffer_length = read_int(src, 4)
             buffer = src.read(buffer_length)
-            payload = read_rla_frame(buffer, version, strict)
-            result[ticks].setdefault(payload["type"], list()).append(payload)
-            return True
-        return False
+            yield buffer
 
-    while read_frames():
-        pass
+    packets = __packet_gen()
+    for frame in read_rla_frames(packets, version, strict):
+        result[tick][frame["type"]].append(frame)
+        return True
     result = dict(sorted(result.items(), key=lambda x: x[0]))
     return result
-
-
-if __name__ == "__main__":
-    import sys
-    from timeit import timeit
-
-    fp = open(sys.argv[-1], "rb")
-    buffer = fp.read()
-    payload = read_rla_frame(buffer)
-    pass
