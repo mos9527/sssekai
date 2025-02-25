@@ -2,7 +2,7 @@ from base64 import b64decode, b64encode
 from struct import unpack as s_unpack
 from io import BytesIO
 from collections import defaultdict
-from typing import Generator
+from typing import Generator, Tuple, TypeVar, List
 import math, gzip
 import msgpack
 
@@ -20,6 +20,14 @@ class SSEDataLengthOutOfRangeException(Exception):
         self.needed = needed
         self.current = current
         super().__init__(f"Needed {needed} bytes, but only {current} bytes available.")
+
+
+class SSEMissingSplitPacketException(Exception):
+    missing: List[Tuple[object, int]]  # (timeStamp, splitId)
+
+    def __init__(self, missing):
+        self.missing = missing
+        super().__init__(f"Missing %d split packet(s): %s" % (len(missing), missing))
 
 
 # Sekai_Streaming_StreamingCommon__CheckHeader
@@ -294,7 +302,7 @@ def decode_streaming_data(
                     "channels": channels,
                     "sampleRate": sample_rate,
                     "encoding": "raw",
-                    "data": b64encode(data).decode(),
+                    "data": data,
                 }
             else:
                 data = stream.read(data_length)  # HCA w/o metadata
@@ -303,7 +311,7 @@ def decode_streaming_data(
                     "channels": channels,
                     "sampleRate": sample_rate,
                     "encoding": "hca",
-                    "data": b64encode(data).decode(),
+                    "data": data,
                 }
         case 3:
             # Sekai_Streaming_StatusData
@@ -402,12 +410,28 @@ def decode_streaming_data(
 
 result = defaultdict(dict)
 
+T = TypeVar("T")
+
 
 def read_rla_frames(
-    reader: Generator[bytes, None, None], version=(1, 0), strict=True
-) -> Generator[dict, None, None]:
-    """Parses a stream of rla fragments and automatically processes split data"""
-    __buffers = defaultdict(list)  # splitIndex:([splitInfo, header_signature, data])
+    reader: Generator[Tuple[T, bytes], None, None], version=(1, 0), strict=True
+) -> Generator[Tuple[T, dict], None, None]:
+    """Parses a stream of rla fragments and automatically processes split data
+
+    There's NO guarantee that the frames are sorted by the frame ticks.
+
+    Args:
+        reader (Generator[Tuple[T, bytes], None, None]): A generator that yields a tuple of timestamp and buffer data
+        version (tuple, optional): RLA version, found in respective RLH (JSON) header files. range: (1,0) to (1,6). Defaults to (1,0).
+        strict (bool, optional): If False, incomplete packets will be returned as is. Defaults to True.
+
+    Yields:
+        Generator[Tuple[T, dict], None, None]: A generator that yields a tuple of timestamp and parsed frame data. Timestamp format is provided by the reader.
+    """
+    assert version >= (1, 0) and version <= (1, 6), "unsupported version"
+    __buffers = defaultdict(
+        list
+    )  # splitIndex:([timestamp, splitInfo, header_signature, data])
 
     def decode_buffer(header_signature, data):
         decoder_signature, data = decode_buffer_payload(data)
@@ -417,42 +441,54 @@ def read_rla_frames(
         payload = decode_streaming_data(version, decoder_signature, data, strict)
         return payload
 
-    for buffer in reader:
-        split_info, header_signature, data = decode_buffer_base64(buffer)
+    for timestamp, buffer in reader:
+        try:
+            split_info, header_signature, data = decode_buffer_base64(buffer)
+        except Exception as e:
+            if strict:
+                raise e
+            # Fail silently
         if split_info:
             splitId, splitIndex, splitNum, dataLength, totalDataLength, base64 = (
                 split_info
             )
-            __buffers[splitId].append((split_info, header_signature, data))
+            __buffers[splitId].append((timestamp, split_info, header_signature, data))
             if len(__buffers[splitId]) == splitNum:
                 buffer = b"".join(
                     data
-                    for _, _, data in sorted(__buffers[splitId], key=lambda x: x[1])
+                    for _, _, _, data in sorted(
+                        __buffers[splitId], key=lambda x: x[1][1]
+                    )  # splitIndex
                 )
-                assert len(buffer) == totalDataLength, "incomplete split data"
+                if strict:
+                    assert len(buffer) == totalDataLength, "incomplete split packet"
                 del __buffers[splitId]
                 if base64:
                     buffer = b64decode(buffer)
-                yield decode_buffer(header_signature, buffer)
+                yield timestamp, decode_buffer(header_signature, buffer)
         else:
-            yield decode_buffer(header_signature, data)
-    pass
+            yield timestamp, decode_buffer(header_signature, data)
+
+    if __buffers and strict:
+        missing = [(payload[0][0], splitId) for splitId, payload in __buffers.items()]
+        raise SSEMissingSplitPacketException(missing)
 
 
-def read_rla(src: BytesIO, version=(1, 0), strict=True) -> dict:
+def read_archive_rla_frames(
+    src: BytesIO, version=(1, 0), strict=True
+) -> Generator[Tuple[int, dict], None, None]:
     """Parses the Sekai RLA file format used in 'streaming_live/archive' assets.
+
+    The frames are sorted by the frame ticks.
 
     Args:
         src (BytesIO): Source RLA file stream
         version (tuple, optional): RLA version, found in respective RLH (JSON) header files. range: (1,0) to (1,6). Defaults to (1,0).
         strict (bool, optional): If False, incomplete packets will be returned as is. Defaults to True.
 
-    Returns:
-        dict: Parsed RLA data. The dictionary is sorted by the frame ticks.
+    Yields:
+        Generator[Tuple[int, dict], None, None]: A generator that yields a tuple of timestamp and parsed frame data
     """
-    result = defaultdict(list)
-
-    tick = 0
 
     def __packet_gen():
         nonlocal tick
@@ -460,11 +496,8 @@ def read_rla(src: BytesIO, version=(1, 0), strict=True) -> dict:
         if tick:
             buffer_length = read_int(src, 4)
             buffer = src.read(buffer_length)
-            yield buffer
+            yield tick, buffer
 
     packets = __packet_gen()
-    for frame in read_rla_frames(packets, version, strict):
-        result[tick][frame["type"]].append(frame)
-        return True
-    result = dict(sorted(result.items(), key=lambda x: x[0]))
-    return result
+    for tick, frame in read_rla_frames(packets, version, strict):
+        yield tick, frame

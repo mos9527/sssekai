@@ -233,33 +233,25 @@ This crypto applies to:
     # rla2json
     rla2json_parser = subparsers.add_parser(
         "rla2json",
-        usage="""Read streaming_live/archive files and dump their information to JSON""",
+        usage="""Read streaming_live/archive files and dump their information to JSON or HCA packets""",
     )
     rla2json_parser.add_argument(
-        "infile",
+        "input",
         type=str,
-        help="input file. either a streaming_live bundle or a zip file with the same file hierarchy (i.e. containing sekai.rlh, sekai_xx_xxxxxx.rla files), or a single packet - in which case outputs to stdout.",
+        help="input archive file or directory containing loose packets",
     )
-    rla2json_parser.add_argument(
-        "--outdir",
-        type=str,
-        help="output directory. RLA files in JSON format will be saved, unless otherwise specified.",
-        default="rla2json_out",
-    )
+    rla2json_parser.add_argument("outdir", type=str, help="output directory")
     rla2json_parser.add_argument(
         "--version",
         type=str,
-        help="RLA version. must be specified if the input is a single packet.",
-        default="1.4",
-        choices=["1.0", "1.1", "1.2", "1.3", "1.4", "1.5"],
+        help="RLA version. Only used for loose packets",
+        default=(1, 6),
+        choices=["1.%1s" % x for x in range(0, 6 + 1)],
     )
     rla2json_parser.add_argument(
-        "--dump-audio",
+        "--strict",
         action="store_true",
-        help="dump raw HCA audio data instead of the JSON data. Use https://github.com/mos9527/sssekai_streaming_hca_decoder to decode them.",
-    )
-    rla2json_parser.add_argument(
-        "--no-parallel", action="store_true", help="disable parallel processing"
+        help="strict mode. raise exception on unknown frame type or corrupt frames",
     )
     rla2json_parser.set_defaults(func=main_rla2json)
     # apphash

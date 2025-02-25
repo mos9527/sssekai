@@ -308,10 +308,11 @@
             "module": "sssekai",
             "args": [
                 "rla2json",
-                "--dump-audio",
-                "--no-parallel",
-                "D:\\proseka_reverse\\sse_packet_importer\\streaming_archive.zip",
-                "D:\\proseka_reverse\\sse_packet_importer\\4270_hca"
+                "/Volumes/mos9527弄丢的盘/Reverse/proseka_reverse/sse_packet_importer/packets/356_5043",
+                "/Volumes/mos9527弄丢的盘/Reverse/proseka_reverse/sse_packet_importer/exported/356_5043",
+                "--version",
+                "1.6",
+                "--strict"
             ],
             "justMyCode": true
         },
