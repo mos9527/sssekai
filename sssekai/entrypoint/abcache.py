@@ -152,16 +152,21 @@ def main_abcache(args):
                 filter_pred.append(lambda bundle: pattern.match(bundle.bundleName))
             if args.download_filter_cache_diff:
                 logger.info("Filtering bundles with cache diff")
-                diff_cache = AbCache.from_file(
-                    open(args.download_filter_cache_diff, "rb")
-                )
+                diff_path = args.download_filter_cache_diff
+                diff_path = os.path.abspath(os.path.expanduser(diff_path))
+                logger.info("Loading cache diff from %s", diff_path)
+                diff_cache = AbCache.from_file(open(diff_path, "rb"))
 
                 def __diff_pred(bundle: AbCacheEntry):
                     diff = diff_cache.abcache_index.bundles.get(bundle.bundleName, None)
-                    if diff:
+                    if diff is not None:
                         if diff.hash != bundle.hash:
                             return True
                         else:
+                            logger.debug(
+                                "Skipped %s due to cache diff hit (hash)",
+                                bundle.bundleName,
+                            )
                             return False
                     else:
                         return True
