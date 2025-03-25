@@ -136,6 +136,12 @@ This crypto applies to:
         default=None,
     )
     group.add_argument(
+        "--download-filter-cache-diff",
+        type=str,
+        help="filter AssetBundles (by hashes) by *ONLY* downloading ones with a *different* hash from the current hash with this one.",
+        default=None,
+    )
+    group.add_argument(
         "--download-dir",
         type=str,
         help="asset bundle download directory. leave empty if you don't want to download anything",
