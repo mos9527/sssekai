@@ -293,9 +293,9 @@ class AbCache(Session):
             case "en":
                 return f"https://assetbundle-info.sekai-en.com/api/version/{self.SEKAI_ASSET_VERSION}/os/{self.config.app_platform}"
             case "tw":  # NOTE: Android only
-                return f"https://lf16-mkovscdn-sg.bytedgame.com/obj/sf-game-alisg/gdl_app_5245/AssetBundle/{self.config.ab_version or self.config.app_version}/Release/online/android49/AssetBundleInfoNew.json"
+                return f"https://lf16-mkovscdn-sg.bytedgame.com/obj/sf-game-alisg/gdl_app_5245/AssetBundle/{self.config.ab_version or self.config.app_version}/Release/online/android71/AssetBundleInfoNew.json"
             case "kr":  # NOTE: Android only
-                return f"https://lf16-mkkr.bytedgame.com/obj/sf-game-alisg/gdl_app_292248/AssetBundle/{self.config.ab_version or self.config.app_version}/Release/kr_online/android53/AssetBundleInfoNew.json"
+                return f"https://lf16-mkkr.bytedgame.com/obj/sf-game-alisg/gdl_app_292248/AssetBundle/{self.config.ab_version or self.config.app_version}/Release/kr_online/android63/AssetBundleInfoNew.json"
             case "cn":  # NOTE: Android only
                 return f"https://lf3-mkcncdn-tos.dailygn.com/obj/sf-game-lf/gdl_app_5236/AssetBundle/{self.config.ab_version or self.config.app_version}/Release/cn_online/android50/AssetBundleInfoNew.json"
             case _:
