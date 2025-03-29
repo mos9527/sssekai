@@ -440,9 +440,9 @@ class AbCache(Session):
                     "https://lf19-mkkr.bytedgame.com/obj/sf-game-alisg/gdl_app_292248/MasterData/60001/master-data-158.info"
                 ]
             case "cn":
-                # XXX: Unverified. Game's still unreleased in CN
+                # Verified by https://github.com/mos9527/sssekai/issues/24
                 return [
-                    "https://lf3-j1gamecdn-cn.dailygn.com/obj/sf-game-lf/gdl_app_5236/MasterData/60001/master-data-138.info"
+                    "https://lf3-mkcncdn-tos.dailygn.com/obj/sf-game-lf/gdl_app_5236/MasterData/60001/master-data-13.info"
                 ]
 
     @property
