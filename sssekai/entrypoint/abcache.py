@@ -1,5 +1,5 @@
 import os, re, json
-from sssekai.abcache import AbCache, AbCacheConfig, logger, REGION_JP_EN, REGION_ROW
+from sssekai.abcache import AbCache, AbCacheEntry, logger, REGION_JP_EN, REGION_ROW
 from sssekai.abcache.fs import AbCacheFilesystem, AbCacheFile
 from concurrent.futures import ThreadPoolExecutor
 from requests import Session
@@ -143,20 +143,45 @@ def main_abcache(args):
         bundles = set()
 
         def _iter_bundles():
+            filter_pred = []
             if args.download_filter:
                 logger.info(
                     "Filtering bundles with regex pattern: %s", args.download_filter
                 )
                 pattern = re.compile(args.download_filter)
-                for entry in cache.abcache_index.bundles:
-                    if pattern.match(entry):
-                        yield entry
+                filter_pred.append(lambda bundle: pattern.match(bundle.bundleName))
+            if args.download_filter_cache_diff:
+                logger.info("Filtering bundles with cache diff")
+                diff_path = args.download_filter_cache_diff
+                diff_path = os.path.abspath(os.path.expanduser(diff_path))
+                logger.info("Loading cache diff from %s", diff_path)
+                diff_cache = AbCache.from_file(open(diff_path, "rb"))
+
+                def __diff_pred(bundle: AbCacheEntry):
+                    diff = diff_cache.abcache_index.bundles.get(bundle.bundleName, None)
+                    if diff is not None:
+                        if diff.hash != bundle.hash:
+                            return True
+                        else:
+                            logger.debug(
+                                "Skipped %s due to cache diff hit (hash)",
+                                bundle.bundleName,
+                            )
+                            return False
+                    else:
+                        return True
+
+                filter_pred.append(__diff_pred)
+            if filter_pred:
+                for name, entry in cache.abcache_index.bundles.items():
+                    if all(pred(entry) for pred in filter_pred):
+                        yield name
             else:
                 logger.warning(
                     "No filter pattern specified. All bundles will be downloaded."
                 )
-                for entry in cache.abcache_index.bundles:
-                    yield entry
+                for name, entry in cache.abcache_index.bundles.items():
+                    yield name
 
         for bundleName in _iter_bundles():
             bundles.add(bundleName)
