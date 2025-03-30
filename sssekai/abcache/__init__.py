@@ -124,7 +124,7 @@ class AbCacheEntry(dict):
     dependencies: List[str]
     paths: List[str]
     isBuiltin: bool
-    # TW, KR only
+    # ROW only
     md5Hash: Optional[str] = None
     downloadPath: Optional[str] = None
 
@@ -132,7 +132,7 @@ class AbCacheEntry(dict):
 @dataclass
 class AbCacheIndex(dict):
     version: str
-    os: Optional[str] = None  # Undefined in KR, TW
+    os: Optional[str] = None  # Undefined in ROW
     bundles: Mapping[str, AbCacheEntry] = None
 
 
@@ -156,7 +156,7 @@ class SekaiAppVersion:
 @dataclass
 class SekaiSystemData:
     serverDate: int
-    # Undefined in KR, TW
+    # These are all undefined in ROW
     timezone: Optional[str] = None
     profile: Optional[str] = None
     maintenanceStatus: Optional[str] = None
@@ -297,7 +297,8 @@ class AbCache(Session):
             case "kr":  # NOTE: Android only
                 return f"https://lf16-mkkr.bytedgame.com/obj/sf-game-alisg/gdl_app_292248/AssetBundle/{self.config.ab_version or self.config.app_version}/Release/kr_online/android63/AssetBundleInfoNew.json"
             case "cn":  # NOTE: Android only
-                return f"https://lf3-mkcncdn-tos.dailygn.com/obj/sf-game-lf/gdl_app_5236/AssetBundle/{self.config.ab_version or self.config.app_version}/Release/cn_online/android50/AssetBundleInfoNew.json"
+                # https://github.com/mos9527/sssekai/issues/28
+                return f"https://lf3-mkcncdn-tos.dailygn.com/obj/sf-game-lf/gdl_app_5236/AssetBundle/{self.config.ab_version or self.config.app_version}/Release/cn_online1/android91/AssetBundleInfoNew.json"
             case _:
                 raise NotImplementedError
 
@@ -313,7 +314,8 @@ class AbCache(Session):
             case "kr":  # NOTE: Android only
                 return f"https://lf16-mkkr.bytedgame.com/obj/sf-game-alisg/gdl_app_292248/AssetBundle/{self.config.ab_version or self.config.app_version}/Release/kr_online/android1/"
             case "cn":  # NOTE: Android only
-                return f"https://lf3-j1gamecdn-cn.dailygn.com/obj/sf-game-lf/gdl_app_5236/AssetBundle/{self.config.ab_version or self.config.app_version}/Release/cn_online/android1/"
+                # https://github.com/mos9527/sssekai/issues/28
+                return f"https://lf3-j1gamecdn-cn.dailygn.com/obj/sf-game-lf/gdl_app_5236/AssetBundle/{self.config.ab_version or self.config.app_version}/Release/cn_online1/android65/"
             case _:
                 raise NotImplementedError
 

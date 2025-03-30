@@ -110,6 +110,7 @@ WIDGET_MAP = {
     "--download-dir": "DirChooser",
     "--dump-master-data": "DirChooser",
     "--dump-user-data": "DirChooser",
+    "--download-filter-cache-diff": "FileChooser",
 }
 
 

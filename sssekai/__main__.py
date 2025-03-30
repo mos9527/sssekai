@@ -171,7 +171,7 @@ This crypto applies to:
     group.add_argument(
         "--dump-user-data",
         type=str,
-        help="directory to store the dumped master data of the authencicated user in JSON. NOTE: require proper authentication required",
+        help="directory to store the dumped master data of the authencicated user in JSON. NOTE: --auth-credential required",
         default=None,
     )
     group.add_argument(
@@ -181,7 +181,7 @@ This crypto applies to:
     )
     group = abcache_parser.add_argument_group(
         "authentication arguments",
-        "Only needed for some functionailties (i.e. --dump-master-data)",
+        "Only needed for some functionailties (i.e. --dump-user-data)",
     )
     group.add_argument(
         "--auth-credential",
@@ -251,7 +251,7 @@ This crypto applies to:
         "--version",
         type=str,
         help="RLA version. Only used for loose packets",
-        default=(1, 6),
+        default="1.6",
         choices=["1.%1s" % x for x in range(0, 6 + 1)],
     )
     rla2json_parser.add_argument(
