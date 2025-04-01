@@ -26,7 +26,8 @@ class AbCacheDownloader(ThreadPoolExecutor):
         RETRIES = 1
         for _ in range(0, RETRIES):
             try:
-                os.makedirs(os.path.dirname(dest), exist_ok=True)
+                if os.path.dirname(dest):
+                    os.makedirs(os.path.dirname(dest), exist_ok=True)
                 with open(dest, "wb") as f:
                     while block := src.read(65536):
                         self.progress.update(f.write(block))
@@ -112,7 +113,8 @@ def main_abcache(args):
                 logger.warning(
                     "Anonymous user registration is not supported for those regions. You may encounter errors."
                 )
-        os.makedirs(os.path.dirname(db_path), exist_ok=True)
+        if os.path.dirname(db_path):
+            os.makedirs(os.path.dirname(db_path), exist_ok=True)
         with open(db_path, "wb") as f:
             cache.update()
             cache.save(f)

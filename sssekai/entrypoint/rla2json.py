@@ -11,7 +11,14 @@ def main_rla2json(args):
     def __dump_from_frame_gen(frame_gen):
         outdir = args.outdir
         os.makedirs(outdir, exist_ok=True)
-        ensure_dir = lambda x: os.makedirs(os.path.dirname(x), exist_ok=True) or x
+        ensure_dir = lambda x: (
+            (
+                os.makedirs(os.path.dirname(x), exist_ok=True)
+                if os.path.dirname(x)
+                else None
+            )
+            or x
+        )
         for tick, frame in frame_gen:
             print("tick: %16s, type: %32s" % (tick, frame["type"]), end="\r")
             match frame["type"]:
@@ -24,7 +31,7 @@ def main_rla2json(args):
                             "wb",
                         ) as f:
                             raw_data = frame["data"]
-                            start = raw_data.find(b"\xFF\xFF")
+                            start = raw_data.find(b"\xff\xff")
                             f.write(raw_data[start:])
                     else:
                         raise ValueError("unsupported encoding: %s" % frame["encoding"])
