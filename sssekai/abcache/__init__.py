@@ -310,12 +310,12 @@ class AbCache(Session):
             case "en":
                 return f"https://assetbundle.sekai-en.com/"
             case "tw":  # NOTE: Android only
-                return f"https://lf16-mkovscdn-sg.bytedgame.com/obj/sf-game-alisg/gdl_app_5245/AssetBundle/{self.config.ab_version or self.config.app_version}/Release/online/android1/"
+                return f"https://lf16-mkovscdn-sg.bytedgame.com/obj/sf-game-alisg/gdl_app_5245/AssetBundle/{self.config.ab_version or self.config.app_version}/Release/online/"
             case "kr":  # NOTE: Android only
-                return f"https://lf16-mkkr.bytedgame.com/obj/sf-game-alisg/gdl_app_292248/AssetBundle/{self.config.ab_version or self.config.app_version}/Release/kr_online/android1/"
+                return f"https://lf16-mkkr.bytedgame.com/obj/sf-game-alisg/gdl_app_292248/AssetBundle/{self.config.ab_version or self.config.app_version}/Release/kr_online/"
             case "cn":  # NOTE: Android only
                 # https://github.com/mos9527/sssekai/issues/28
-                return f"https://lf3-j1gamecdn-cn.dailygn.com/obj/sf-game-lf/gdl_app_5236/AssetBundle/{self.config.ab_version or self.config.app_version}/Release/cn_online1/android65/"
+                return f"https://lf3-j1gamecdn-cn.dailygn.com/obj/sf-game-lf/gdl_app_5236/AssetBundle/{self.config.ab_version or self.config.app_version}/Release/cn_online1/"
             case _:
                 raise NotImplementedError
 
@@ -663,7 +663,8 @@ class AbCache(Session):
         if self.config.app_region in REGION_JP_EN:
             return self.SEKAI_AB_ENDPOINT + self.SEKAI_AB_BASE_PATH + entry.bundleName
         else:
-            return self.SEKAI_AB_ENDPOINT + entry.bundleName
+            # https://github.com/mos9527/sssekai/issues/28
+            return self.SEKAI_AB_ENDPOINT + entry.downloadPath + "/" + entry.bundleName
 
     def get_or_update_dependency_tree_flatten(self, bundleName: str, deps: set = None):
         """Get a flattened set of asset dependency bundle names (including itself) for a given entry.
