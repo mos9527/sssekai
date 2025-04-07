@@ -4,7 +4,7 @@ from concurrent.futures import ThreadPoolExecutor
 from collections import defaultdict
 from threading import Lock
 
-UPDATE = False
+UPDATE = True
 
 coloredlogs.install(level=logging.INFO)
 logger = logging.getLogger("abcache-test")
