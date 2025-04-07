@@ -12,10 +12,10 @@ logger = logging.getLogger("abcache-test")
 if UPDATE:
     cache = AbCache(
         AbCacheConfig(
-            app_region="cn",
-            app_version="3.4.1",
+            app_region="kr",
+            app_version="3.4.3",
             ab_version="3.4.0",
-            app_hash="a3015fe8-785f-27e1-fb8b-546a23c82c1f",
+            app_hash="4d9acca8-553f-c3f4-398b-a678e32e7f85",
             app_platform="android",
         )
     )

@@ -303,14 +303,14 @@ This crypto applies to:
 def __main__():
     from tqdm.std import tqdm as tqdm_c
 
-    class SemaphoreStdout:
+    class SemaphoreStderr:
         @staticmethod
         def write(__s):
             # Blocks tqdm's output until write on this stream is done
             # Solves cases where progress bars gets re-rendered when logs
             # spews out too fast
-            with tqdm_c.external_write_mode(file=sys.stdout, nolock=False):
-                return sys.stdout.write(__s)
+            with tqdm_c.external_write_mode(file=sys.stderr, nolock=False):
+                return sys.stderr.write(__s)
 
     # parse args
     parser = create_parser(argparse.ArgumentParser)
@@ -324,13 +324,13 @@ def __main__():
         format="%(asctime)s | %(levelname).1s | %(name)s %(message)s",
         datefmt="%H:%M:%S",
         isatty=True,
-        stream=SemaphoreStdout,
+        stream=SemaphoreStderr,
     )
     basicConfig(
         level=args.log_level,
         format="%(asctime)s | %(levelname).1s | %(name)s %(message)s",
         datefmt="%H:%M:%S",
-        stream=SemaphoreStdout,
+        stream=SemaphoreStderr,
     )
     # override unity version
     sssekai_set_unity_version(args.unity_version)

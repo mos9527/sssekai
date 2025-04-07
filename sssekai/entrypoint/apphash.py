@@ -127,6 +127,7 @@ def main_apphash(args):
             # Object name seems to be a good enough heuristic
             for name in {"production_android", "production_ios"}:
                 if pname == name:
+                    # Works with post 3.4 (JP 3rd Anniversary) builds and downstream regional builds
                     tt = pobj.read_typetree(
                         TYPETREE_DEFS["Sekai.PlayerSettingConfig"], check_read=False
                     )
@@ -173,6 +174,7 @@ def main_apphash(args):
 # CLI Usage:
 # sssekai abcache --app-platform android --app-region {region} --app-version {app_version} --app-appHash {app_hash} --app-abVersion {ab_version}
 # Python Usage:
+from sssekai.abcache import AbCacheConfig
 
 AbCacheConfig(
     app_region="{region}",
