@@ -32,7 +32,6 @@ setuptools.setup(
         "rich",
         "coloredlogs",
         "requests",
-        "pyaxmlparser",
     ],
     extras_require={
         "gui": ["Gooey @ git+https://github.com/nicolasbraun/Gooey@11bd412"]

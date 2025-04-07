@@ -2,6 +2,13 @@
     "version": "0.2.0",
     "configurations": [
         {
+            "name": "AbCache Availbility Check",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/misc/abcache_availability_check.py",
+            "justMyCode": false
+        },
+        {
             "name": "GUI Test",
             "type": "debugpy",
             "request": "launch",
@@ -36,8 +43,7 @@
             "program": "${file}",
             "console": "integratedTerminal",
             "justMyCode": false,
-            "args": [
-            ]
+            "args": []
         },
         {
             "name": "Python: AbCache (JP)",
@@ -89,7 +95,7 @@
                 "~/.sssekai/tw_user"
             ],
             "justMyCode": true
-        },       
+        },
         {
             "name": "Python: AbCache (KR)",
             "type": "python",
@@ -104,12 +110,11 @@
                 "--app-version",
                 "3.4.3",
                 "--app-appHash",
-                "a3015fe8-785f-27e1-fb8b-546a23c82c1f"
-                "--app-abVersion",
+                "a3015fe8-785f-27e1-fb8b-546a23c82c1f""--app-abVersion",
                 "3.4.0"
             ],
             "justMyCode": true
-        },        
+        },
         {
             "name": "Python: AbCache (EN)",
             "type": "python",
@@ -181,7 +186,7 @@
                 "/mnt/abcache"
             ],
             "justMyCode": false
-        },   
+        },
         {
             "name": "Python: AbServe",
             "type": "python",
@@ -195,7 +200,7 @@
                 // "/mnt/c/Users/mos9527/.sssekai/abcache.db",
             ],
             "justMyCode": false
-        },                
+        },
         {
             "name": "Python: AbCache (DL)",
             "type": "python",
@@ -213,7 +218,6 @@
             ],
             "justMyCode": false
         },
-        
         {
             "name": "Python: MVData",
             "type": "python",
@@ -269,7 +273,7 @@
             "args": [
                 "apphash",
                 "--apk-src",
-                "E:\\Reverse\\proseka_reverse\\game_binary\\by_region\\280_kr.apk"
+                "C:\\Users\\mos9527\\Downloads\\pjsk_50397839a_v23465_1980_d019_1742441547.apk"
             ],
             "justMyCode": true
         },

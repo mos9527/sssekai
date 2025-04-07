@@ -173,7 +173,6 @@ def __main__():
         format="%(asctime)s | %(levelname).1s | %(name)s %(message)s",
         datefmt="%H:%M:%S",
     )
-    getLogger("pyaxmlparser.axmlprinter").setLevel("ERROR")
     # override unity version
     sssekai_set_unity_version(args.unity_version)
     if "func" in args:

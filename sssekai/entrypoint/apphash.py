@@ -2,12 +2,13 @@ import zipfile
 import UnityPy
 import logging
 import re
+import sys
 
 from io import BytesIO
 
-import UnityPy.classes
 import UnityPy.enums
 import UnityPy.enums.ClassIDType
+from UnityPy.classes import MonoBehaviour
 from sssekai.unity.AssetBundle import load_assetbundle
 from tqdm import tqdm
 
@@ -61,22 +62,6 @@ def main_apphash(args):
         else:
             src = open(args.apk_src, "rb")
         with zipfile.ZipFile(src, "r") as zip_ref:
-            manifests = [
-                manifest
-                for package in enum_package(zip_ref)
-                for manifest in enum_candidates(
-                    package, lambda fn: fn == "AndroidManifest.xml"
-                )
-            ]
-            manifest = manifests[0][1]
-            from pyaxmlparser.axmlprinter import AXMLPrinter
-
-            manifest = AXMLPrinter(manifest.read()).get_xml_obj()
-            find_key = lambda ky: next((k for k in manifest.keys() if ky in k), None)
-            app_version = manifest.get(find_key("versionName"), None)
-            app_package = manifest.get(find_key("package"), None)
-            logger.info("Package: %s" % app_package)
-            logger.info("Version: %s" % app_version)
             candidates = [
                 candidate
                 for package in enum_package(zip_ref)
@@ -96,16 +81,47 @@ def main_apphash(args):
         logger.info("Loading from AssetBundle %s" % args.ab_src)
         with open(args.ab_src, "rb") as f:
             env = load_assetbundle(BytesIO(f.read()))
+
+    from sssekai.generated import TYPETREE_DEFS
+    from sssekai.generated.Sekai import PlayerSettingConfig
+
     for pobj in env.objects:
-        # TODO: Dump actual typetree data from the game itself?
         if pobj.type == UnityPy.enums.ClassIDType.MonoBehaviour:
             obj = pobj.read(check_read=False)
+            obj: MonoBehaviour
+            # Can't use UTTCGen_Reread because we may have no access to the Script PPtr asset
+            # Object name seems to be a good enough heuristic
             for name in {"production_android", "production_ios"}:
                 if obj.m_Name == name:
-                    hashStr = HASHREGEX.finditer(pobj.get_raw_data())
-                    for m in hashStr:
-                        ans = m.group().decode()
-                        logger.debug("%s: %s" % (name, ans))
-                        app_hash = ans
-    region = REGION_MAP.get(app_package, app_package)
+                    tt = obj.object_reader.read_typetree(
+                        TYPETREE_DEFS["Sekai.PlayerSettingConfig"], check_read=False
+                    )
+                    config = PlayerSettingConfig(**tt)
+                    app_version = "%s.%s.%s" % (
+                        config.clientMajorVersion,
+                        config.clientMinorVersion,
+                        config.clientBuildVersion,
+                    )
+                    data_version = "%s.%s.%s" % (
+                        config.clientDataMajorVersion,
+                        config.clientDataMinorVersion,
+                        config.clientDataBuildVersion,
+                    )
+                    app_hash = config.clientAppHash
+                    app_package = config.bundleIdentifier
+                    region = region = REGION_MAP.get(app_package, "UNKNOWN")
+                    print(
+                        f"Found {config.productName} at {config.m_Name}",
+                        f"  Memo: {config.memo}",
+                        f"  Region: {region}",
+                        f"  Version: {app_version} ({config.clientVersionSuffix})",
+                        f"  AppHash: {config.clientAppHash}",
+                        f"  Package: {config.bundleIdentifier}",
+                        f"  Bundle Version: {config.bundleVersion}",
+                        f"  Data Version: {data_version}",
+                        "",
+                        sep="\n",
+                        file=sys.stderr,
+                    )
+
     print(app_version, region, app_hash)

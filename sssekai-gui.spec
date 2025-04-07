@@ -1,14 +1,13 @@
 # -*- mode: python ; coding: utf-8 -*-
 
 # https://github.com/K0lb3/UnityPy/issues/184
-import UnityPy, pyaxmlparser, gooey,archspec, os
+import UnityPy, gooey,archspec, os
 
 module_path_func = lambda module: lambda path: os.path.join(
     os.path.dirname(module.__file__), path
 )
 
 unitypy_path = module_path_func(UnityPy)
-pyaxmlparser_path = module_path_func(pyaxmlparser)
 gooey_path = module_path_func(gooey)
 archspec_path = module_path_func(archspec)
 
@@ -19,8 +18,7 @@ a = Analysis(
     pathex=[],
     binaries=[],
     datas=[
-        (unitypy_path("resources/*"), "UnityPy/resources"),
-        (pyaxmlparser_path("resources/*"), "pyaxmlparser/resources"),
+        (unitypy_path("resources/*"), "UnityPy/resources"),        
         (archspec_path('json'), 'archspec/json'),
     ],
     hiddenimports=[],
