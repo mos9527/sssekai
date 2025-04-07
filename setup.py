@@ -24,7 +24,7 @@ setuptools.setup(
     install_requires=[
         "msgpack",
         "pycryptodome",
-        "unitypy >= 1.20.25",
+        "unitypy >= 1.22.0",
         "astc-encoder-py >= 0.1.11",  # https://github.com/mos9527/sssekai_blender_io/issues/11
         "wannacri",
         "python-json-logger",

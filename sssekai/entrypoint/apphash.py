@@ -122,12 +122,7 @@ def main_apphash(args):
     ans = None
     for pobj in env.objects:
         if pobj.type == UnityPy.enums.ClassIDType.MonoBehaviour:
-            # Only read base MonoBehaviour class to speed things up (a lot)
-            # XXX: pboj.peek_name() fails here.
-            pname = pobj.read_typetree(
-                get_typetree_node(ClassIDType.MonoBehaviour, pobj.version),
-                check_read=False,
-            )["m_Name"]
+            pname = pobj.peek_name()
             # Can't use UTTCGen_Reread because we may have no access to the Script PPtr asset
             # Object name seems to be a good enough heuristic
             for name in {"production_android", "production_ios"}:
