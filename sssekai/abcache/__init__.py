@@ -263,7 +263,7 @@ class AbCache(Session):
             case "kr":
                 return "https://mkkorea-obt-prod01-cdn.bytedgame.com"
             case "cn":
-                return "https://mkcn-prod-public-30001-1.dailygn.com"
+                return "https://mkcn-prod-public-60001-1.dailygn.com"
             case _:
                 raise NotImplementedError
 

@@ -12,7 +12,6 @@ from UnityPy.classes import MonoBehaviour
 from sssekai.unity.AssetBundle import load_assetbundle
 from tqdm import tqdm
 
-HASHREGEX = re.compile(b"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}")
 REGION_MAP = {
     "com.sega.pjsekai": "jp",
     "com.sega.ColorfulStage.en": "en",
@@ -107,19 +106,26 @@ def main_apphash(args):
                         config.clientDataMinorVersion,
                         config.clientDataBuildVersion,
                     )
+                    ab_version = "%s.%s.%s" % (
+                        config.clientMajorVersion,
+                        config.clientMinorVersion,
+                        config.clientDataRevision,
+                    )
                     app_hash = config.clientAppHash
                     app_package = config.bundleIdentifier
-                    region = region = REGION_MAP.get(app_package, "UNKNOWN")
+                    region = region = REGION_MAP.get(app_package, "unknown")
                     print(
                         f"Found {config.productName} at {config.m_Name}",
                         f"  Memo: {config.memo}",
-                        f"  Region: {region}",
-                        f"  Version: {app_version} ({config.clientVersionSuffix})",
-                        f"  AppHash: {config.clientAppHash}",
                         f"  Package: {config.bundleIdentifier}",
+                        f"  AppHash (app_hash):     {config.clientAppHash}",
+                        f"  Region  (app_region):   {region}",
+                        f"  Version (app_version):  {app_version}",
+                        f"  Version (ab_version):   {ab_version}",
+                        f"      (NOTE: Set this ONLY with ROW (TW/KR/CN) versions!)",
                         f"  Bundle Version: {config.bundleVersion}",
-                        f"  Data Version: {data_version}",
-                        "",
+                        f"  Data Version:   {data_version}",
+                        f"  Version Suffix: {config.clientVersionSuffix}" "",
                         sep="\n",
                         file=sys.stderr,
                     )
