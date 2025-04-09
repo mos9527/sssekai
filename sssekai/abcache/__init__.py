@@ -625,17 +625,17 @@ class AbCache(Session):
         self.update_client_headers()
         self._update_abcache_index()
         if self.config.app_region in REGION_JP_EN:
-            logger.debug("Sekai AssetBundle version: %s" % self.SEKAI_ASSET_VERSION)
-            logger.debug("Sekai AssetBundle host hash: %s" % self.SEKAI_AB_HOST_HASH)
+            logger.info("Sekai AssetBundle version: %s" % self.SEKAI_ASSET_VERSION)
+            logger.info("Sekai AssetBundle host hash: %s" % self.SEKAI_AB_HOST_HASH)
 
     def save(self, f: BinaryIO):
         self._update_request_headers()
         self.database.cached_headers = self.headers
-        logger.debug("Saving cache")
+        logger.info("Saving cache: %s" % self)
         dump(self.database, f)
 
     def load(self, f: BinaryIO):
-        logger.debug("Loading cache")
+        logger.info("Loading cache")
         self.database = load(f)
         if not self.database.config.is_up_to_date:
             logger.warning(
@@ -643,7 +643,7 @@ class AbCache(Session):
                 % (self.database.config.cache_version_string, __version__)
             )
         self.headers.update(self.database.cached_headers)
-        logger.debug("Cache loaded: %s" % self)
+        logger.info("Cache loaded: %s" % self)
 
     @staticmethod
     def from_file(f: BinaryIO):

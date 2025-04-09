@@ -14,6 +14,8 @@ def sega_register_anonymous_user(cache: AbCache) -> SekaiUserData:
         SekaiUserData: The user data object.
     """
     logger.info("Registering user data")
+    # https://github.com/mos9527/sssekai/issues/31
+    cache._update_request_headers()
     cache._update_signatures()
     payload = {
         "platform": cache.headers["X-Platform"],
