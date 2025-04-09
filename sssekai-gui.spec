@@ -1,14 +1,13 @@
 # -*- mode: python ; coding: utf-8 -*-
 
 # https://github.com/K0lb3/UnityPy/issues/184
-import UnityPy, gooeyex,archspec, os
+import UnityPy,archspec, os
 
 module_path_func = lambda module: lambda path: os.path.join(
     os.path.dirname(module.__file__), path
 )
 
 unitypy_path = module_path_func(UnityPy)
-gooeyex_path = module_path_func(gooeyex)
 archspec_path = module_path_func(archspec)
 
 block_cipher = None
