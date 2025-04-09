@@ -88,6 +88,12 @@ def main_abcache(args):
         logger.error("Failed to load cache from %s: %s", db_path, e)
         logger.warning("Force rebuilding cache from scratch.")
         args.no_update = False
+    if args.download_filter_cache_diff:
+        diff_path = os.path.abspath(os.path.expanduser(diff_path))
+        curr_path = os.path.abspath(os.path.expanduser(db_path))
+        assert (
+            diff_path != curr_path
+        ), "Cache diff path must be different from current cache path! Make a copy of the diff cache if this is required."
     if not args.no_update:
         assert (
             args.app_version and args.app_appHash

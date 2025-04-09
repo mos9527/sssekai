@@ -16,6 +16,20 @@ from sssekai.unity import sssekai_get_unity_version, sssekai_set_unity_version
 
 
 def create_parser(clazz=argparse.ArgumentParser):
+    """
+    Create the command line parser for the application.
+
+    Args:
+        clazz (type): The parser class to use. Defaults to argparse.ArgumentParser.
+        In GUI mode this should be set to GooeyParser otherwise.
+    """
+
+    def gooey_only(**kwargs):
+        # Silent non-argparse kwargs
+        if clazz == argparse.ArgumentParser:
+            return {}
+        return kwargs
+
     parser = clazz(
         description="""Project SEKAI Asset Utility / PJSK 资源工具""",
         formatter_class=argparse.RawTextHelpFormatter,
@@ -47,8 +61,12 @@ This crypto applies to:
     - API request/response body dumped by packet sniffer (mitmproxy, wireshark, etc.)
     - AssetBundleInfo (see sssekai.abcache)""",
     )
-    apidecrypt_parser.add_argument("infile", type=str, help="input dump file")
-    apidecrypt_parser.add_argument("outfile", type=str, help="output json file")
+    apidecrypt_parser.add_argument(
+        "infile", type=str, help="input dump file", **gooey_only(widget="FileChooser")
+    )
+    apidecrypt_parser.add_argument(
+        "outfile", type=str, help="output json file", **gooey_only(widget="FileSaver")
+    )
     apidecrypt_parser.add_argument(
         "--region",
         type=str,
@@ -61,15 +79,23 @@ This crypto applies to:
     abdecrypt_parser = subparsers.add_parser(
         "abdecrypt", usage="""Decrypt Sekai AssetBundle"""
     )
-    abdecrypt_parser.add_argument("indir", type=str, help="input directory")
-    abdecrypt_parser.add_argument("outdir", type=str, help="output directory")
+    abdecrypt_parser.add_argument(
+        "indir", type=str, help="input directory", **gooey_only(widget="DirChooser")
+    )
+    abdecrypt_parser.add_argument(
+        "outdir", type=str, help="output directory", **gooey_only(widget="DirChooser")
+    )
     abdecrypt_parser.set_defaults(func=main_abdecrypt)
     # usmdemux
     usmdemux_parser = subparsers.add_parser(
         "usmdemux", usage="""Demux Sekai USM Video in a AssetBundle"""
     )
-    usmdemux_parser.add_argument("infile", type=str, help="input file")
-    usmdemux_parser.add_argument("outdir", type=str, help="output directory")
+    usmdemux_parser.add_argument(
+        "infile", type=str, help="input file", **gooey_only(widget="FileChooser")
+    )
+    usmdemux_parser.add_argument(
+        "outdir", type=str, help="output directory", **gooey_only(widget="DirChooser")
+    )
     usmdemux_parser.set_defaults(func=main_usmdemux)
     # abcache
     abcache_parser = subparsers.add_parser(
@@ -81,6 +107,7 @@ This crypto applies to:
         type=str,
         help="""cache database file path (default: %(default)s)""",
         default=DEFAULT_CACHE_DB_FILE,
+        **gooey_only(widget="FileChooser"),
     )
     group.add_argument(
         "--no-keep-auth",
@@ -140,12 +167,14 @@ This crypto applies to:
         type=str,
         help="filter AssetBundles (by hashes) by *ONLY* downloading ones with a *different* hash from the current hash with this one.",
         default=None,
+        **gooey_only(widget="FileChooser"),
     )
     group.add_argument(
         "--download-dir",
         type=str,
         help="asset bundle download directory. leave empty if you don't want to download anything",
         default="",
+        **gooey_only(widget="DirChooser"),
     )
     group.add_argument(
         "--download-ensure-deps",
@@ -167,12 +196,14 @@ This crypto applies to:
         type=str,
         help="directory to store the dumped master data in JSON.",
         default=None,
+        **gooey_only(widget="DirChooser"),
     )
     group.add_argument(
         "--dump-user-data",
         type=str,
         help="directory to store the dumped master data of the authencicated user in JSON. NOTE: --auth-credential required",
         default=None,
+        **gooey_only(widget="DirChooser"),
     )
     group.add_argument(
         "--keep-compact",
@@ -198,12 +229,14 @@ This crypto applies to:
         type=str,
         help="""cache database file path (default: %(default)s)""",
         default=DEFAULT_CACHE_DB_FILE,
+        **gooey_only(widget="FileChooser"),
     )
     abserve_parser.add_argument(
         "--fuse",
         type=str,
         help="""local mount point for AbCache. Required FUSE on host OS and fusepy (default: %(default)s)""",
         default="",
+        **gooey_only(widget="DirChooser"),
     )
     abserve_parser.add_argument(
         "--host",
@@ -222,8 +255,12 @@ This crypto applies to:
     live2dextract_parser = subparsers.add_parser(
         "live2dextract", usage="""Extract Sekai Live2D Models in a AssetBundle"""
     )
-    live2dextract_parser.add_argument("infile", type=str, help="input file")
-    live2dextract_parser.add_argument("outdir", type=str, help="output directory")
+    live2dextract_parser.add_argument(
+        "infile", type=str, help="input file", **gooey_only(widget="FileChooser")
+    )
+    live2dextract_parser.add_argument(
+        "outdir", type=str, help="output directory", **gooey_only(widget="DirChooser")
+    )
     live2dextract_parser.add_argument(
         "--no-anim", action="store_true", help="don't extract animation clips"
     )
@@ -233,8 +270,12 @@ This crypto applies to:
         "spineextract",
         usage="""Extract Sekai Spine (Esoteric Spine2D) Models in a AssetBundle""",
     )
-    spineextract_parser.add_argument("infile", type=str, help="input file")
-    spineextract_parser.add_argument("outdir", type=str, help="output directory")
+    spineextract_parser.add_argument(
+        "infile", type=str, help="input file", **gooey_only(widget="FileChooser")
+    )
+    spineextract_parser.add_argument(
+        "outdir", type=str, help="output directory", **gooey_only(widget="DirChooser")
+    )
     spineextract_parser.set_defaults(func=main_spineextract)
     # rla2json
     rla2json_parser = subparsers.add_parser(
@@ -245,8 +286,11 @@ This crypto applies to:
         "input",
         type=str,
         help="input archive file or directory containing loose packets",
+        **gooey_only(widget="FileChooser"),
     )
-    rla2json_parser.add_argument("outdir", type=str, help="output directory")
+    rla2json_parser.add_argument(
+        "outdir", type=str, help="output directory", **gooey_only(widget="DirChooser")
+    )
     rla2json_parser.add_argument(
         "--version",
         type=str,
@@ -271,12 +315,14 @@ This crypto applies to:
         type=str,
         help="APK source file (default: fetch from APKPure)",
         default=None,
+        **gooey_only(widget="FileChooser"),
     )
     apphash_parser.add_argument(
         "--ab-src",
         type=str,
         help="AssetBundle (namely, 6350e2ec327334c8a9b7f494f344a761 or c726e51b6fe37463685916a1687158dd) source file (default: fetch from APK)",
         default=None,
+        **gooey_only(widget="FileChooser"),
     )
     apphash_parser.add_argument(
         "--fetch", action="store_true", help="force fetching the latest APK"
@@ -287,15 +333,25 @@ This crypto applies to:
         "mvdata", usage="""Extract MV Data from AssetBundle"""
     )
     mvdata_parser.add_argument(
-        "infile", type=str, help="cache directory (live_pv/mv_data)"
+        "infile",
+        type=str,
+        help="cache directory (live_pv/mv_data)",
+        **gooey_only(widget="DirChooser"),
     )
-    mvdata_parser.add_argument("outdir", type=str, help="output JSON file to dump into")
+    mvdata_parser.add_argument(
+        "outdir",
+        type=str,
+        help="output JSON file to dump into",
+        **gooey_only(widget="FileSaver"),
+    )
     mvdata_parser.set_defaults(func=main_mvdata)
     # moc3paths
     moc3paths_parser = subparsers.add_parser(
         "moc3paths", usage="""Extract animation path CRCs from raw .moc3 binaries"""
     )
-    moc3paths_parser.add_argument("indir", type=str, help="input directory")
+    moc3paths_parser.add_argument(
+        "indir", type=str, help="input directory", **gooey_only(widget="DirChooser")
+    )
     moc3paths_parser.set_defaults(func=main_moc3paths)
     return parser
 
