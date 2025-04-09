@@ -28,12 +28,12 @@ jobs:
     - name: Set up Python
       uses: actions/setup-python@v2
       with:
-        python-version: '3.10'
+        python-version: '3.11'
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
-        python -m pip install setuptools wheel build twine
-        python -m pip install Pyinstaller
+        python -m pip install --upgrade setuptools wheel build twine
+        python -m pip install --upgrade Pyinstaller
         python -m pip install -e .
         python setup.py install
     - name: Build package (PyPI)
