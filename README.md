@@ -17,7 +17,8 @@ To use the latest development version, you can install directly from GitHub:
 pip install -U  git+https://github.com/mos9527/sssekai
 ```
 ## Using the GUI version
-Additionally, you can use the GUI version of `sssekai` by installing the `[gui]` extra, which in turn installs [nicolasbraun's `Gooey` fork](https://github.com/nicolasbraun/Gooey)
+Additionally, you can use the GUI version of `sssekai` by installing the `[gui]` extra, which in turn installs [GooeyEx](https://github.com/mos9527/GooeyEx/).
+
 ```bash
 pip install -U sssekai[gui]
 ```
