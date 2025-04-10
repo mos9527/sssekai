@@ -121,7 +121,7 @@ def main_abcache(args):
         else:
             if config.auth_available:
                 logger.info(
-                    "Using cached auth credential. UserId=%d" % cache.SEKAI_USERID
+                    "Using cached auth credential. UserId=%s" % cache.SEKAI_USERID
                 )
         if os.path.dirname(db_path):
             os.makedirs(os.path.dirname(db_path), exist_ok=True)
