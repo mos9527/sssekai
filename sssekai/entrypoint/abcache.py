@@ -104,8 +104,7 @@ def main_abcache(args):
         config.app_platform = args.app_platform
         config.app_hash = args.app_appHash
         config.ab_version = args.app_abVersion
-        if not args.no_keep_auth:
-            config.auth_credential = args.auth_credential
+        config.auth_credential = config.auth_credential or args.auth_credential
         if not config.auth_available and not args.no_update:
             logger.warning("No auth info provided.")
             # Register as anonymous user in this case
@@ -118,6 +117,11 @@ def main_abcache(args):
                 logger.warning("No auth info provided for ROW region.")
                 logger.warning(
                     "Anonymous user registration is not supported for those regions. You may encounter errors."
+                )
+        else:
+            if config.auth_available:
+                logger.info(
+                    "Using cached auth credential. UserId=%d" % cache.SEKAI_USERID
                 )
         if os.path.dirname(db_path):
             os.makedirs(os.path.dirname(db_path), exist_ok=True)

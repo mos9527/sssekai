@@ -486,6 +486,9 @@ class AbCache(Session):
                 logger.error("response=%s" % content)
             except:
                 logger.error("response=%s" % resp.content)
+            logger.error(
+                "Unexpected server-side error. Refer to https://github.com/mos9527/sssekai/wiki#debugging-abcache for more information."
+            )
             resp.raise_for_status()
         return resp
 

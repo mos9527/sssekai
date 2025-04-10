@@ -66,8 +66,7 @@
                 // "~/.sssekai/abcache_old.db",
                 "--download-dir",
                 "~/.sssekai/bundles/",
-                "--no-update",
-                // "--no-keep-auth"
+                "--no-update",                
                 // "--dump-master-data",
                 // "~/.sssekai/jp_master",
                 // "--no-update"

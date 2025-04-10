@@ -110,11 +110,6 @@ This crypto applies to:
         **gooey_only(widget="FileChooser"),
     )
     group.add_argument(
-        "--no-keep-auth",
-        action="store_false",
-        help="don't keep authentication data in the cache database during the update",
-    )
-    group.add_argument(
         "--no-update",
         action="store_true",
         help="skip all metadata updates and use cached ones as is. this supercedes 'game version options' and 'authentication options'",
