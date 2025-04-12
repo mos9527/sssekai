@@ -322,6 +322,12 @@ This crypto applies to:
     apphash_parser.add_argument(
         "--fetch", action="store_true", help="force fetching the latest APK"
     )
+    apphash_parser.add_argument(
+        "--format",
+        choices=["markdown", "json"],
+        help="output format",
+        default="markdown",
+    )
     apphash_parser.set_defaults(func=main_apphash)
     # mvdata
     mvdata_parser = subparsers.add_parser(

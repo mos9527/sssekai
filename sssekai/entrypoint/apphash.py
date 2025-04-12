@@ -1,7 +1,7 @@
 import zipfile
 import UnityPy
 import logging
-import re
+import json
 import sys
 
 from io import BytesIO
@@ -163,15 +163,32 @@ def main_apphash(args):
                         f"  Version (ab_version):   {ab_version}",
                         f"  Bundle Version: {config.bundleVersion}",
                         f"  Data Version:   {data_version}",
-                        f"  Version Suffix: {config.clientVersionSuffix}" "",
+                        f"  Version Suffix: {config.clientVersionSuffix}",
+                        "",
+                        "",
                         sep="\n",
                         file=sys.stderr,
                     )
                     # Only keep the Android one
                     if name == "production_android":
-                        ans = f"""
-{app_package or 'Unknown Pacakge'} ({app_version}, {region})
+                        app_package = (
+                            app_package or "Unknown Package (Failed APK Heuristic)"
+                        )
+                        # fmt: off
+                        match args.format:
+                            case 'json':
+                                print(json.dumps({
+                                    "package": app_package,
+                                    "reported_package": config.bundleIdentifier,
+                                    "app_hash": app_hash,
+                                    "app_region": region,
+                                    "app_version": app_version,
+                                    "ab_version": ab_version,
+                                }, indent=4))
+                            case "markdown":
+                                print(f"""{app_package} ({app_version}, {region})
 ---
+Reported Package: {config.bundleIdentifier}
 
 |{'app_hash'.rjust(48)}|   app_region|  app_version|   ab_version|
 |{   '-'.rjust(48,'-')}|-------------|-------------|-------------|
@@ -191,6 +208,5 @@ def main_apphash(args):
             ab_version="{ab_version}",
             app_hash="{app_hash}",
             app_platform="android"
-        )"""
-
-    print(ans)
+        )
+""")
