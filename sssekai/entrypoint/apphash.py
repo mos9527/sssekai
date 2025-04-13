@@ -116,22 +116,17 @@ def main_apphash(args):
         with open(args.ab_src, "rb") as f:
             env = load_assetbundle(BytesIO(f.read()))
 
-    from sssekai.generated import TYPETREE_DEFS
+    from sssekai.generated import UTTCGen_AsInstance
     from sssekai.generated.Sekai import PlayerSettingConfig
 
-    ans = None
     for pobj in env.objects:
         if pobj.type == UnityPy.enums.ClassIDType.MonoBehaviour:
             pname = pobj.peek_name()
-            # Can't use UTTCGen_Reread because we may have no access to the Script PPtr asset
-            # Object name seems to be a good enough heuristic
             for name in {"production_android", "production_ios"}:
                 if pname == name:
                     # Works with post 3.4 (JP 3rd Anniversary) builds and downstream regional builds
-                    tt = pobj.read_typetree(
-                        TYPETREE_DEFS["Sekai.PlayerSettingConfig"], check_read=False
-                    )
-                    config = PlayerSettingConfig(**tt)
+                    config = UTTCGen_AsInstance(pobj, "Sekai.PlayerSettingConfig")
+                    config: PlayerSettingConfig
                     app_version = "%s.%s.%s" % (
                         config.clientMajorVersion,
                         config.clientMinorVersion,

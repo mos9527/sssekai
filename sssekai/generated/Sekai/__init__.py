@@ -3,7 +3,7 @@
 
 from .. import *
 
-@UTTCGen
+@UTTCGen('Sekai.PlayerSettingConfig')
 class PlayerSettingConfig(MonoBehaviour):
 	memo : str
 	clientMajorVersion : str
