@@ -122,66 +122,70 @@ def main_apphash(args):
     for pobj in env.objects:
         if pobj.type == UnityPy.enums.ClassIDType.MonoBehaviour:
             pname = pobj.peek_name()
-            for name in {"production_android", "production_ios"}:
-                if pname == name:
-                    # Works with post 3.4 (JP 3rd Anniversary) builds and downstream regional builds
-                    config = UTTCGen_AsInstance(pobj, "Sekai.PlayerSettingConfig")
-                    config: PlayerSettingConfig
-                    app_version = "%s.%s.%s" % (
-                        config.clientMajorVersion,
-                        config.clientMinorVersion,
-                        config.clientBuildVersion,
+            fullname = {
+                "production_android": "Sekai.AndroidPlayerSettingConfig",
+                "production_ios": "Sekai.IOSPlayerSettingConfig",
+            }
+            fullname = fullname.get(pname, None)
+            if fullname:
+                # Works with post 3.4 (JP 3rd Anniversary) builds and downstream regional builds
+                config = UTTCGen_AsInstance(pobj, fullname)
+                config: PlayerSettingConfig
+                app_version = "%s.%s.%s" % (
+                    config.clientMajorVersion,
+                    config.clientMinorVersion,
+                    config.clientBuildVersion,
+                )
+                data_version = "%s.%s.%s" % (
+                    config.clientDataMajorVersion,
+                    config.clientDataMinorVersion,
+                    config.clientDataBuildVersion,
+                )
+                ab_version = "%s.%s.%s" % (
+                    config.clientMajorVersion,
+                    config.clientMinorVersion,
+                    config.clientDataRevision,
+                )
+                app_hash = config.clientAppHash
+                # XXX: CN build has the same package name as the JP build??
+                # We need another heuristic to determine the package name
+                # This is previously done by setting app_package
+                package_heur = app_package or config.bundleIdentifier
+                region = region = REGION_MAP.get(package_heur, "unknown")
+                print(
+                    f"Found {config.productName} at {config.m_Name}",
+                    f"  Memo: {config.memo}",
+                    f"  Package: {config.bundleIdentifier} (actually assumed as {package_heur})",
+                    f"  AppHash (app_hash):     {config.clientAppHash}",
+                    f"  Region  (app_region):   {region} (determined by {package_heur})",
+                    f"  Version (app_version):  {app_version}",
+                    f"  Version (ab_version):   {ab_version}",
+                    f"  Bundle Version: {config.bundleVersion}",
+                    f"  Data Version:   {data_version}",
+                    f"  Version Suffix: {config.clientVersionSuffix}",
+                    "",
+                    "",
+                    sep="\n",
+                    file=sys.stderr,
+                )
+                # Only keep the Android one
+                if pname == "production_android":
+                    app_package = (
+                        app_package or "Unknown Package (Failed APK Heuristic)"
                     )
-                    data_version = "%s.%s.%s" % (
-                        config.clientDataMajorVersion,
-                        config.clientDataMinorVersion,
-                        config.clientDataBuildVersion,
-                    )
-                    ab_version = "%s.%s.%s" % (
-                        config.clientMajorVersion,
-                        config.clientMinorVersion,
-                        config.clientDataRevision,
-                    )
-                    app_hash = config.clientAppHash
-                    # XXX: CN build has the same package name as the JP build??
-                    # We need another heuristic to determine the package name
-                    # This is previously done by setting app_package
-                    package_heur = app_package or config.bundleIdentifier
-                    region = region = REGION_MAP.get(package_heur, "unknown")
-                    print(
-                        f"Found {config.productName} at {config.m_Name}",
-                        f"  Memo: {config.memo}",
-                        f"  Package: {config.bundleIdentifier} (actually assumed as {package_heur})",
-                        f"  AppHash (app_hash):     {config.clientAppHash}",
-                        f"  Region  (app_region):   {region} (determined by {package_heur})",
-                        f"  Version (app_version):  {app_version}",
-                        f"  Version (ab_version):   {ab_version}",
-                        f"  Bundle Version: {config.bundleVersion}",
-                        f"  Data Version:   {data_version}",
-                        f"  Version Suffix: {config.clientVersionSuffix}",
-                        "",
-                        "",
-                        sep="\n",
-                        file=sys.stderr,
-                    )
-                    # Only keep the Android one
-                    if name == "production_android":
-                        app_package = (
-                            app_package or "Unknown Package (Failed APK Heuristic)"
-                        )
-                        # fmt: off
-                        match args.format:
-                            case 'json':
-                                print(json.dumps({
-                                    "package": app_package,
-                                    "reported_package": config.bundleIdentifier,
-                                    "app_hash": app_hash,
-                                    "app_region": region,
-                                    "app_version": app_version,
-                                    "ab_version": ab_version,
-                                }, indent=4))
-                            case "markdown":
-                                print(f"""{app_package} ({app_version}, {region})
+                    # fmt: off
+                    match args.format:
+                        case 'json':
+                            print(json.dumps({
+                                "package": app_package,
+                                "reported_package": config.bundleIdentifier,
+                                "app_hash": app_hash,
+                                "app_region": region,
+                                "app_version": app_version,
+                                "ab_version": ab_version,
+                            }, indent=4))
+                        case "markdown":
+                            print(f"""{app_package} ({app_version}, {region})
 ---
 Reported Package: {config.bundleIdentifier}
 

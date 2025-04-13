@@ -6,7 +6,7 @@ from UnityPy.classes import *
 from UnityPy.classes.math import (ColorRGBA, Matrix3x4f, Matrix4x4f, Quaternionf, Vector2f, Vector3f, Vector4f, float3, float4,)
 T = TypeVar("T")
 UTTCG_Classes = dict()
-def UTTCGen(fullname: str):
+def UTTCGen(fullname: str, typetree: dict):
     """dataclass-like decorator for typetree classess with nested type support
     
     limitations:
@@ -15,85 +15,56 @@ def UTTCGen(fullname: str):
     - generally supports nested types, however untested and could be slow	
     - and ofc, zero type checking and safeguards :/	
     """    
+    REFERENCED_ARGS = {'object_reader'}
     def __inner(clazz: T) -> T:
-        RESERVED_KWS = {'object_reader'}
         # Allow these to be propogated to the props
-        def __init__(self, **d):
-            def enusre_reserved(obj):
-                for k in RESERVED_KWS:
-                    if hasattr(obj, k) and k in d:
-                        setattr(obj, k, d[k])
-                return obj		
+        def __init__(self, **d):        
             def reduce_init(clazz, **d):
                 types : dict = clazz.__annotations__
                 for k, sub in types.items():
                     if type(sub) == str:
                         sub = eval(sub) # attrs turns these into strings...why?
+                    while sub.__name__ == "Optional":
+                        sub = sub.__args__[0]  # Reduce Optional[T] -> T
                     reduce_arg = getattr(sub, "__args__", [None])[0]
+                    if k in REFERENCED_ARGS: # Directly refcounted
+                        reduce_arg = sub = lambda x: x                         
                     if isinstance(d[k], list):
                         if hasattr(reduce_arg, "__annotations__"):
-                            setattr(self, k, [enusre_reserved(reduce_arg(**x)) for x in d[k]])
+                            setattr(self, k, [reduce_arg(**x) for x in d[k]])
                         else:
-                            setattr(self, k, [enusre_reserved(reduce_arg(x)) for x in d[k]])
+                            setattr(self, k, [reduce_arg(x) for x in d[k]])
                     elif isinstance(d[k], dict) and hasattr(sub, "__annotations__"):
-                        setattr(self, k, enusre_reserved(sub(**d[k])))
+                        setattr(self, k, sub(**d[k]))
                     else:
                         if isinstance(d[k], dict):
-                            setattr(self, k, enusre_reserved(sub(**d[k])))
+                            setattr(self, k, sub(**d[k]))
                         else:
-                            setattr(self, k, enusre_reserved(sub(d[k])))			
-            for __base__ in clazz.__bases__:
-                types : dict = __base__.__annotations__
-                args = {k:d[k] for k in types if k in d}
-                if len(args) == len(types):
-                    super(clazz, self).__init__(**args)
-                    reduce_init(__base__, **d)
-                    for k in args:
-                        if not k in RESERVED_KWS: del d[k]
-            reduce_init(clazz, **d)
-            enusre_reserved(self)
+                            setattr(self, k, sub(d[k]))
+            def reduce_base(clazz, **d):	
+                for __base__ in clazz.__bases__:
+                    if hasattr(__base__, "__annotations__"):
+                        types : dict = __base__.__annotations__
+                        args = {k:d[k] for k in types if k in d}
+                        if len(args) == len(types):
+                            super(clazz, self).__init__(**args)
+                            reduce_init(__base__, **d)                       
+                    reduce_base(__base__, **d)
+            reduce_base(clazz, **d)               
+            reduce_init(clazz, **d)            
         def __repr__(self) -> str:
             return f"{clazz.__name__}({', '.join([f'{k}={getattr(self, k)!r}' for k in self.__annotations__])})"
+        def __save(self):
+            self.object_reader.save_typetree(self, self.__typetree__)
         clazz.__init__ = __init__
         clazz.__repr__ = __repr__
+        clazz.__typetree__ = typetree
+        clazz.save = __save
         UTTCG_Classes[fullname] = clazz
         return clazz
     return __inner
 
 # Helper functions
-def UTTCGen_Reread(src: MonoBehaviour | ObjectReader, fullname: str = None) -> Tuple[dict, str]:
-    """Rereads the typetree data from the MonoBehaviour instance with our typetree definition.
-    
-    Args:
-        src: The MonoBehaviour instance or ObjectReader to read from.
-        fullname: The full name of the class to read. If None, it will be read from the MonoBehaviour instance's `m_Script` property.
-
-    Returns:
-        Tuple[dict, str]: [raw_def, fullname] where `raw_def` is the raw data read from the MonoBehaviour instance and `fullname` is the full name of the class.
-    """
-    if not fullname and isinstance(src, MonoBehaviour):
-        script = src.m_Script.read()
-        fullname = script.m_ClassName
-        if script.m_Namespace:
-            fullname = f"{script.m_Namespace}.{fullname}"    
-    definition = UTTCG_Typetrees.get(fullname, None)
-    assert definition is not None, f"Typetree definition for {fullname} not found"
-    if isinstance(src, MonoBehaviour):
-        src = src.object_reader
-    raw_def = src.read_typetree(definition, check_read=False)
-    return raw_def, fullname
-
-def UTTCGen_Instantiate(raw_def : dict, fullname: str):
-    """Instantiate a class from the typetree definition and the raw data.
-
-    Args:
-        raw_def (dict): The raw data read from the MonoBehaviour instance.
-        fullname (str): The full name of the class to instantiate.
-    """
-    clazz = UTTCG_Classes.get(fullname, None)
-    assert clazz is not None, f"Class definition for {fullname} not found"    
-    instance = clazz(**raw_def)
-    return instance
 
 def UTTCGen_AsInstance(src: MonoBehaviour | ObjectReader, fullname: str = None) -> T:
     """Instantiate a class from the typetree definition and the raw data.
@@ -108,491 +79,15 @@ def UTTCGen_AsInstance(src: MonoBehaviour | ObjectReader, fullname: str = None) 
     Returns:
         T: An instance of the class defined by the typetree.
     """
-    raw_def, fullname = UTTCGen_Reread(src, fullname)
-    instance = UTTCGen_Instantiate(raw_def, fullname)
+    if not fullname and isinstance(src, MonoBehaviour):
+        script = src.m_Script.read()
+        fullname = script.m_ClassName
+        if script.m_Namespace:
+            fullname = f"{script.m_Namespace}.{fullname}"    
+    clazz = UTTCG_Classes.get(fullname, None)
+    assert clazz is not None, f"Class definition for {fullname} not found"    
+    if isinstance(src, MonoBehaviour):
+        src = src.object_reader
+    raw_def = src.read_typetree(clazz.__typetree__, check_read=False)
+    instance = clazz(object_reader=src, **raw_def)
     return instance
-
-UTTCG_Typetrees = {
-    "Sekai.PlayerSettingConfig": [
-        {
-            "m_Type": "MonoBehaviour",
-            "m_Name": "Base",
-            "m_Level": 0,
-            "m_MetaFlag": 0
-        },
-        {
-            "m_Type": "PPtr<GameObject>",
-            "m_Name": "m_GameObject",
-            "m_Level": 1,
-            "m_MetaFlag": 0
-        },
-        {
-            "m_Type": "int",
-            "m_Name": "m_FileID",
-            "m_Level": 2,
-            "m_MetaFlag": 0
-        },
-        {
-            "m_Type": "SInt64",
-            "m_Name": "m_PathID",
-            "m_Level": 2,
-            "m_MetaFlag": 0
-        },
-        {
-            "m_Type": "UInt8",
-            "m_Name": "m_Enabled",
-            "m_Level": 1,
-            "m_MetaFlag": 16384
-        },
-        {
-            "m_Type": "PPtr<MonoScript>",
-            "m_Name": "m_Script",
-            "m_Level": 1,
-            "m_MetaFlag": 0
-        },
-        {
-            "m_Type": "int",
-            "m_Name": "m_FileID",
-            "m_Level": 2,
-            "m_MetaFlag": 0
-        },
-        {
-            "m_Type": "SInt64",
-            "m_Name": "m_PathID",
-            "m_Level": 2,
-            "m_MetaFlag": 0
-        },
-        {
-            "m_Type": "string",
-            "m_Name": "m_Name",
-            "m_Level": 1,
-            "m_MetaFlag": 0
-        },
-        {
-            "m_Type": "Array",
-            "m_Name": "Array",
-            "m_Level": 2,
-            "m_MetaFlag": 16384
-        },
-        {
-            "m_Type": "int",
-            "m_Name": "size",
-            "m_Level": 3,
-            "m_MetaFlag": 0
-        },
-        {
-            "m_Type": "char",
-            "m_Name": "data",
-            "m_Level": 3,
-            "m_MetaFlag": 0
-        },
-        {
-            "m_Type": "string",
-            "m_Name": "memo",
-            "m_Level": 1,
-            "m_MetaFlag": 0
-        },
-        {
-            "m_Type": "Array",
-            "m_Name": "Array",
-            "m_Level": 2,
-            "m_MetaFlag": 16384
-        },
-        {
-            "m_Type": "int",
-            "m_Name": "size",
-            "m_Level": 3,
-            "m_MetaFlag": 0
-        },
-        {
-            "m_Type": "char",
-            "m_Name": "data",
-            "m_Level": 3,
-            "m_MetaFlag": 0
-        },
-        {
-            "m_Type": "string",
-            "m_Name": "clientMajorVersion",
-            "m_Level": 1,
-            "m_MetaFlag": 0
-        },
-        {
-            "m_Type": "Array",
-            "m_Name": "Array",
-            "m_Level": 2,
-            "m_MetaFlag": 16384
-        },
-        {
-            "m_Type": "int",
-            "m_Name": "size",
-            "m_Level": 3,
-            "m_MetaFlag": 0
-        },
-        {
-            "m_Type": "char",
-            "m_Name": "data",
-            "m_Level": 3,
-            "m_MetaFlag": 0
-        },
-        {
-            "m_Type": "string",
-            "m_Name": "clientMinorVersion",
-            "m_Level": 1,
-            "m_MetaFlag": 0
-        },
-        {
-            "m_Type": "Array",
-            "m_Name": "Array",
-            "m_Level": 2,
-            "m_MetaFlag": 16384
-        },
-        {
-            "m_Type": "int",
-            "m_Name": "size",
-            "m_Level": 3,
-            "m_MetaFlag": 0
-        },
-        {
-            "m_Type": "char",
-            "m_Name": "data",
-            "m_Level": 3,
-            "m_MetaFlag": 0
-        },
-        {
-            "m_Type": "string",
-            "m_Name": "clientBuildVersion",
-            "m_Level": 1,
-            "m_MetaFlag": 0
-        },
-        {
-            "m_Type": "Array",
-            "m_Name": "Array",
-            "m_Level": 2,
-            "m_MetaFlag": 16384
-        },
-        {
-            "m_Type": "int",
-            "m_Name": "size",
-            "m_Level": 3,
-            "m_MetaFlag": 0
-        },
-        {
-            "m_Type": "char",
-            "m_Name": "data",
-            "m_Level": 3,
-            "m_MetaFlag": 0
-        },
-        {
-            "m_Type": "string",
-            "m_Name": "snapshot",
-            "m_Level": 1,
-            "m_MetaFlag": 0
-        },
-        {
-            "m_Type": "Array",
-            "m_Name": "Array",
-            "m_Level": 2,
-            "m_MetaFlag": 16384
-        },
-        {
-            "m_Type": "int",
-            "m_Name": "size",
-            "m_Level": 3,
-            "m_MetaFlag": 0
-        },
-        {
-            "m_Type": "char",
-            "m_Name": "data",
-            "m_Level": 3,
-            "m_MetaFlag": 0
-        },
-        {
-            "m_Type": "string",
-            "m_Name": "clientVersionSuffix",
-            "m_Level": 1,
-            "m_MetaFlag": 0
-        },
-        {
-            "m_Type": "Array",
-            "m_Name": "Array",
-            "m_Level": 2,
-            "m_MetaFlag": 16384
-        },
-        {
-            "m_Type": "int",
-            "m_Name": "size",
-            "m_Level": 3,
-            "m_MetaFlag": 0
-        },
-        {
-            "m_Type": "char",
-            "m_Name": "data",
-            "m_Level": 3,
-            "m_MetaFlag": 0
-        },
-        {
-            "m_Type": "string",
-            "m_Name": "clientDataMajorVersion",
-            "m_Level": 1,
-            "m_MetaFlag": 0
-        },
-        {
-            "m_Type": "Array",
-            "m_Name": "Array",
-            "m_Level": 2,
-            "m_MetaFlag": 16384
-        },
-        {
-            "m_Type": "int",
-            "m_Name": "size",
-            "m_Level": 3,
-            "m_MetaFlag": 0
-        },
-        {
-            "m_Type": "char",
-            "m_Name": "data",
-            "m_Level": 3,
-            "m_MetaFlag": 0
-        },
-        {
-            "m_Type": "string",
-            "m_Name": "clientDataMinorVersion",
-            "m_Level": 1,
-            "m_MetaFlag": 0
-        },
-        {
-            "m_Type": "Array",
-            "m_Name": "Array",
-            "m_Level": 2,
-            "m_MetaFlag": 16384
-        },
-        {
-            "m_Type": "int",
-            "m_Name": "size",
-            "m_Level": 3,
-            "m_MetaFlag": 0
-        },
-        {
-            "m_Type": "char",
-            "m_Name": "data",
-            "m_Level": 3,
-            "m_MetaFlag": 0
-        },
-        {
-            "m_Type": "string",
-            "m_Name": "clientDataBuildVersion",
-            "m_Level": 1,
-            "m_MetaFlag": 0
-        },
-        {
-            "m_Type": "Array",
-            "m_Name": "Array",
-            "m_Level": 2,
-            "m_MetaFlag": 16384
-        },
-        {
-            "m_Type": "int",
-            "m_Name": "size",
-            "m_Level": 3,
-            "m_MetaFlag": 0
-        },
-        {
-            "m_Type": "char",
-            "m_Name": "data",
-            "m_Level": 3,
-            "m_MetaFlag": 0
-        },
-        {
-            "m_Type": "string",
-            "m_Name": "clientDataRevision",
-            "m_Level": 1,
-            "m_MetaFlag": 0
-        },
-        {
-            "m_Type": "Array",
-            "m_Name": "Array",
-            "m_Level": 2,
-            "m_MetaFlag": 16384
-        },
-        {
-            "m_Type": "int",
-            "m_Name": "size",
-            "m_Level": 3,
-            "m_MetaFlag": 0
-        },
-        {
-            "m_Type": "char",
-            "m_Name": "data",
-            "m_Level": 3,
-            "m_MetaFlag": 0
-        },
-        {
-            "m_Type": "string",
-            "m_Name": "companyName",
-            "m_Level": 1,
-            "m_MetaFlag": 0
-        },
-        {
-            "m_Type": "Array",
-            "m_Name": "Array",
-            "m_Level": 2,
-            "m_MetaFlag": 16384
-        },
-        {
-            "m_Type": "int",
-            "m_Name": "size",
-            "m_Level": 3,
-            "m_MetaFlag": 0
-        },
-        {
-            "m_Type": "char",
-            "m_Name": "data",
-            "m_Level": 3,
-            "m_MetaFlag": 0
-        },
-        {
-            "m_Type": "string",
-            "m_Name": "productName",
-            "m_Level": 1,
-            "m_MetaFlag": 0
-        },
-        {
-            "m_Type": "Array",
-            "m_Name": "Array",
-            "m_Level": 2,
-            "m_MetaFlag": 16384
-        },
-        {
-            "m_Type": "int",
-            "m_Name": "size",
-            "m_Level": 3,
-            "m_MetaFlag": 0
-        },
-        {
-            "m_Type": "char",
-            "m_Name": "data",
-            "m_Level": 3,
-            "m_MetaFlag": 0
-        },
-        {
-            "m_Type": "string",
-            "m_Name": "bundleIdentifier",
-            "m_Level": 1,
-            "m_MetaFlag": 0
-        },
-        {
-            "m_Type": "Array",
-            "m_Name": "Array",
-            "m_Level": 2,
-            "m_MetaFlag": 16384
-        },
-        {
-            "m_Type": "int",
-            "m_Name": "size",
-            "m_Level": 3,
-            "m_MetaFlag": 0
-        },
-        {
-            "m_Type": "char",
-            "m_Name": "data",
-            "m_Level": 3,
-            "m_MetaFlag": 0
-        },
-        {
-            "m_Type": "string",
-            "m_Name": "bundleVersion",
-            "m_Level": 1,
-            "m_MetaFlag": 0
-        },
-        {
-            "m_Type": "Array",
-            "m_Name": "Array",
-            "m_Level": 2,
-            "m_MetaFlag": 16384
-        },
-        {
-            "m_Type": "int",
-            "m_Name": "size",
-            "m_Level": 3,
-            "m_MetaFlag": 0
-        },
-        {
-            "m_Type": "char",
-            "m_Name": "data",
-            "m_Level": 3,
-            "m_MetaFlag": 0
-        },
-        {
-            "m_Type": "string",
-            "m_Name": "assetHash",
-            "m_Level": 1,
-            "m_MetaFlag": 0
-        },
-        {
-            "m_Type": "Array",
-            "m_Name": "Array",
-            "m_Level": 2,
-            "m_MetaFlag": 16384
-        },
-        {
-            "m_Type": "int",
-            "m_Name": "size",
-            "m_Level": 3,
-            "m_MetaFlag": 0
-        },
-        {
-            "m_Type": "char",
-            "m_Name": "data",
-            "m_Level": 3,
-            "m_MetaFlag": 0
-        },
-        {
-            "m_Type": "string",
-            "m_Name": "clientAppHash",
-            "m_Level": 1,
-            "m_MetaFlag": 0
-        },
-        {
-            "m_Type": "Array",
-            "m_Name": "Array",
-            "m_Level": 2,
-            "m_MetaFlag": 16384
-        },
-        {
-            "m_Type": "int",
-            "m_Name": "size",
-            "m_Level": 3,
-            "m_MetaFlag": 0
-        },
-        {
-            "m_Type": "char",
-            "m_Name": "data",
-            "m_Level": 3,
-            "m_MetaFlag": 0
-        },
-        {
-            "m_Type": "string",
-            "m_Name": "adMobAppId",
-            "m_Level": 1,
-            "m_MetaFlag": 0
-        },
-        {
-            "m_Type": "Array",
-            "m_Name": "Array",
-            "m_Level": 2,
-            "m_MetaFlag": 16384
-        },
-        {
-            "m_Type": "int",
-            "m_Name": "size",
-            "m_Level": 3,
-            "m_MetaFlag": 0
-        },
-        {
-            "m_Type": "char",
-            "m_Name": "data",
-            "m_Level": 3,
-            "m_MetaFlag": 0
-        }
-    ]
-}
