@@ -1,7 +1,7 @@
 # -*- mode: python ; coding: utf-8 -*-
 
 # https://github.com/K0lb3/UnityPy/issues/184
-import UnityPy,archspec, os
+import UnityPy,archspec,GooeyEx, os
 
 module_path_func = lambda module: lambda path: os.path.join(
     os.path.dirname(module.__file__), path
@@ -9,7 +9,7 @@ module_path_func = lambda module: lambda path: os.path.join(
 
 unitypy_path = module_path_func(UnityPy)
 archspec_path = module_path_func(archspec)
-
+gooeyex_path = module_path_func(GooeyEx)
 block_cipher = None
 
 a = Analysis(
@@ -19,6 +19,8 @@ a = Analysis(
     datas=[
         (unitypy_path("resources/*"), "UnityPy/resources"),        
         (archspec_path('json'), 'archspec/json'),
+        (gooeyex_path('images'), 'GooeyEx/images'),
+        (gooeyex_path('languages'), 'GooeyEx/languages'),
     ],
     hiddenimports=[],
     hookspath=[],
