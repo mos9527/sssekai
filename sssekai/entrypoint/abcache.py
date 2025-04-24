@@ -87,7 +87,11 @@ def main_abcache(args):
     except Exception as e:
         logger.error("Failed to load cache from %s: %s", db_path, e)
         logger.warning("Force rebuilding cache from scratch.")
-        args.no_update = False
+        if args.no_update:
+            logger.error(
+                "no_update is specified, but no valid cache file is found. AbCache will not exit."
+            )
+            return
     if args.download_filter_cache_diff:
         diff_path = os.path.abspath(os.path.expanduser(diff_path))
         curr_path = os.path.abspath(os.path.expanduser(db_path))

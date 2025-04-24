@@ -21,6 +21,7 @@ from sssekai.unity import sssekai_set_unity_version
     tabbed_groups=True,
     advanced=True,
     monospace_display=True,
+    default_size=(800, 600),
     menu=[
         {
             "name": "Help",
@@ -40,13 +41,23 @@ from sssekai.unity import sssekai_set_unity_version
     ],
 )
 def __main__():
+    from tqdm.std import tqdm as tqdm_c
+
     parser = create_parser(GooeyParser)
     args = parser.parse_args()
+
+    class TqdmMutexStream:
+        @staticmethod
+        def write(__s):
+            # Gooey[Ex] only reads output from stdout so we'd do that here.
+            with tqdm_c.external_write_mode(file=sys.stdout, nolock=False):
+                return sys.stdout.write(__s)
+
     basicConfig(
         level="DEBUG",
         format="%(asctime)s | %(levelname).1s | %(name)s %(message)s",
         datefmt="%H:%M:%S",
-        stream=sys.stdout,
+        stream=TqdmMutexStream,
     )
     # override unity version
     sssekai_set_unity_version(args.unity_version)

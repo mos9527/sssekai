@@ -117,20 +117,23 @@ def main_apphash(args):
             env = load_assetbundle(BytesIO(f.read()))
 
     from sssekai.generated import UTTCGen_AsInstance
-    from sssekai.generated.Sekai import PlayerSettingConfig
+    from sssekai.generated.Sekai import (
+        AndroidPlayerSettingConfig,
+        IOSPlayerSettingConfig,
+    )
 
-    for pobj in env.objects:
-        if pobj.type == UnityPy.enums.ClassIDType.MonoBehaviour:
-            pname = pobj.peek_name()
-            fullname = {
-                "production_android": "Sekai.AndroidPlayerSettingConfig",
-                "production_ios": "Sekai.IOSPlayerSettingConfig",
+    for reader in env.objects:
+        if reader.type == UnityPy.enums.ClassIDType.MonoBehaviour:
+            pname = reader.peek_name()
+            clazz = {
+                "production_android": AndroidPlayerSettingConfig,
+                "production_ios": IOSPlayerSettingConfig,
             }
-            fullname = fullname.get(pname, None)
-            if fullname:
+            clazz = clazz.get(pname, None)
+            if clazz:
                 # Works with post 3.4 (JP 3rd Anniversary) builds and downstream regional builds
-                config = UTTCGen_AsInstance(pobj, fullname)
-                config: PlayerSettingConfig
+                config = UTTCGen_AsInstance(clazz, reader)
+                config: AndroidPlayerSettingConfig | IOSPlayerSettingConfig
                 app_version = "%s.%s.%s" % (
                     config.clientMajorVersion,
                     config.clientMinorVersion,
