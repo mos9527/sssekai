@@ -33,7 +33,7 @@ setuptools.setup(
         "coloredlogs",
         "requests",
     ],
-    extras_require={"gui": ["GooeyEx>=0.0.6"]},
+    extras_require={"gui": ["GooeyEx>=0.0.7"]},
     entry_points={
         "console_scripts": [
             "sssekai = sssekai.__main__:__main__",

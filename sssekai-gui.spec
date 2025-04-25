@@ -21,6 +21,7 @@ a = Analysis(
         (archspec_path('json'), 'archspec/json'),
         (gooeyex_path('images'), 'GooeyEx/images'),
         (gooeyex_path('languages'), 'GooeyEx/languages'),
+        (gooeyex_path('rewx'), 'GooeyEx/rewx'),
     ],
     hiddenimports=[],
     hookspath=[],
