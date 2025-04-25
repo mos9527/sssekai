@@ -74,7 +74,6 @@ def main_apphash(args):
             )
             size = resp.headers.get("Content-Length", -1)
             with tqdm(total=int(size), unit="B", unit_scale=True) as progress:
-                progress.sp = print
                 for chunck in resp.iter_content(chunk_size=2**20):
                     src.write(chunck)
                     progress.update(len(chunck))
