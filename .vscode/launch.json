@@ -37,6 +37,13 @@
             "justMyCode": false
         },
         {
+            "name": "Python: AbCache test",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "tests.test_abcache",
+            "justMyCode": false
+        },
+        {
             "name": "Python: Current File",
             "type": "python",
             "request": "launch",
@@ -85,13 +92,11 @@
                 "--app-region",
                 "tw",
                 "--app-version",
-                "3.4.2",
+                "4.1.1",
                 "--app-appHash",
-                "a3015fe8-785f-27e1-fb8b-546a23c82c1f",
+                "41fd71f2-f715-bc10-5852-0a9d8542f760",
                 "--app-abVersion",
-                "3.4.0",
-                "--dump-user-data",
-                "~/.sssekai/tw_user"
+                "4.1.0",
             ],
             "justMyCode": true
         },
@@ -109,7 +114,8 @@
                 "--app-version",
                 "3.4.3",
                 "--app-appHash",
-                "a3015fe8-785f-27e1-fb8b-546a23c82c1f""--app-abVersion",
+                "a3015fe8-785f-27e1-fb8b-546a23c82c1f",
+                "--app-abVersion",
                 "3.4.0"
             ],
             "justMyCode": true
@@ -277,6 +283,18 @@
             "justMyCode": true
         },
         {
+            "name": "Python: apphash TW w/ metadata",
+            "type": "python",
+            "request": "launch",
+            "module": "sssekai",
+            "args": [
+                "apphash",
+                "--apk-src",
+                "/Users/mos9527/sekai-apphash/tw/tw.apk"
+            ],
+            "justMyCode": true
+        },
+        {
             "name": "Python: usmdemux",
             "type": "python",
             "request": "launch",
@@ -335,6 +353,7 @@
             "justMyCode": false,
             "args": []
         },
+        
         {
             "name": "Python: RLA Test (Single File)",
             "type": "python",

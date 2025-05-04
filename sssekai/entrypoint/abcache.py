@@ -110,7 +110,7 @@ def main_abcache(args):
         config.ab_version = args.app_abVersion
         config.auth_credential = config.auth_credential or args.auth_credential
         if not config.auth_available and not args.no_update:
-            logger.warning("No auth info provided.")
+            logger.warning("No *valid* auth info provided.")
             # Register as anonymous user in this case
             if config.app_region in REGION_JP_EN:
                 from sssekai.abcache.auth import sega_register_anonymous_user
@@ -118,7 +118,7 @@ def main_abcache(args):
                 logger.warning("Registering as an anonymous user on SEGA servers.")
                 sega_register_anonymous_user(cache)
             else:
-                logger.warning("No auth info provided for ROW region.")
+                logger.warning("No *valid* auth info provided for ROW region.")
                 logger.warning(
                     "Anonymous user registration is not supported for those regions. You may encounter errors."
                 )

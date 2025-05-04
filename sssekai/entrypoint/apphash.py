@@ -19,6 +19,7 @@ REGION_MAP = {
     "com.sega.pjsekai": "jp",
     "com.pjsekai.kr": "kr",
 }
+ROW_REGIONS = {"cn", "tw", "kr"}
 logger = logging.getLogger("apphash")
 
 
@@ -56,12 +57,34 @@ def dump_axml_stringpool(f: BytesIO):
         yield string
 
 
+def dump_metadata_stringpool(f: BytesIO):
+    metadata = f.read()
+    metadata = metadata[metadata.find(b"\xaf\x1b\xb1\xfa") :]
+    f = BytesIO(metadata)
+    read_int = lambda nbytes: int.from_bytes(f.read(nbytes), "little")
+    assert read_int(4) == 0xFAB11BAF, "bad sanity"
+    logger.info("metadata version: %s" % read_int(4))
+    stringLiteralOffset = read_int(4)  # string data for managed code
+    stringLiteralSize = read_int(4)
+    stringLiteralDataOffset = read_int(4)
+    stringLiteralDataSize = read_int(4)
+    f.seek(stringLiteralOffset)
+    stringLiterals = [
+        (read_int(4), read_int(4)) for _ in range(stringLiteralSize // 8)
+    ]  # length, dataIndex
+    for length, dataIndex in stringLiterals:
+        f.seek(stringLiteralDataOffset + dataIndex)
+        string = f.read(length)
+        yield string.decode("utf-8")
+    pass
+
+
 def main_apphash(args):
     env = UnityPy.Environment()
     app_package = None
     app_version = "unknown"
     app_hash = "unknown"
-
+    app_metadata_strings = None
     if not args.ab_src:
         if not args.apk_src or args.fetch:
             from requests import get
@@ -95,6 +118,20 @@ def main_apphash(args):
                 if ky in manifest_strings:
                     app_package = ky
                     break
+            # if REGION_MAP[app_package] in ROW_REGIONS:
+            #     metadata = [
+            #         meta
+            #         for package in enum_package(zip_ref)
+            #         for meta in enum_candidates(
+            #             package,
+            #             lambda fn: fn.endswith("global-metadata.dat"),
+            #         )
+            #     ]
+            #     if metadata:
+            #         metadata = metadata[0][1]
+            #         metadata_strings = list(dump_metadata_stringpool(metadata))
+            #     app_metadata_strings = [s for s in metadata_strings if "bytedgame" in s]
+            #     pass
             candidates = [
                 candidate
                 for package in enum_package(zip_ref)

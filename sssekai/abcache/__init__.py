@@ -84,10 +84,15 @@ class AbCacheConfig:
         if self.app_region in REGION_JP_EN:
             return self.auth_credential
         else:
-            return b64decode(self.auth_credential).decode()
+            try:
+                return b64decode(self.auth_credential).decode()
+            except:
+                return None
 
     @property
     def auth_jwt_payload(self) -> dict:
+        if not self.auth_jwt:
+            return {}
         header, payload, signature = self.auth_jwt.split(".")
         return json.loads(b64decode(payload + "=="))
 
@@ -97,7 +102,7 @@ class AbCacheConfig:
 
     @property
     def auth_available(self):
-        return self.auth_credential is not None
+        return self.auth_userID is not None
 
     @property
     def cache_version(self):
@@ -122,8 +127,8 @@ class AbCacheEntry(dict):
     crc: int
     fileSize: int
     dependencies: List[str]
-    paths: List[str]
     isBuiltin: bool
+    paths: Optional[List[str]] = None  # Removed in ROW
     # ROW only
     md5Hash: Optional[str] = None
     downloadPath: Optional[str] = None
@@ -221,6 +226,7 @@ class SekaiUserAuthData:
     obtainedBondsRewardIds: Optional[list] = None  # JP 4.0+
 
     # ROW
+    cdnVersion: Optional[int] = None
     configs: Optional[List[dict]] = None
 
 
@@ -286,21 +292,54 @@ class AbCache(Session):
                 raise NotImplementedError
 
     @property
+    def SEKAI_AB_ROW_CDN(self):
+        match self.config.app_region:
+            case "tw":
+                return "https://lf16-mkovscdn-sg.bytedgame.com/obj/sf-game-alisg/gdl_app_5245"
+            case "kr":
+                return (
+                    "https://lf19-mkkr.bytedgame.com/obj/sf-game-alisg/gdl_app_292248"
+                )
+            case "cn":
+                return "https://lf3-mkcncdn-tos.dailygn.com/obj/sf-game-lf/gdl_app_5236"
+            case _:
+                raise NotImplementedError
+
+    @property
+    def SEKAI_AB_ROW_PATH(self):
+        match self.config.app_region:
+            case "tw":
+                return "online"
+            case "kr":
+                return "kr_online"
+            case "cn":
+                return "cn_online1"
+            case _:
+                raise NotImplementedError
+
+    @cached_property
+    def SEKAI_AB_ROW_VERSION_NUMBER(self):
+        url = f"{self.SEKAI_AB_ROW_CDN.replace('sf-game','rt-game')}"
+        if self.config.app_region in {"cn"}:
+            url = f"{url}/Mainland"
+        else:
+            url = f"{url}/Oversea"
+        url = f"{url}/{self.SEKAI_AB_VERSION}/Release/{self.SEKAI_AB_ROW_PATH}/{self.SEKAI_APP_PLATFORM}/version"
+        resp = self.request("GET", url)
+        resp.raise_for_status()
+        return int(resp.text)
+
+    @property
     def SEKAI_AB_INFO_ENDPOINT(self):
         match self.config.app_region:
             case "jp":
-                return f"https://production-{self.SEKAI_AB_HOST_HASH}-assetbundle-info.sekai.colorfulpalette.org/api/version/{self.SEKAI_ASSET_VERSION}/os/{self.config.app_platform}"
+                return f"https://production-{self.SEKAI_AB_HOST_HASH}-assetbundle-info.sekai.colorfulpalette.org/api/version/{self.SEKAI_ASSET_VERSION}/{self.SEKAI_AB_HASH}/os/{self.config.app_platform}"
             case "en":
                 return f"https://assetbundle-info.sekai-en.com/api/version/{self.SEKAI_ASSET_VERSION}/os/{self.config.app_platform}"
-            case "tw":  # NOTE: Android only
-                return f"https://lf16-mkovscdn-sg.bytedgame.com/obj/sf-game-alisg/gdl_app_5245/AssetBundle/{self.config.ab_version or self.config.app_version}/Release/online/android71/AssetBundleInfoNew.json"
-            case "kr":  # NOTE: Android only
-                return f"https://lf16-mkkr.bytedgame.com/obj/sf-game-alisg/gdl_app_292248/AssetBundle/{self.config.ab_version or self.config.app_version}/Release/kr_online/android63/AssetBundleInfoNew.json"
-            case "cn":  # NOTE: Android only
-                # https://github.com/mos9527/sssekai/issues/28
-                return f"https://lf3-mkcncdn-tos.dailygn.com/obj/sf-game-lf/gdl_app_5236/AssetBundle/{self.config.ab_version or self.config.app_version}/Release/cn_online1/android91/AssetBundleInfoNew.json"
-            case _:
-                raise NotImplementedError
+        if self.config.app_region in REGION_ROW:
+            return f"{self.SEKAI_AB_ROW_CDN}/AssetBundle/{self.SEKAI_AB_VERSION}/Release/{self.SEKAI_AB_ROW_PATH}/{self.SEKAI_APP_PLATFORM}{self.SEKAI_AB_ROW_VERSION_NUMBER}/AssetBundleInfoNew.json"
+        else:
+            raise NotImplementedError
 
     @property
     def SEKAI_AB_ENDPOINT(self):
@@ -309,15 +348,10 @@ class AbCache(Session):
                 return f"https://production-{self.SEKAI_AB_HOST_HASH}-assetbundle.sekai.colorfulpalette.org/"
             case "en":
                 return f"https://assetbundle.sekai-en.com/"
-            case "tw":  # NOTE: Android only
-                return f"https://lf16-mkovscdn-sg.bytedgame.com/obj/sf-game-alisg/gdl_app_5245/AssetBundle/{self.config.ab_version or self.config.app_version}/Release/online/"
-            case "kr":  # NOTE: Android only
-                return f"https://lf16-mkkr.bytedgame.com/obj/sf-game-alisg/gdl_app_292248/AssetBundle/{self.config.ab_version or self.config.app_version}/Release/kr_online/"
-            case "cn":  # NOTE: Android only
-                # https://github.com/mos9527/sssekai/issues/28
-                return f"https://lf3-j1gamecdn-cn.dailygn.com/obj/sf-game-lf/gdl_app_5236/AssetBundle/{self.config.ab_version or self.config.app_version}/Release/cn_online1/"
-            case _:
-                raise NotImplementedError
+        if self.config.app_region in REGION_ROW:
+            return f"{self.SEKAI_AB_ROW_CDN}/AssetBundle/{self.SEKAI_AB_VERSION}/Release/{self.SEKAI_AB_ROW_PATH}"
+        else:
+            raise NotImplementedError
 
     def _update_request_headers(self):
         self.headers.update(
@@ -346,6 +380,10 @@ class AbCache(Session):
     @property
     def SEKAI_APP_VERSION(self):
         return self.config.app_version
+
+    @property
+    def SEKAI_AB_VERSION(self):
+        return self.config.ab_version or self.SEKAI_APP_VERSION
 
     @property
     def SEKAI_APP_PLATFORM(self):
@@ -431,21 +469,11 @@ class AbCache(Session):
                     f"{self.SEKAI_API_ENDPOINT}/api/{path}"
                     for path in self.database.sekai_user_auth_data.suiteMasterSplitPath
                 ]
-            # NOTE: All ROW servers have hardcoded master data URLs in *one* file as of the time of writing.
-            # NOTE: Some of the MessagePack schemas is also *omitted* in these endpoints. Good luck parsing them.
-            case "tw":
-                return [
-                    "https://lf21-mkovscdn-sg.bytedgame.com/obj/sf-game-alisg/gdl_app_5245/MasterData/60001/master-data-138.info"
-                ]
-            case "kr":
-                return [
-                    "https://lf19-mkkr.bytedgame.com/obj/sf-game-alisg/gdl_app_292248/MasterData/60001/master-data-158.info"
-                ]
-            case "cn":
-                # Verified by https://github.com/mos9527/sssekai/issues/24
-                return [
-                    "https://lf3-mkcncdn-tos.dailygn.com/obj/sf-game-lf/gdl_app_5236/MasterData/60001/master-data-13.info"
-                ]
+        if self.config.app_region in REGION_ROW:
+            self.raise_for_auth()
+            return f"{self.SEKAI_AB_ROW_CDN}/{self.SEKAI_AB_ROW_PATH}/master-data-{self.database.sekai_user_auth_data.cdnVersion}.info"
+        else:
+            raise NotImplementedError
 
     @property
     def SEKAI_API_INFORMATION(self):
