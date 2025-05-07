@@ -97,6 +97,10 @@
                 "41fd71f2-f715-bc10-5852-0a9d8542f760",
                 "--app-abVersion",
                 "4.1.0",
+                "--download-filter",
+                ".*/stage_decoration/.*",
+                "--download-dir",
+                "~/.sssekai",
             ],
             "justMyCode": true
         },

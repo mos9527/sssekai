@@ -349,7 +349,7 @@ class AbCache(Session):
             case "en":
                 return f"https://assetbundle.sekai-en.com/"
         if self.config.app_region in REGION_ROW:
-            return f"{self.SEKAI_AB_ROW_CDN}/AssetBundle/{self.SEKAI_AB_VERSION}/Release/{self.SEKAI_AB_ROW_PATH}"
+            return f"{self.SEKAI_AB_ROW_CDN}/AssetBundle/{self.SEKAI_AB_VERSION}/Release/{self.SEKAI_AB_ROW_PATH}/"
         else:
             raise NotImplementedError
 
