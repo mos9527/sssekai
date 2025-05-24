@@ -1,6 +1,6 @@
-import codecs
-import sys, os
 import argparse
+import sys
+
 from sssekai.entrypoint.apidecrypt import main_apidecrypt
 from sssekai.entrypoint.abdecrypt import main_abdecrypt
 from sssekai.entrypoint.rla2json import main_rla2json
@@ -327,6 +327,12 @@ This crypto applies to:
         choices=["markdown", "json"],
         help="output format",
         default="markdown",
+    )
+    apphash_parser.add_argument(
+        "--proxy",
+        type=str,
+        help="http proxy for fetching the APK",
+        default=None,
     )
     apphash_parser.set_defaults(func=main_apphash)
     # mvdata
