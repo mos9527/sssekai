@@ -59,7 +59,7 @@ def dump_axml_stringpool(f: BytesIO):
 
 def dump_metadata_stringpool(f: BytesIO):
     metadata = f.read()
-    metadata = metadata[metadata.find(b"\xaf\x1b\xb1\xfa"):]
+    metadata = metadata[metadata.find(b"\xaf\x1b\xb1\xfa") :]
     f = BytesIO(metadata)
     read_int = lambda nbytes: int.from_bytes(f.read(nbytes), "little")
     assert read_int(4) == 0xFAB11BAF, "bad sanity"
@@ -87,9 +87,8 @@ def main_apphash(args):
     app_metadata_strings = None
     proxies = None
     if args.proxy:
-        proxies = {
-            "http": args.proxy, "https": args.proxy
-        }
+        logger.info("Overriding proxy: %s", args.proxy)
+        proxies = {"http": args.proxy, "https": args.proxy}
     if not args.ab_src:
         if not args.apk_src or args.fetch:
             from requests import get
@@ -99,11 +98,11 @@ def main_apphash(args):
             resp = get(
                 "https://d.apkpure.net/b/XAPK/com.sega.pjsekai?version=latest",
                 stream=True,
-                proxies=proxies
+                proxies=proxies,
             )
             size = resp.headers.get("Content-Length", -1)
             with tqdm(total=int(size), unit="B", unit_scale=True) as progress:
-                for chunk in resp.iter_content(chunk_size=2 ** 20):
+                for chunk in resp.iter_content(chunk_size=2**20):
                     src.write(chunk)
                     progress.update(len(chunk))
             src.seek(0)
@@ -144,11 +143,11 @@ def main_apphash(args):
                 for candidate in enum_candidates(
                     package,
                     lambda fn: fn.split("/")[-1]
-                               in {
-                                   "6350e2ec327334c8a9b7f494f344a761",  # PJSK Android
-                                   "c726e51b6fe37463685916a1687158dd",  # PJSK iOS
-                                   "data.unity3d",  # TW,KR,CN (ByteDance)
-                               },
+                    in {
+                        "6350e2ec327334c8a9b7f494f344a761",  # PJSK Android
+                        "c726e51b6fe37463685916a1687158dd",  # PJSK iOS
+                        "data.unity3d",  # TW,KR,CN (ByteDance)
+                    },
                 )
             ]
             for candidate, stream, _ in candidates:
@@ -216,7 +215,7 @@ def main_apphash(args):
                 # Only keep the Android one
                 if pname == "production_android":
                     app_package = (
-                            app_package or "Unknown Package (Failed APK Heuristic)"
+                        app_package or "Unknown Package (Failed APK Heuristic)"
                     )
                     # fmt: off
                     match args.format:

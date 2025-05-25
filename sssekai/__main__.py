@@ -101,6 +101,12 @@ This crypto applies to:
     abcache_parser = subparsers.add_parser(
         "abcache", usage="""Sekai AssetBundle Metadata Cache / Game API Helper"""
     )
+    abcache_parser.add_argument(
+        "--proxy",
+        type=str,
+        help="HTTP Proxy to use. This overrides the system proxy (environ HTTP_PROXY, HTTPS_PROXY) settings.",
+        default=None,
+    )
     group = abcache_parser.add_argument_group("save/load options")
     group.add_argument(
         "--db",
@@ -331,7 +337,7 @@ This crypto applies to:
     apphash_parser.add_argument(
         "--proxy",
         type=str,
-        help="http proxy for fetching the APK",
+        help="HTTP Proxy to use. This overrides the system proxy (environ HTTP_PROXY, HTTPS_PROXY) settings.",
         default=None,
     )
     apphash_parser.set_defaults(func=main_apphash)
