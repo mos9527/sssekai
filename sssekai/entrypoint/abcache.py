@@ -92,6 +92,9 @@ def main_abcache(args):
                 "no_update is specified, but no valid cache file is found. AbCache will not exit."
             )
             return
+    if args.proxy:
+        logger.info("Overriding proxy: %s", args.proxy)
+        cache.proxies = {"http": args.proxy, "https": args.proxy}
     if args.download_filter_cache_diff:
         diff_path = os.path.abspath(os.path.expanduser(diff_path))
         curr_path = os.path.abspath(os.path.expanduser(db_path))

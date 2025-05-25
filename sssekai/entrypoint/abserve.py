@@ -94,6 +94,9 @@ def main_abserve(args):
 
     db_path = os.path.expanduser(os.path.normpath(args.db))
     fs = fsspec.filesystem("abcache", fo=db_path)
+    if args.proxy:
+        logger.info("Overriding proxy: %s", args.proxy)
+        fs.cache.proxies = {"http": args.proxy, "https": args.proxy}
     if args.fuse:
         import fsspec.fuse
 

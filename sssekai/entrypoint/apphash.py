@@ -85,6 +85,10 @@ def main_apphash(args):
     app_version = "unknown"
     app_hash = "unknown"
     app_metadata_strings = None
+    proxies = None
+    if args.proxy:
+        logger.info("Overriding proxy: %s", args.proxy)
+        proxies = {"http": args.proxy, "https": args.proxy}
     if not args.ab_src:
         if not args.apk_src or args.fetch:
             from requests import get
@@ -94,12 +98,13 @@ def main_apphash(args):
             resp = get(
                 "https://d.apkpure.net/b/XAPK/com.sega.pjsekai?version=latest",
                 stream=True,
+                proxies=proxies,
             )
             size = resp.headers.get("Content-Length", -1)
             with tqdm(total=int(size), unit="B", unit_scale=True) as progress:
-                for chunck in resp.iter_content(chunk_size=2**20):
-                    src.write(chunck)
-                    progress.update(len(chunck))
+                for chunk in resp.iter_content(chunk_size=2**20):
+                    src.write(chunk)
+                    progress.update(len(chunk))
             src.seek(0)
         else:
             src = open(args.apk_src, "rb")
@@ -229,8 +234,8 @@ def main_apphash(args):
 Reported Package: {config.bundleIdentifier}
 
 |{'app_hash'.rjust(48)}|   app_region|  app_version|   ab_version|
-|{   '-'.rjust(48,'-')}|-------------|-------------|-------------|
-|{  app_hash.rjust(48)}|{region.rjust(13)}|{app_version.rjust(13)}|{ab_version.rjust(13)}|
+|{'-'.rjust(48, '-')}|-------------|-------------|-------------|
+|{app_hash.rjust(48)}|{region.rjust(13)}|{app_version.rjust(13)}|{ab_version.rjust(13)}|
 
 - CLI Usage:
 

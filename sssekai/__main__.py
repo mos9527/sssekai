@@ -1,6 +1,6 @@
-import codecs
-import sys, os
 import argparse
+import sys
+
 from sssekai.entrypoint.apidecrypt import main_apidecrypt
 from sssekai.entrypoint.abdecrypt import main_abdecrypt
 from sssekai.entrypoint.rla2json import main_rla2json
@@ -100,6 +100,12 @@ This crypto applies to:
     # abcache
     abcache_parser = subparsers.add_parser(
         "abcache", usage="""Sekai AssetBundle Metadata Cache / Game API Helper"""
+    )
+    abcache_parser.add_argument(
+        "--proxy",
+        type=str,
+        help="HTTP Proxy to use. This overrides the system proxy (environ HTTP_PROXY, HTTPS_PROXY) settings.",
+        default=None,
     )
     group = abcache_parser.add_argument_group("save/load options")
     group.add_argument(
@@ -327,6 +333,12 @@ This crypto applies to:
         choices=["markdown", "json"],
         help="output format",
         default="markdown",
+    )
+    apphash_parser.add_argument(
+        "--proxy",
+        type=str,
+        help="HTTP Proxy to use. This overrides the system proxy (environ HTTP_PROXY, HTTPS_PROXY) settings.",
+        default=None,
     )
     apphash_parser.set_defaults(func=main_apphash)
     # mvdata
