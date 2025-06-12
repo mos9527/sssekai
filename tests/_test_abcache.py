@@ -1,8 +1,10 @@
+# Test with:
+# pytest -v -s .\tests\_test_abcache.py
 from . import *
 import traceback
 
 CONFIG = "https://raw.githubusercontent.com/mos9527/sekai-apphash/refs/heads/master/%(region)s/apphash.json"
-REGIONS = ["cn", "jp", "en", "tw", "kr"]
+REGIONS = ["en", "cn", "jp", "tw", "kr"]
 
 from requests import get
 

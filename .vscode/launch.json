@@ -370,7 +370,7 @@
             ]
         },
         {
-            "name": "Python: AbCache (Override Asset Version)",
+            "name": "Python: AbCache (Override EN Asset Version)",
             "type": "python",
             "request": "launch",
             "module": "sssekai",
@@ -380,14 +380,38 @@
                 "abcache",
                 "--app-region",
                 "en",
-                "--app-version",
-                "3.6.0",
-                "--app-appHash",
-                "a3015fe8-785f-27e1-fb8b-546a23c82c1f",
+                // "--app-version",
+                // "3.6.0",
+                // "--app-appHash",
+                // "a3015fe8-785f-27e1-fb8b-546a23c82c1f",
                 "--app-asset-version",
                 "3.7.0.0",
                 "--app-asset-hash",
                 "d2e5b1bb-d0d4-4535-99ca-bd84ae291a9d"
+            ],
+            "justMyCode": true
+        },
+        {
+            "name": "Python: AbCache (Override JP Asset Version)",
+            "type": "python",
+            "request": "launch",
+            "module": "sssekai",
+            "args": [
+                "--log-level",
+                "DEBUG",
+                "abcache",
+                "--app-region",
+                "jp",
+                // "--app-version",
+                // "5.3.0",
+                // "--app-appHash",
+                // "2a9bb18f-c309-1993-5b6e-9f25ddc88be3",
+                "--app-asset-version",
+                "5.3.0.90",
+                "--app-asset-hash",
+                "7f2ebd91-ce39-6ea2-20b2-e05d2872e9e6",
+                "--app-asset-host",
+                "cf2d2388"
             ],
             "justMyCode": true
         },

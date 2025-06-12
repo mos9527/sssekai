@@ -327,7 +327,7 @@ class AbCache(Session):
             case "kr":
                 return "kr_online"
             case "cn":
-                return "cn_online1"
+                return "cn_online"
             case _:
                 raise NotImplementedError
 

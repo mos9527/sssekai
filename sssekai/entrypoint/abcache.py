@@ -109,10 +109,10 @@ def main_abcache(args):
                 logger.warning("No *valid* auth info provided.")
                 # Register as anonymous user in this case
                 if config.app_region in REGION_JP_EN:
-                    from sssekai.abcache.auth import sega_register_anonymous_user
+                    from sssekai.abcache.auth import register_as_anonymous_user_sega
 
                     logger.warning("Registering as an anonymous user on SEGA servers.")
-                    sega_register_anonymous_user(cache)
+                    register_as_anonymous_user_sega(cache)
                 else:
                     logger.warning("No *valid* auth info provided for ROW region.")
                     logger.warning(
@@ -138,8 +138,7 @@ def main_abcache(args):
         config.asset_hash = args.app_asset_hash
         config.asset_host = args.app_asset_host
         config.asset_version = args.app_asset_version
-
-        config.auth_credential = config.auth_credential or args.auth_credential
+        config.auth_credential = args.auth_credential
 
     if args.dump_master_data:
         if config.app_region in REGION_JP_EN:
@@ -158,6 +157,7 @@ def main_abcache(args):
         return
 
     if args.dump_user_data:
+        assert try_auth(), "Cannot dump user data without valid auth info."
         cache.update_client_headers()
         user_data_path = os.path.expanduser(args.dump_user_data)
         os.makedirs(user_data_path, exist_ok=True)
@@ -172,6 +172,10 @@ def main_abcache(args):
         if config.app_region in {"jp"}:
             cache.update_signatures()
         if config.need_client_header_update:
+            if config.app_region in REGION_JP_EN:
+                assert (
+                    try_auth()
+                ), "Cannot update client headers without auth info. NOTE: You can fill in the EN/JP override fields (`--app-asset-...`) to bypass auth."
             cache.update_client_headers()
         cache.update_abcache_index()
         if os.path.dirname(db_path):
