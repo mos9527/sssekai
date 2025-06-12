@@ -141,13 +141,13 @@ This crypto applies to:
     group.add_argument(
         "--app-version",
         type=str,
-        help="PJSK app version. This is required unless --no-update is specified",
+        help="PJSK app version. For assets this is required unless --no-update is specified, or for EN/JP requisite --app-asset..fields are filled. For other functions this is required unless --no-update is specified",
         default="",
     )
     group.add_argument(
         "--app-appHash",
         type=str,
-        help="PJSK app hash. This is required unless --no-update is specified",
+        help="PJSK app hash. For assets this is required unless --no-update is specified, or for EN/JP requisite --app-asset..fields are filled. For other functions this is required unless --no-update is specified",
         default="",
     )
     group = abcache_parser.add_argument_group("ROW specific options")
