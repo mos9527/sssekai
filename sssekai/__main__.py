@@ -150,10 +150,30 @@ This crypto applies to:
         help="PJSK app hash. This is required unless --no-update is specified",
         default="",
     )
+    group = abcache_parser.add_argument_group("ROW specific options")
     group.add_argument(
         "--app-abVersion",
         type=str,
-        help="PJSK AssetBundle URL version. This is used for ROW servers since it may differ.",
+        help="PJSK AssetBundle URL version. ROW servers only - This is required unless --no-update is specified",
+        default=None,
+    )
+    group = abcache_parser.add_argument_group("EN/JP specific options")
+    group.add_argument(
+        "--app-asset-host",
+        type=str,
+        help="Override AssetBundle host URL. EN/JP servers only.",
+        default=None,
+    )
+    group.add_argument(
+        "--app-asset-version",
+        type=str,
+        help="Override AssetBundle source version. EN/JP servers only.",
+        default=None,
+    )
+    group.add_argument(
+        "--app-asset-hash",
+        type=str,
+        help="Override AssetBundle hash. EN/JP servers only.",
         default=None,
     )
     group = abcache_parser.add_argument_group("download options")

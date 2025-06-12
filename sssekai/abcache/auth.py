@@ -4,7 +4,7 @@ from logging import getLogger
 logger = getLogger(__name__)
 
 
-def sega_register_anonymous_user(cache: AbCache) -> SekaiUserData:
+def register_as_anonymous_user_sega(cache: AbCache) -> SekaiUserData:
     """Registers an anonymous account on SEGA servers, and writes relavant data to the AbCacheobject.
 
     Args:

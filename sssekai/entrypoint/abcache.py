@@ -4,6 +4,7 @@ from sssekai.abcache.fs import AbCacheFilesystem, AbCacheFile
 from concurrent.futures import ThreadPoolExecutor
 from requests import Session
 from tqdm import tqdm
+from functools import cache
 
 DEFAULT_CACHE_DB_FILE = "~/.sssekai/abcache.db"
 
@@ -101,42 +102,50 @@ def main_abcache(args):
         assert (
             diff_path != curr_path
         ), "Cache diff path must be different from current cache path! Make a copy of the diff cache if this is required."
+
+    def try_auth():
+        try:
+            if not config.auth_available:
+                logger.warning("No *valid* auth info provided.")
+                # Register as anonymous user in this case
+                if config.app_region in REGION_JP_EN:
+                    from sssekai.abcache.auth import sega_register_anonymous_user
+
+                    logger.warning("Registering as an anonymous user on SEGA servers.")
+                    sega_register_anonymous_user(cache)
+                else:
+                    logger.warning("No *valid* auth info provided for ROW region.")
+                    logger.warning(
+                        "Anonymous user registration is not supported for those regions. You may encounter errors."
+                    )
+            else:
+                if config.auth_available:
+                    logger.info(
+                        "Using cached auth credential. UserId=%s" % cache.SEKAI_USERID
+                    )
+            return config.auth_available
+        except Exception as e:
+            logger.error("Failed to authenticate: %s", e)
+            return False
+
     if not args.no_update:
-        assert (
-            args.app_version and args.app_appHash
-        ), "You need --app-version and --app-appHash to perform a cache update!"
         config = cache.config
         config.app_region = args.app_region
         config.app_version = args.app_version
         config.app_platform = args.app_platform
         config.app_hash = args.app_appHash
-        config.ab_version = args.app_abVersion
-        config.auth_credential = config.auth_credential or args.auth_credential
-        if not config.auth_available and not args.no_update:
-            logger.warning("No *valid* auth info provided.")
-            # Register as anonymous user in this case
-            if config.app_region in REGION_JP_EN:
-                from sssekai.abcache.auth import sega_register_anonymous_user
+        config.row_ab_version = args.app_abVersion
+        config.asset_hash = args.app_asset_hash
+        config.asset_host = args.app_asset_host
+        config.asset_version = args.app_asset_version
 
-                logger.warning("Registering as an anonymous user on SEGA servers.")
-                sega_register_anonymous_user(cache)
-            else:
-                logger.warning("No *valid* auth info provided for ROW region.")
-                logger.warning(
-                    "Anonymous user registration is not supported for those regions. You may encounter errors."
-                )
-        else:
-            if config.auth_available:
-                logger.info(
-                    "Using cached auth credential. UserId=%s" % cache.SEKAI_USERID
-                )
-        if os.path.dirname(db_path):
-            os.makedirs(os.path.dirname(db_path), exist_ok=True)
-        with open(db_path, "wb") as f:
-            cache.update()
-            cache.save(f)
+        config.auth_credential = config.auth_credential or args.auth_credential
 
     if args.dump_master_data:
+        if config.app_region in REGION_JP_EN:
+            assert (
+                try_auth()
+            ), "Cannot dump master data without valid auth info in EN/JP servers."
         cache.update_client_headers()
         master_data_path = os.path.expanduser(args.dump_master_data)
         os.makedirs(master_data_path, exist_ok=True)
@@ -147,6 +156,7 @@ def main_abcache(args):
                 cache.response_to_dict(resp), master_data_path, args.keep_compact
             )
         return
+
     if args.dump_user_data:
         cache.update_client_headers()
         user_data_path = os.path.expanduser(args.dump_user_data)
@@ -156,8 +166,20 @@ def main_abcache(args):
         dump_dict_by_keys(
             cache.response_to_dict(resp), user_data_path, args.keep_compact
         )
+        return
+
+    if not args.no_update:
+        if config.app_region in {"jp"}:
+            cache.update_signatures()
+        if config.need_client_header_update:
+            cache.update_client_headers()
+        cache.update_abcache_index()
+        if os.path.dirname(db_path):
+            os.makedirs(os.path.dirname(db_path), exist_ok=True)
+        with open(db_path, "wb") as f:
+            cache.save(f)
+
     if args.download_dir:
-        cache.update_client_headers()
         download_dir = os.path.expanduser(args.download_dir)
         bundles = set()
 
