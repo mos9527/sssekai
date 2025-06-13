@@ -141,19 +141,39 @@ This crypto applies to:
     group.add_argument(
         "--app-version",
         type=str,
-        help="PJSK app version. This is required unless --no-update is specified",
+        help="PJSK app version. For assets this is required unless --no-update is specified, or for EN/JP requisite --app-asset..fields are filled. For other functions this is required unless --no-update is specified",
         default="",
     )
     group.add_argument(
         "--app-appHash",
         type=str,
-        help="PJSK app hash. This is required unless --no-update is specified",
+        help="PJSK app hash. For assets this is required unless --no-update is specified, or for EN/JP requisite --app-asset..fields are filled. For other functions this is required unless --no-update is specified",
         default="",
     )
+    group = abcache_parser.add_argument_group("ROW specific options")
     group.add_argument(
         "--app-abVersion",
         type=str,
-        help="PJSK AssetBundle URL version. This is used for ROW servers since it may differ.",
+        help="PJSK AssetBundle URL version. ROW servers only - This is required unless --no-update is specified",
+        default=None,
+    )
+    group = abcache_parser.add_argument_group("EN/JP specific options")
+    group.add_argument(
+        "--app-asset-host",
+        type=str,
+        help="Override AssetBundle host URL. EN/JP servers only.",
+        default=None,
+    )
+    group.add_argument(
+        "--app-asset-version",
+        type=str,
+        help="Override AssetBundle source version. EN/JP servers only.",
+        default=None,
+    )
+    group.add_argument(
+        "--app-asset-hash",
+        type=str,
+        help="Override AssetBundle hash. EN/JP servers only.",
         default=None,
     )
     group = abcache_parser.add_argument_group("download options")

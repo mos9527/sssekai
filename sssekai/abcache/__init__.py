@@ -74,8 +74,13 @@ class AbCacheConfig:
     app_platform: str
     app_hash: str
 
-    ab_version: str = None  # Override AB version in url for ROW
     auth_credential: str = None  # JWT token for JP/EN, Base64 encoded JWT token for ROW
+
+    row_ab_version: str = None  # Override AB version in url for ROW
+
+    asset_host: str = None  # Override AssetBundle host for EN/JP
+    asset_version: str = None  # Override AssetBundle version for EN/JP
+    asset_hash: str = None  # Override AssetBundle hash for EN/JP
 
     version: Tuple[int, int, int] = (0, 0, 0)  # Internal versioning
 
@@ -115,6 +120,15 @@ class AbCacheConfig:
     @property
     def is_up_to_date(self):
         return self.cache_version == __version_tuple__
+
+    @property
+    def need_client_header_update(self):
+        if self.app_region in REGION_JP_EN:
+            if self.app_region in {"jp"}:
+                return not (self.asset_hash and self.asset_host and self.asset_version)
+            else:
+                return not (self.asset_hash and self.asset_version)
+        return False
 
 
 @dataclass
@@ -313,7 +327,7 @@ class AbCache(Session):
             case "kr":
                 return "kr_online"
             case "cn":
-                return "cn_online1"
+                return "cn_online"
             case _:
                 raise NotImplementedError
 
@@ -324,7 +338,7 @@ class AbCache(Session):
             url = f"{url}/Mainland"
         else:
             url = f"{url}/Oversea"
-        url = f"{url}/{self.SEKAI_AB_VERSION}/Release/{self.SEKAI_AB_ROW_PATH}/{self.SEKAI_APP_PLATFORM}/version"
+        url = f"{url}/{self.SEKAI_AB_ROW_VERSION}/Release/{self.SEKAI_AB_ROW_PATH}/{self.SEKAI_APP_PLATFORM}/version"
         resp = self.request("GET", url)
         resp.raise_for_status()
         return int(resp.text)
@@ -337,7 +351,7 @@ class AbCache(Session):
             case "en":
                 return f"https://assetbundle-info.sekai-en.com/api/version/{self.SEKAI_ASSET_VERSION}/os/{self.config.app_platform}"
         if self.config.app_region in REGION_ROW:
-            return f"{self.SEKAI_AB_ROW_CDN}/AssetBundle/{self.SEKAI_AB_VERSION}/Release/{self.SEKAI_AB_ROW_PATH}/{self.SEKAI_APP_PLATFORM}{self.SEKAI_AB_ROW_VERSION_NUMBER}/AssetBundleInfoNew.json"
+            return f"{self.SEKAI_AB_ROW_CDN}/AssetBundle/{self.SEKAI_AB_ROW_VERSION}/Release/{self.SEKAI_AB_ROW_PATH}/{self.SEKAI_APP_PLATFORM}{self.SEKAI_AB_ROW_VERSION_NUMBER}/AssetBundleInfoNew.json"
         else:
             raise NotImplementedError
 
@@ -349,7 +363,7 @@ class AbCache(Session):
             case "en":
                 return f"https://assetbundle.sekai-en.com/"
         if self.config.app_region in REGION_ROW:
-            return f"{self.SEKAI_AB_ROW_CDN}/AssetBundle/{self.SEKAI_AB_VERSION}/Release/{self.SEKAI_AB_ROW_PATH}/"
+            return f"{self.SEKAI_AB_ROW_CDN}/AssetBundle/{self.SEKAI_AB_ROW_VERSION}/Release/{self.SEKAI_AB_ROW_PATH}/"
         else:
             raise NotImplementedError
 
@@ -382,8 +396,8 @@ class AbCache(Session):
         return self.config.app_version
 
     @property
-    def SEKAI_AB_VERSION(self):
-        return self.config.ab_version or self.SEKAI_APP_VERSION
+    def SEKAI_AB_ROW_VERSION(self):
+        return self.config.row_ab_version or self.SEKAI_APP_VERSION
 
     @property
     def SEKAI_APP_PLATFORM(self):
@@ -395,17 +409,23 @@ class AbCache(Session):
 
     @property
     def SEKAI_ASSET_VERSION(self):
-        return self.database.sekai_system_data.app_version_dict[
-            self.SEKAI_APP_VERSION
-        ].assetVersion
+        return (
+            self.config.asset_version
+            or self.database.sekai_system_data.app_version_dict[
+                self.SEKAI_APP_VERSION
+            ].assetVersion
+        )
 
     @property
     def SEKAI_AB_HASH(self):
-        return self.database.sekai_user_auth_data.assetHash
+        return self.config.asset_hash or self.database.sekai_user_auth_data.assetHash
 
     @property
     def SEKAI_AB_HOST_HASH(self):
-        return self.database.sekai_gameversion_data.assetbundleHostHash
+        return (
+            self.config.asset_host
+            or self.database.sekai_gameversion_data.assetbundleHostHash
+        )
 
     @property
     def SEKAI_API_SYSTEM_DATA(self):
@@ -560,10 +580,9 @@ class AbCache(Session):
             if self.config.app_region in REGION_ROW:
                 self.database.sekai_user_data = fromdict(SekaiUserData, data, False)
         else:
-            if self.config.app_region in REGION_JP_EN:
-                raise AbCacheUserNotAuthenticatedError(
-                    "Auth config is required for accessing JP/EN game server content"
-                )
+            logger.warning(
+                "No valid auth credential provided. User auth data will not be updated."
+            )
 
     def _update_system_data(self):
         logger.debug("Updating system data")
@@ -585,25 +604,6 @@ class AbCache(Session):
             data = self.response_to_dict(resp)
             self.database.sekai_gameversion_data = fromdict(SekaiGameVersionData, data)
 
-    def _update_abcache_index(self) -> AbCacheIndex:
-        logger.debug("Updating Assetbundle index")
-        resp = self.request_packed("GET", self.SEKAI_AB_INFO_ENDPOINT)
-        data = self.response_to_dict(resp)
-        self.database.sekai_abcache_index = fromdict(AbCacheIndex, data)
-        return self.database.sekai_abcache_index
-
-    def _update_signatures(self):
-        """Only required for JP for the initial setup. After which the game would cache the signature/cookies."""
-        if self.config.app_region in {"jp"}:
-            logger.debug("Updating signatures")
-            # XXX: Clear all cookies, it 403s otherwise. Does this trigger a rate limit/expiry check since our session would be tracked?
-            self.headers["Cookie"] = ""
-            self.cookies.clear()
-            resp = self.request_packed("POST", self.SEKAI_ISSUE_SIGNATURE_ENDPOINT)
-            self.headers["Cookie"] = resp.headers["Set-Cookie"]
-            # HACK: Per RFC6265, Cookies should not be visible to subdomains since it's not set with Domain attribute (https://github.com/psf/requests/issues/2576)
-            # But the other endpoints uses it nontheless. So we have to set it manually.
-
     def __init__(self, config: Optional[AbCacheConfig] = None):
         super().__init__()
         self.database = SSSekaiDatabase()
@@ -613,21 +613,15 @@ class AbCache(Session):
         self.config.version = __version_tuple__
 
     def update_client_headers(self):
-        """Authenticate the user and update client headers WITHOUT updating the AssetBundle Index.
-
-        NOTE:
-            - For JP/EN servers, `auth_credential` NEED to be set or otherwise you won't be able to do anything.
-            - For ROW servers, it's OK to leave them empty.
-                - To access user-level data, however, you still NEED to be authenticated.
-        """
+        """Authenticate the user and update client headers."""
         logger.debug("Updating metadata")
         logger.debug("Set config: %s" % self.config)
         try:
-            self._update_signatures()
+            self.update_signatures()
             self._update_system_data()
         except HTTPError as e:
             logger.warning("Attempting to update signatures: %s" % e)
-            self._update_signatures()
+            self.update_signatures()
             self._update_system_data()
         if self.config.app_region in REGION_JP_EN:
             version_newest = self.database.sekai_system_data.appVersions[-1]
@@ -646,6 +640,31 @@ class AbCache(Session):
             )
         return self.headers
 
+    def update_abcache_index(self) -> AbCacheIndex:
+        """Update the AssetBundle Index."""
+        logger.debug("Updating Assetbundle index")
+        if self.config.app_region in REGION_JP_EN:
+            logger.info("Sekai AssetBundle version: %s" % self.SEKAI_ASSET_VERSION)
+            if self.config.app_region in {"jp"}:
+                logger.info("Sekai AssetBundle host hash: %s" % self.SEKAI_AB_HOST_HASH)
+        resp = self.request_packed("GET", self.SEKAI_AB_INFO_ENDPOINT)
+        data = self.response_to_dict(resp)
+        self.database.sekai_abcache_index = fromdict(AbCacheIndex, data)
+        return self.database.sekai_abcache_index
+
+    def update_signatures(self):
+        """Update client signatures. Only required for JP for the initial setup.
+        After which the game would cache the signature/cookies."""
+        if self.config.app_region in {"jp"}:
+            logger.debug("Updating signatures")
+            # XXX: Clear all cookies, it 403s otherwise. Does this trigger a rate limit/expiry check since our session would be tracked?
+            self.headers["Cookie"] = ""
+            self.cookies.clear()
+            resp = self.request_packed("POST", self.SEKAI_ISSUE_SIGNATURE_ENDPOINT)
+            self.headers["Cookie"] = resp.headers["Set-Cookie"]
+            # HACK: Per RFC6265, Cookies should not be visible to subdomains since it's not set with Domain attribute (https://github.com/psf/requests/issues/2576)
+            # But the other endpoints uses it nontheless. So we have to set it manually.
+
     def update(self):
         """Update the cache with the latest AssetBundle Index data from the server.
 
@@ -654,10 +673,7 @@ class AbCache(Session):
             Please refer to `update_client_headers` for more information.
         """
         self.update_client_headers()
-        self._update_abcache_index()
-        if self.config.app_region in REGION_JP_EN:
-            logger.info("Sekai AssetBundle version: %s" % self.SEKAI_ASSET_VERSION)
-            logger.info("Sekai AssetBundle host hash: %s" % self.SEKAI_AB_HOST_HASH)
+        self.update_abcache_index()
 
     def save(self, f: BinaryIO):
         self._update_request_headers()
@@ -683,9 +699,7 @@ class AbCache(Session):
         return cache
 
     def __repr__(self) -> str:
-        return (
-            f"AbCache(config={self.config} bundles={len(self.abcache_index.bundles)})"
-        )
+        return f"AbCache(config={self.config} bundles={len(self.abcache_index.bundles) if self.abcache_index is not None else 'N/A'})"
 
     def get_entry_by_bundle_name(self, bundleName: str) -> AbCacheEntry:
         return self.abcache_index.bundles.get(bundleName, None)
