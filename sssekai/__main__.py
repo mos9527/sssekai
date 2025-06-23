@@ -246,6 +246,12 @@ This crypto applies to:
         "abserve", usage="""AbCache Filesystem Server / Backend"""
     )
     abserve_parser.add_argument(
+        "--proxy",
+        type=str,
+        help="HTTP Proxy to use. This overrides the system proxy (environ HTTP_PROXY, HTTPS_PROXY) settings.",
+        default=None,
+    )
+    abserve_parser.add_argument(
         "--db",
         type=str,
         help="""cache database file path (default: %(default)s)""",
