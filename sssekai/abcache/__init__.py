@@ -142,7 +142,7 @@ class AbCacheEntry(dict):
     fileSize: int
     dependencies: List[str]
     isBuiltin: bool
-    isRelocate: Optional[bool]  # Added in JP 5.4.0
+    isRelocate: Optional[bool] = None  # Added in JP 5.4.0
     paths: Optional[List[str]] = None  # Removed in ROW
     # ROW only
     md5Hash: Optional[str] = None
