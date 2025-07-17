@@ -96,8 +96,9 @@ def main_abcache(args):
     if args.proxy:
         logger.info("Overriding proxy: %s", args.proxy)
         cache.proxies = {"http": args.proxy, "https": args.proxy}
+
     if args.download_filter_cache_diff:
-        diff_path = os.path.abspath(os.path.expanduser(diff_path))
+        diff_path = os.path.abspath(os.path.expanduser(args.download_filter_cache_diff))
         curr_path = os.path.abspath(os.path.expanduser(db_path))
         assert (
             diff_path != curr_path
