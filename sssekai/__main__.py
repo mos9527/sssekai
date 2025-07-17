@@ -372,13 +372,13 @@ This crypto applies to:
         "mvdata", usage="""Extract MV Data from AssetBundle"""
     )
     mvdata_parser.add_argument(
-        "infile",
+        "indir",
         type=str,
         help="cache directory (live_pv/mv_data)",
         **gooey_only(widget="DirChooser"),
     )
     mvdata_parser.add_argument(
-        "outdir",
+        "outfile",
         type=str,
         help="output JSON file to dump into",
         **gooey_only(widget="FileSaver"),
