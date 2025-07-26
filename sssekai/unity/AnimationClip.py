@@ -8,11 +8,15 @@ from UnityPy.classes import (
     AnimationClip,
     StreamedClip,
     GenericBinding,
+    # ---
+    Vector3Curve,
+    QuaternionCurve,
 )
 from UnityPy.classes.math import Vector3f as Vector3, Quaternionf as Quaternion
 from UnityPy.streams.EndianBinaryReader import EndianBinaryReader
 from logging import getLogger
 from enum import IntEnum
+from zlib import crc32
 
 logger = getLogger(__name__)
 
@@ -383,6 +387,8 @@ class AnimationHelper:
     CurvesT: Dict[int, Dict[float, CurveHelper]] = field(
         default_factory=lambda: defaultdict(dict)
     )
+    # From path id to the full path
+    InvCRC: Dict[int, str] = field(default_factory=dict)
 
     @staticmethod
     def hash_of(binding: GenericBinding):
@@ -392,7 +398,7 @@ class AnimationHelper:
         hs = self.hash_of(binding)
         if not hs in self.RawCurves:
             curve = CurveHelper(binding)
-            # i love refcounting
+            # Refcounted
             self.RawCurves[hs] = curve
             self.Curves[binding.attribute][binding.path] = curve
             self.CurvesT[binding.path][binding.attribute] = curve
@@ -428,6 +434,55 @@ class AnimationHelper:
     @property
     def PPtrCurves(self):
         raise NotImplementedError
+
+    def process_legacy(self, src: AnimationClip) -> "AnimationHelper":
+        """Reads pre-build AnimationClip data and converts it to an Animation
+
+        NOTE: This only works with Legacy AnimationClips, where the animation data
+        is not compacted into a MuscleClip and is instead stored in the AnimationClip itself.
+
+        Note:
+            `Animation` in this context is NOT a part of Unity (which coincidentally also has an `Animation` class)
+            Read `sssekai.unity.Animation`'s docs for more information
+
+        Args:
+            src (AnimationClip): An Unity AnimationClip object
+
+        Returns:
+            sssekai.unity.Animation
+        """
+
+        def process_curves(
+            curves: List[Vector3Curve | QuaternionCurve], attribute: int
+        ):
+            for curve in curves:
+                binding = GenericBinding(
+                    attribute, None, False, crc32(curve.path.encode("utf-8")), None
+                )
+                binding.typeID = ClassIDType.Transform
+                self.InvCRC[binding.path] = curve.path
+                keyframes = [
+                    KeyframeHelper(
+                        time=key.time,
+                        typeID=binding.typeID,
+                        value=key.value,
+                        inSlope=key.inSlope,
+                        outSlope=key.outSlope,
+                    )
+                    for key in curve.curve.m_Curve
+                ]
+                self.get_curve(binding).Data = keyframes
+            pass
+
+        process_curves(src.m_PositionCurves, kBindTransformPosition)
+        process_curves(src.m_RotationCurves, kBindTransformRotation)
+        process_curves(src.m_ScaleCurves, kBindTransformScale)
+        process_curves(src.m_EulerCurves, kBindTransformEuler)
+        for curve in self.RawCurves.values():
+            for i in range(1, len(curve.Data)):
+                curve.Data[i].prev = curve.Data[i - 1]
+                curve.Data[i - 1].next = curve.Data[i]
+        return self
 
     def process(self, src: AnimationClip) -> "AnimationHelper":
         """Reads post-build AnimationClip data and converts it to an Animation
@@ -558,7 +613,10 @@ class AnimationHelper:
         helper = AnimationHelper(
             src.m_Name, src.m_MuscleClip.m_StopTime, src.m_SampleRate
         )
-        helper.process(src)
+        if src.m_Legacy:
+            helper.process_legacy(src)
+        else:
+            helper.process(src)
         return helper
 
 

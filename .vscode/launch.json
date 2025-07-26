@@ -44,6 +44,13 @@
             "justMyCode": false
         },
         {
+            "name": "Python: Legacy Animation format test",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "tests.test_legacy_anim",
+            "justMyCode": false
+        },
+        {
             "name": "Python: Current File",
             "type": "python",
             "request": "launch",
@@ -64,19 +71,19 @@
                 "--app-region",
                 "jp",
                 "--app-version",
-                "5.1.1",
+                "5.4.0",
                 "--app-appHash",
-                "539e48e0-8f54-8e09-a0b2-1c3ecdb5b178",
-                "--download-filter",
-                ".*/stage_decoration/.*",
-                // "--download-filter-cache-diff",
-                // "~/.sssekai/abcache_old.db",
-                "--download-dir",
-                "~/.sssekai/bundles/",
-                "--no-update",
-                // "--dump-master-data",
-                // "~/.sssekai/jp_master",
-                // "--no-update"
+                "9c046d6d-3f06-6370-d932-7a43220d83ad",
+                // "--download-filter",
+                // ".*/stage_decoration/.*",
+                // // "--download-filter-cache-diff",
+                // // "~/.sssekai/abcache_old.db",
+                // "--download-dir",
+                // "~/.sssekai/bundles/",
+                // "--no-update",
+                // // "--dump-master-data",
+                // // "~/.sssekai/jp_master",
+                // // "--no-update"
             ],
             "justMyCode": true
         },
