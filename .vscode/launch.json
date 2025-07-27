@@ -243,8 +243,8 @@
                 "--log-level",
                 "DEBUG",
                 "mvdata",
-                "E:\\Reverse\\proseka_reverse\\assets\\live_pv\\mv_data",
-                "E:\\Reverse\\proseka_reverse\\mvdata.json"
+                "D:\\Reverse\\proseka_reverse\\assets\\live_pv\\mv_data",
+                "D:\\Reverse\\proseka_reverse\\mvdata.json"
             ],
             "justMyCode": true
         },
@@ -421,6 +421,36 @@
                 "cf2d2388"
             ],
             "justMyCode": true
+        },
+        {
+            "name": "Python: IL2CPP v381 (Android)",
+            "type": "python",
+            "request": "launch",
+            "module": "sssekai",
+            "args": [
+                "--log-level",
+                "DEBUG",
+                "il2cpp",
+                "D:\\Reverse\\proseka_reverse\\game_binary\\v381\\com.sega.pjsekai\\assets\\bin\\Data\\Managed\\Metadata\\global-metadata.dat",
+                "D:\\Reverse\\proseka_reverse\\game_binary\\v381\\config.arm64_v8a\\lib\\arm64-v8a\\libil2cpp.so",
+                "D:\\Reverse\\proseka_reverse\\game_binary\\v381\\il2cpp"
+            ],
+            "justMyCode": false
+        },
+                {
+            "name": "Python: IL2CPP v550 (Android)",
+            "type": "python",
+            "request": "launch",
+            "module": "sssekai",
+            "args": [
+                "--log-level",
+                "DEBUG",
+                "il2cpp",
+                "D:\\Reverse\\proseka_reverse\\game_binary\\v550\\com.sega.pjsekai\\assets\\bin\\Data\\Managed\\Metadata\\global-metadata.dat",
+                "D:\\Reverse\\proseka_reverse\\game_binary\\v550\\config.arm64_v8a\\lib\\arm64-v8a\\libil2cpp.so",
+                "D:\\Reverse\\proseka_reverse\\game_binary\\v550\\il2cpp"
+            ],
+            "justMyCode": false
         },
     ]
 }

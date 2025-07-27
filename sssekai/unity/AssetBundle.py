@@ -6,7 +6,6 @@ from UnityPy import Environment
 
 
 def load_assetbundle(file: BytesIO) -> Environment:
-    UnityPy.config.FALLBACK_VERSION_WARNED = True
     UnityPy.config.FALLBACK_UNITY_VERSION = sssekai_get_unity_version()
     stream = BytesIO()
     for block in decrypt_iter(lambda nbytes: file.read(nbytes)):

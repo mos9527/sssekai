@@ -1,5 +1,5 @@
 from sssekai.unity.AssetBundle import load_assetbundle
-import os, json
+import os, json, tqdm
 
 
 def main_mvdata(args):
@@ -12,22 +12,19 @@ def main_mvdata(args):
     os.chdir(source)
     mvdata_keys = sorted(os.listdir(source))
     mvdata_items = list()
-    for key in mvdata_keys:
+    for key in tqdm.tqdm(mvdata_keys):
         try:
             with open(key, "rb") as f:
                 env = load_assetbundle(f)
                 for obj in env.objects:
                     if obj.type == ClassIDType.MonoBehaviour:
                         data = obj.read()
-                        if data.m_Name == "data":
-                            typetree = obj.read_typetree()
-                            typetree = {
-                                k: v
-                                for k, v in typetree.items()
-                                if not k.startswith("m_")
-                            }
+                        typetree = obj.read_typetree()
+                        typetree = {
+                            k: v for k, v in typetree.items() if not k.startswith("m_")
+                        }
+                        if "name" in typetree:
                             mvdata_items.append(typetree)
-                            break
         except Exception as e:
             print(f"skipping {key}: {e}")
     outdir = os.path.dirname(outfile)

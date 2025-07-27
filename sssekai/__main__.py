@@ -10,9 +10,12 @@ from sssekai.entrypoint.abserve import main_abserve
 from sssekai.entrypoint.live2dextract import main_live2dextract
 from sssekai.entrypoint.spineextract import main_spineextract
 from sssekai.entrypoint.apphash import main_apphash
+from sssekai.entrypoint.il2cpp import main_il2cpp
 from sssekai.entrypoint.mvdata import main_mvdata
 from sssekai.entrypoint.moc3paths import main_moc3paths
 from sssekai.unity import sssekai_get_unity_version, sssekai_set_unity_version
+
+from sssekai.fmt.rla import RLA_VERSIONS
 
 
 def create_parser(clazz=argparse.ArgumentParser):
@@ -323,7 +326,7 @@ This crypto applies to:
         type=str,
         help="RLA version. Only used for loose packets",
         default="1.6",
-        choices=["1.%1s" % x for x in range(0, 6 + 1)],
+        choices=["%1s.%1s" % x for x in RLA_VERSIONS],
     )
     rla2json_parser.add_argument(
         "--strict",
@@ -367,6 +370,30 @@ This crypto applies to:
         default=None,
     )
     apphash_parser.set_defaults(func=main_apphash)
+    # il2cpp
+    il2cpp_parser = subparsers.add_parser(
+        "il2cpp",
+        usage="""extract il2cpp binary with deobfuscated metadata from **JP Android** releases""",
+    )
+    il2cpp_parser.add_argument(
+        "metadata",
+        type=str,
+        help="the global-metadata.dat file at com.sega.pjsekai/assets/bin/Data/Managed/Metadata",
+        **gooey_only(widget="FileChooser"),
+    )
+    il2cpp_parser.add_argument(
+        "binary",
+        type=str,
+        help="libil2cpp.so at config.arm64_v8a/lib/arm64-v8a. currently this would be copied as is",
+        **gooey_only(widget="FileChooser"),
+    )
+    il2cpp_parser.add_argument(
+        "outdir",
+        type=str,
+        help="output directory to dump the extracted metadata (as global-metadata.dat) and binary (as il2cpp.so)",
+        **gooey_only(widget="DirChooser"),
+    )
+    il2cpp_parser.set_defaults(func=main_il2cpp)
     # mvdata
     mvdata_parser = subparsers.add_parser(
         "mvdata", usage="""Extract MV Data from AssetBundle"""

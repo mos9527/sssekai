@@ -6,6 +6,8 @@ from typing import Generator, Tuple, TypeVar, List
 import math, gzip
 import msgpack
 
+RLA_VERSIONS = [(1, 0), (1, 1), (1, 2), (1, 3), (1, 4), (1, 5), (1, 6), (1, 7)]
+
 read_int = lambda stream, nbytes, signed=False: int.from_bytes(
     stream.read(nbytes), "little", signed=signed
 )
