@@ -11,6 +11,7 @@ from UnityPy.classes import (
     # ---
     Vector3Curve,
     QuaternionCurve,
+    FloatCurve,
 )
 from UnityPy.classes.math import Vector3f as Vector3, Quaternionf as Quaternion
 from UnityPy.streams.EndianBinaryReader import EndianBinaryReader
@@ -317,7 +318,8 @@ def _read_clip_keyframe(
             result.outSlope = float("inf")
             result.inSlope = float("inf")
         elif binding.isPPtrCurve:
-            raise NotImplementedError("PPtr curves not yet implemented")
+            # !! TODO PPtr curves not yet implemented
+            pass
         else:
             # Default to float curves
             key = next(keys)
@@ -453,11 +455,15 @@ class AnimationHelper:
         """
 
         def process_curves(
-            curves: List[Vector3Curve | QuaternionCurve], attribute: int
+            curves: List[Vector3Curve | QuaternionCurve | FloatCurve], attribute: int
         ):
             for curve in curves:
                 binding = GenericBinding(
-                    attribute, None, False, crc32(curve.path.encode("utf-8")), None
+                    attribute or curve.attribute,
+                    None,
+                    False,
+                    crc32(curve.path.encode("utf-8")),
+                    None,
                 )
                 binding.typeID = ClassIDType.Transform
                 self.InvCRC[binding.path] = curve.path
@@ -478,6 +484,9 @@ class AnimationHelper:
         process_curves(src.m_RotationCurves, kBindTransformRotation)
         process_curves(src.m_ScaleCurves, kBindTransformScale)
         process_curves(src.m_EulerCurves, kBindTransformEuler)
+        process_curves(src.m_FloatCurves, None)
+        # ! TODO: PPtr curves not yet supported
+        # process_curves(src.m_PPtrCurves, ClassIDType.PPtr)
         for curve in self.RawCurves.values():
             for i in range(1, len(curve.Data)):
                 curve.Data[i].prev = curve.Data[i - 1]
