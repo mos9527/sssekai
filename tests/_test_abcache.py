@@ -17,6 +17,7 @@ def test_abcache():
         for _ in range(5):
             try:
                 config = get(CONFIG % {"region": region}).json()
+                config = config.get("production_android", config)
                 main_abcache(
                     NamedDict(
                         {

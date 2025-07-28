@@ -60,7 +60,7 @@
             "args": []
         },
         {
-            "name": "Python: AbCache (JP)",
+            "name": "Python: AbCache (JP Prod)",
             "type": "python",
             "request": "launch",
             "module": "sssekai",
@@ -71,19 +71,27 @@
                 "--app-region",
                 "jp",
                 "--app-version",
-                "5.4.0",
+                "5.5.0",
                 "--app-appHash",
-                "9c046d6d-3f06-6370-d932-7a43220d83ad",
-                // "--download-filter",
-                // ".*/stage_decoration/.*",
-                // // "--download-filter-cache-diff",
-                // // "~/.sssekai/abcache_old.db",
-                // "--download-dir",
-                // "~/.sssekai/bundles/",
-                // "--no-update",
-                // // "--dump-master-data",
-                // // "~/.sssekai/jp_master",
-                // // "--no-update"
+                "7d3ddef6-22d5-eecb-3a7b-77181b2d8eae",
+            ],
+            "justMyCode": true
+        },        
+        {
+            "name": "Python: AbCache (JP Staging)",
+            "type": "python",
+            "request": "launch",
+            "module": "sssekai",
+            "args": [
+                "--log-level",
+                "DEBUG",
+                "abcache",
+                "--app-region",
+                "jp",
+                "--app-version",
+                "5.5.0",
+                "--app-appHash",
+                "9b75c207-5fa7-a852-71e3-4097eb9b6027",
             ],
             "justMyCode": true
         },
@@ -287,9 +295,14 @@
             "request": "launch",
             "module": "sssekai",
             "args": [
+                "--log-level",
+                "DEBUG",
                 "apphash",
                 "--apk-src",
-                "C:\\Users\\mos9527\\Downloads\\pjsk_50397839a_v23465_1980_d019_1742441547.apk"
+                "D:\\Reverse\\proseka_reverse\\game_binary\\v550\\550.xapk",
+                "--deep",
+                "--format",
+                "json"
             ],
             "justMyCode": true
         },

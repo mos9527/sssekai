@@ -369,6 +369,11 @@ This crypto applies to:
         help="HTTP Proxy to use. This overrides the system proxy (environ HTTP_PROXY, HTTPS_PROXY) settings.",
         default=None,
     )
+    apphash_parser.add_argument(
+        "--deep",
+        action="store_true",
+        help="Load all AssetBundles and retrieve all app hashes available.",
+    )
     apphash_parser.set_defaults(func=main_apphash)
     # il2cpp
     il2cpp_parser = subparsers.add_parser(

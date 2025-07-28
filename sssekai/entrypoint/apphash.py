@@ -22,6 +22,12 @@ REGION_MAP = {
 ROW_REGIONS = {"cn", "tw", "kr"}
 logger = logging.getLogger("apphash")
 
+PROD_BUNDLES = {
+    "6350e2ec327334c8a9b7f494f344a761",  # PJSK Android
+    "c726e51b6fe37463685916a1687158dd",  # PJSK iOS
+    "data.unity3d",  # TW,KR,CN (ByteDance)
+}
+
 
 def enum_candidates(zip_file, filter):
     return (
@@ -80,6 +86,7 @@ def dump_metadata_stringpool(f: BytesIO):
 
 
 def main_apphash(args):
+    UnityPy.config.SERIALIZED_FILE_PARSE_TYPETREE = False
     env = UnityPy.Environment()
     app_package = None
     app_version = "unknown"
@@ -137,21 +144,19 @@ def main_apphash(args):
             #         metadata_strings = list(dump_metadata_stringpool(metadata))
             #     app_metadata_strings = [s for s in metadata_strings if "bytedgame" in s]
             #     pass
+            candidate_filter = lambda fn: fn.split("/")[-1] in PROD_BUNDLES
+            candidate_filter_deep = lambda fn: ("_/" + fn).split("/")[-2] == "Data"
+
             candidates = [
                 candidate
                 for package in enum_package(zip_ref)
                 for candidate in enum_candidates(
                     package,
-                    lambda fn: fn.split("/")[-1]
-                    in {
-                        "6350e2ec327334c8a9b7f494f344a761",  # PJSK Android
-                        "c726e51b6fe37463685916a1687158dd",  # PJSK iOS
-                        "data.unity3d",  # TW,KR,CN (ByteDance)
-                    },
+                    candidate_filter_deep if args.deep else candidate_filter,
                 )
             ]
-            for candidate, stream, _ in candidates:
-                env.load_file(stream)
+            for candidate, stream, _ in tqdm(candidates, desc="Loading"):
+                env.load_file(stream.read())
     else:
         logger.info("Loading from AssetBundle %s" % args.ab_src)
         with open(args.ab_src, "rb") as f:
@@ -163,17 +168,24 @@ def main_apphash(args):
         IOSPlayerSettingConfig,
     )
 
-    for reader in env.objects:
+    res = dict()
+    for reader in tqdm(env.objects, desc="Processing"):
+        if reader.container:
+            logger.info("Processing %s (%s)", reader.container, reader.type)
         if reader.type == UnityPy.enums.ClassIDType.MonoBehaviour:
-            pname = reader.peek_name()
-            clazz = {
-                "production_android": AndroidPlayerSettingConfig,
-                "production_ios": IOSPlayerSettingConfig,
-            }
-            clazz = clazz.get(pname, None)
+            mono = reader.read(check_read=False)
+            clazz = None
+            if "_android" in mono.m_Name:
+                clazz = AndroidPlayerSettingConfig
+            elif "_ios" in mono.m_Name:
+                clazz = IOSPlayerSettingConfig
             if clazz:
                 # Works with post 3.4 (JP 3rd Anniversary) builds and downstream regional builds
-                config = UTTCGen_AsInstance(clazz, reader)
+                try:
+                    config = UTTCGen_AsInstance(clazz, reader)
+                except Exception as e:
+                    logger.error("Failed to parse config for %s: %s", mono.m_Name, e)
+                    continue
                 config: AndroidPlayerSettingConfig | IOSPlayerSettingConfig
                 app_version = "%s.%s.%s" % (
                     config.clientMajorVersion,
@@ -212,24 +224,28 @@ def main_apphash(args):
                     sep="\n",
                     file=sys.stderr,
                 )
-                # Only keep the Android one
-                if pname == "production_android":
-                    app_package = (
-                        app_package or "Unknown Package (Failed APK Heuristic)"
-                    )
-                    # fmt: off
-                    match args.format:
-                        case 'json':
-                            print(json.dumps({
-                                "package": app_package,
-                                "reported_package": config.bundleIdentifier,
-                                "app_hash": app_hash,
-                                "app_region": region,
-                                "app_version": app_version,
-                                "ab_version": ab_version,
-                            }, indent=4))
-                        case "markdown":
-                            print(f"""{app_package} ({app_version}, {region})
+                res[config.m_Name] = {
+                    "package": config.bundleIdentifier,
+                    "reported_package": package_heur,
+                    "app_hash": app_hash,
+                    "app_region": region,
+                    "app_version": app_version,
+                    "ab_version": ab_version,
+                }
+                app_package = app_package or "Unknown Package (Failed APK Heuristic)"
+                # fmt: off
+                match args.format:
+                    case 'json':
+                        res[mono.m_Name] = {
+                            "package": app_package,
+                            "reported_package": config.bundleIdentifier,
+                            "app_hash": app_hash,
+                            "app_region": region,
+                            "app_version": app_version,
+                            "ab_version": ab_version,
+                        }
+                    case "markdown":
+                        res[mono.m_Name] = f"""{app_package} ({app_version}, {region})
 ---
 Reported Package: {config.bundleIdentifier}
 
@@ -252,4 +268,12 @@ Reported Package: {config.bundleIdentifier}
             app_hash="{app_hash}",
             app_platform="android"
         )
-""")
+"""
+    print("###### RESULTS ######", file=sys.stderr)
+    res = dict(sorted(res.items(), key=lambda x: x[0]))
+    match args.format:
+        case "json":
+            print(json.dumps(res, indent=4, ensure_ascii=False))
+        case "markdown":
+            for name, content in res.items():
+                print(f"## {name}\n{content}\n")

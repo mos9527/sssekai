@@ -276,6 +276,12 @@ class AbCache(Session):
     def SEKAI_API_ENDPOINT(self):
         match self.config.app_region:
             case "jp":
+                if self.database.sekai_gameversion_data:
+                    url = self.database.sekai_gameversion_data.domain
+                    url = url.replace(
+                        "{0}", self.database.sekai_gameversion_data.profile
+                    )
+                    return "https://%s" % url
                 return "https://production-game-api.sekai.colorfulpalette.org"
             case "en":
                 return "https://n-production-game-api.sekai-en.com"
@@ -348,7 +354,7 @@ class AbCache(Session):
     def SEKAI_AB_INFO_ENDPOINT(self):
         match self.config.app_region:
             case "jp":
-                return f"https://production-{self.SEKAI_AB_HOST_HASH}-assetbundle-info.sekai.colorfulpalette.org/api/version/{self.SEKAI_ASSET_VERSION}/{self.SEKAI_AB_HASH}/os/{self.config.app_platform}"
+                return f"https://{self.SEKAI_API_PROFILE}-{self.SEKAI_AB_HOST_HASH}-assetbundle-info.sekai.colorfulpalette.org/api/version/{self.SEKAI_ASSET_VERSION}/{self.SEKAI_AB_HASH}/os/{self.config.app_platform}"
             case "en":
                 return f"https://assetbundle-info.sekai-en.com/api/version/{self.SEKAI_ASSET_VERSION}/os/{self.config.app_platform}"
         if self.config.app_region in REGION_ROW:
@@ -360,7 +366,7 @@ class AbCache(Session):
     def SEKAI_AB_ENDPOINT(self):
         match self.config.app_region:
             case "jp":
-                return f"https://production-{self.SEKAI_AB_HOST_HASH}-assetbundle.sekai.colorfulpalette.org/"
+                return f"https://{self.SEKAI_API_PROFILE}-{self.SEKAI_AB_HOST_HASH}-assetbundle.sekai.colorfulpalette.org/"
             case "en":
                 return f"https://assetbundle.sekai-en.com/"
         if self.config.app_region in REGION_ROW:
@@ -427,6 +433,12 @@ class AbCache(Session):
             self.config.asset_host
             or self.database.sekai_gameversion_data.assetbundleHostHash
         )
+
+    @property
+    def SEKAI_API_PROFILE(self):
+        if self.database.sekai_gameversion_data:
+            return self.database.sekai_gameversion_data.profile
+        return "production"
 
     @property
     def SEKAI_API_SYSTEM_DATA(self):
@@ -619,17 +631,16 @@ class AbCache(Session):
         logger.debug("Set config: %s" % self.config)
         try:
             self.update_signatures()
+            self._update_gameversion_data()
             self._update_system_data()
         except HTTPError as e:
-            logger.warning("Attempting to update signatures: %s" % e)
-            self.update_signatures()
-            self._update_system_data()
+            logger.error("Signature update failure: %s" % e)
+            raise e
         if self.config.app_region in REGION_JP_EN:
             version_newest = self.database.sekai_system_data.appVersions[-1]
             logger.debug("Newest App version: %s" % version_newest)
             if version_newest.appVersion != self.SEKAI_APP_VERSION:
                 logger.warning("App version mismatch. This may cause issues.")
-        self._update_gameversion_data()
         self._update_user_auth_data()
         if self.is_authenticated:
             self.headers.update(
