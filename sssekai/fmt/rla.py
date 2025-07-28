@@ -364,6 +364,14 @@ def decode_streaming_data(
                     if version >= (1, 6)
                     else {}
                 ),
+                **(
+                    {
+                        "preloadReserveFirstCharacterDelay": get_next_float(),
+                        "preloadReserveCharacterInterval": get_next_float(),
+                    }
+                    if version >= (1, 7)
+                    else {}
+                ),
             }
             read_character_status = lambda: {
                 "costumeIndex": get_next_int(),
@@ -424,13 +432,15 @@ def read_rla_frames(
 
     Args:
         reader (Generator[Tuple[T, bytes], None, None]): A generator that yields a tuple of timestamp and buffer data
-        version (tuple, optional): RLA version, found in respective RLH (JSON) header files. range: (1,0) to (1,6). Defaults to (1,0).
+        version (tuple, optional): RLA version, found in respective RLH (JSON) header files. range: see RLA_VERSIONS. Defaults to (1,0).
         strict (bool, optional): If False, incomplete packets will be returned as is. Defaults to True.
 
     Yields:
         Generator[Tuple[T, dict], None, None]: A generator that yields a tuple of timestamp and parsed frame data. Timestamp format is provided by the reader.
     """
-    assert version >= (1, 0) and version <= (1, 6), "unsupported version"
+    assert (
+        version >= RLA_VERSIONS[0] and version <= RLA_VERSIONS[-1]
+    ), "unsupported version"
     __buffers = defaultdict(
         list
     )  # splitIndex:([timestamp, splitInfo, header_signature, data])
@@ -449,7 +459,7 @@ def read_rla_frames(
         except Exception as e:
             if strict:
                 raise e
-            # Fail silently
+            # Otherwise fail silently
         if split_info:
             splitId, splitIndex, splitNum, dataLength, totalDataLength, base64 = (
                 split_info
@@ -485,7 +495,7 @@ def read_archive_rla_frames(
 
     Args:
         src (BytesIO): Source RLA file stream
-        version (tuple, optional): RLA version, found in respective RLH (JSON) header files. range: (1,0) to (1,6). Defaults to (1,0).
+        version (tuple, optional): RLA version, found in respective RLH (JSON) header files. range: see RLA_VERSIONS. Defaults to (1,0).
         strict (bool, optional): If False, incomplete packets will be returned as is. Defaults to True.
 
     Yields:
