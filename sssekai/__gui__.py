@@ -8,7 +8,9 @@ import sys
 try:
     from GooeyEx import Gooey, GooeyParser
 except ImportError as e:
-    print("Please install sssekai[gui] to use the GUI")
+    print(
+        "Please install sssekai[gui] through your Python package manager to use the GUI"
+    )
     raise e
 
 

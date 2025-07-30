@@ -2,18 +2,19 @@ import logging, os, shutil
 
 logger = logging.getLogger(__name__)
 
-try:
-    import lief
-    from capstone import *
-except ImportError as e:
-    logger.error("Please install sssekai[il2cpp] to use the il2cpp entrypoint")
-    raise e
 
 METADATA_MAGIC = b"\xaf\x1b\xb1\xfa"
 SIG_DW_OP_piece = b"DW_OP_piece not implemented\x00x5\x00x10\x00"
 
 
 def main_il2cpp(args):
+    try:
+        import lief
+    except ImportError as e:
+        logger.error(
+            "Please install sssekai[il2cpp] through your Python package manager to use the il2cpp entrypoint"
+        )
+        raise e
     logger.info("Loading metadata from %s", args.metadata)
     metadata = bytearray(open(args.metadata, "rb").read())
     assert (
