@@ -16,3 +16,5 @@ def main_apidecrypt(args):
             print(
                 "Please consider switching to another region with `--region` flag (i.e. `--region en`)"
             )
+            return 1
+    return 0

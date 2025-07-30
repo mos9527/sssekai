@@ -1,10 +1,9 @@
-import os, re, json
+import os, re, json, time
 from sssekai.abcache import AbCache, AbCacheEntry, logger, REGION_JP_EN, REGION_ROW
 from sssekai.abcache.fs import AbCacheFilesystem, AbCacheFile
 from concurrent.futures import ThreadPoolExecutor
 from requests import Session
 from tqdm import tqdm
-from functools import cache
 
 DEFAULT_CACHE_DB_FILE = "~/.sssekai/abcache.db"
 
@@ -22,26 +21,42 @@ class AbCacheDownloader(ThreadPoolExecutor):
                 unit_divisor=1024,
             )
 
-    def _download(self, src: AbCacheFile, dest: str):
+    def _download(self, args):
+        if self._shutdown:
+            return
         self._ensure_progress()
         RETRIES = 1
+        src, dest = args
+        src: AbCacheFile
+        dest: str
         for _ in range(0, RETRIES):
+            n_written = 0
             try:
                 if os.path.dirname(dest):
                     os.makedirs(os.path.dirname(dest), exist_ok=True)
                 with open(dest, "wb") as f:
                     while block := src.read(65536):
-                        self.progress.update(f.write(block))
+                        n_block = f.write(block)
+                        self.progress.update(n_block)
+                        n_written += n_block
+                        if self._shutdown:
+                            self.progress.update(-n_written)
+                            return
                     return
             except Exception as e:
                 logger.error("While downloading %s : %s. Retrying" % (src.path, e))
-                raise e
+                self.progress.update(-n_written)
+                time.sleep(1)
+
         if _ == RETRIES - 1:
             logger.critical("Did not download %s" % src.path)
         self._ensure_progress()
 
+    queue: list
+
     def __init__(self, session, **kw) -> None:
         self.session = session
+        self.queue = []
         super().__init__(**kw)
 
     def __enter__(self):
@@ -53,7 +68,11 @@ class AbCacheDownloader(ThreadPoolExecutor):
     def add_link(self, file: AbCacheFile, dest: str):
         self._ensure_progress()
         self.progress.total += file.size
-        return self.submit(self._download, file, dest)
+        return self.queue.append((file, dest))
+
+    def run_until_complete(self):
+        for _ in self.map(self._download, self.queue):
+            pass
 
 
 def dump_dict_by_keys(d: dict, dir: str, keep_compact: bool):
@@ -93,6 +112,9 @@ def main_abcache(args):
                 "no_update is specified, but no valid cache file is found. AbCache will not exit."
             )
             return
+
+    config = cache.config
+
     if args.proxy:
         logger.info("Overriding proxy: %s", args.proxy)
         cache.proxies = {"http": args.proxy, "https": args.proxy}
@@ -130,7 +152,6 @@ def main_abcache(args):
             return False
 
     if not args.no_update:
-        config = cache.config
         config.app_region = args.app_region
         config.app_version = args.app_version
         config.app_platform = args.app_platform
@@ -140,6 +161,9 @@ def main_abcache(args):
         config.asset_host = args.app_asset_host
         config.asset_version = args.app_asset_version
         config.auth_credential = args.auth_credential
+
+    if config.app_region in {"jp"}:
+        cache.update_signatures()
 
     if args.dump_master_data:
         if config.app_region in REGION_JP_EN:
@@ -170,8 +194,6 @@ def main_abcache(args):
         return
 
     if not args.no_update:
-        if config.app_region in {"jp"}:
-            cache.update_signatures()
         if config.need_client_header_update:
             if config.app_region in REGION_JP_EN:
                 assert (
@@ -243,5 +265,13 @@ def main_abcache(args):
         with AbCacheDownloader(fs, max_workers=args.download_workers) as downloader:
             logger.info("Downloading %d bundles to %s" % (len(bundles), download_dir))
             for bundleName in bundles:
-                fname = os.path.join(download_dir, bundleName)
-                downloader.add_link(fs.open(bundleName), fname)
+                downloader.add_link(
+                    fs.open(bundleName), os.path.join(download_dir, bundleName)
+                )
+            try:
+                downloader.run_until_complete()
+            except KeyboardInterrupt:
+                logger.warning("Download interrupted by user.")
+                downloader.shutdown(wait=False, cancel_futures=True)
+                return 1
+    return 0

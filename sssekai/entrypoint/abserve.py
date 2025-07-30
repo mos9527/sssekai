@@ -118,3 +118,4 @@ def main_abserve(args):
                 httpd.serve_forever()
             except Exception as e:
                 logger.info("Exiting. %s" % e)
+                return 1

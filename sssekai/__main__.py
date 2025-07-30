@@ -1,5 +1,4 @@
-import argparse
-import sys
+import argparse, sys, logging, traceback
 
 from sssekai.entrypoint.apidecrypt import main_apidecrypt
 from sssekai.entrypoint.abdecrypt import main_abdecrypt
@@ -16,6 +15,8 @@ from sssekai.entrypoint.moc3paths import main_moc3paths
 from sssekai.unity import sssekai_get_unity_version, sssekai_set_unity_version
 
 from sssekai.fmt.rla import RLA_VERSIONS
+
+logger = logging.getLogger(__name__)
 
 
 def create_parser(clazz=argparse.ArgumentParser):
@@ -459,11 +460,16 @@ def __main__():
     # override unity version
     sssekai_set_unity_version(args.unity_version)
     if "func" in args:
-        args.func(args)
+        try:
+            return args.func(args)
+        except Exception as e:
+            logger.exception("Error while running command: %s", e)
+            traceback.print_exc()
+            return 1
     else:
         parser.print_help()
+        return 1
 
 
 if __name__ == "__main__":
-    __main__()
-    sys.exit(0)
+    sys.exit(__main__() or 0)
