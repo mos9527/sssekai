@@ -2,7 +2,14 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "AbCache Availbility Check",
+            "name": "Animation Plot",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/misc/animation_plot.py",
+            "justMyCode": false
+        },
+        {
+            "name": "AbCache Availability Check",
             "type": "debugpy",
             "request": "launch",
             "program": "${workspaceFolder}/misc/abcache_availability_check.py",
@@ -76,7 +83,7 @@
                 "7d3ddef6-22d5-eecb-3a7b-77181b2d8eae",
             ],
             "justMyCode": true
-        },        
+        },
         {
             "name": "Python: AbCache (JP Staging)",
             "type": "python",
@@ -450,7 +457,7 @@
             ],
             "justMyCode": false
         },
-                {
+        {
             "name": "Python: IL2CPP v550 (Android)",
             "type": "python",
             "request": "launch",

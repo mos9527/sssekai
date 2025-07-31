@@ -348,6 +348,26 @@ class CurveHelper:
         rhs = lhs.next
         return KeyframeHelper.interpolate(t, lhs, rhs)
 
+    def resample_dense(self, times: List[float]) -> "CurveHelper": # O(n log n). Can be done linearly though.
+        """Resamples the curve at given times **as a Dense curve**, losing all tangent information.
+
+        This guarantees accuracy when played back at a constant sample rate at the cost of space
+        and interpolation information.
+
+        Args:
+            times (List[float]): Times to sample the curve at
+
+        Returns:
+            CurveHelper: A new CurveHelper with the sampled values
+        """
+        data = [self.evaluate(t) for t in times]
+        slope = from_floats(*([0] * num_floats(data[0])))
+        data = [KeyframeHelper(t, self.Binding.typeID, value, isDense=True, inSlope=slope, outSlope=slope) for t, value in zip(times, data)]
+        for i in range(1, len(data)):
+            data[i].prev = data[i - 1]
+            data[i - 1].next = data[i]
+        return CurveHelper(self.Binding, data)
+
     @property
     def Duration(self):
         return self.Data[-1].time - self.Data[0].time
@@ -382,11 +402,11 @@ class AnimationHelper:
     # Dict[internal hash, Curve]
     RawCurves: Dict[int, CurveHelper] = field(default_factory=dict)
     # Curves[Attribute][Path Hash] = Curve
-    Curves: Dict[int, Dict[float, CurveHelper]] = field(
+    Curves: Dict[int, Dict[int, CurveHelper]] = field(
         default_factory=lambda: defaultdict(dict)
     )
     # CurvesT[Path Hash][Attribute] = Curve
-    CurvesT: Dict[int, Dict[float, CurveHelper]] = field(
+    CurvesT: Dict[int, Dict[int, CurveHelper]] = field(
         default_factory=lambda: defaultdict(dict)
     )
     # From path id to the full path
