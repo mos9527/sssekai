@@ -139,7 +139,7 @@ This crypto applies to:
         "infile", type=str, help="input file", **gooey_only(widget="FileChooser")
     )
     usmdemux_parser.add_argument(
-        "outfile", type=str, help="output file where the .USM file will be saved", **gooey_only(widget="FileChooser")
+        "outfile", type=str, help="output file where the .USM file will be saved", **gooey_only(widget="FileSaver")
     )
     usmdemux_parser.set_defaults(func=main_usmdemux)
     # abcache
