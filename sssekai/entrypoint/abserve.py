@@ -114,7 +114,7 @@ def main_abserve(args):
                     f"Serving HTTP on {host} port {port} "
                     f"> http://127.0.0.1:{port}/"
                     f"> http://{url_host}:{port}/"
-                    f""
+                    f" (visit any of these URLs in your browser)"
                     f"Press Ctrl-C to stop."
                 )
                 httpd.serve_forever()

@@ -1,18 +1,58 @@
 import argparse, sys, logging, traceback
 
+# region Deferred imports
+# This can be done a lot cleaner with importlib. But tools like PyInstaller really
+# won't like that.
 
-from sssekai.entrypoint.apidecrypt import main_apidecrypt
-from sssekai.entrypoint.abdecrypt import main_abdecrypt
-from sssekai.entrypoint.rla2json import main_rla2json
-from sssekai.entrypoint.usmdemux import main_usmdemux
-from sssekai.entrypoint.abcache import main_abcache
-from sssekai.entrypoint.abserve import main_abserve
-from sssekai.entrypoint.live2dextract import main_live2dextract
-from sssekai.entrypoint.spineextract import main_spineextract
-from sssekai.entrypoint.apphash import main_apphash
-from sssekai.entrypoint.il2cpp import main_il2cpp
-from sssekai.entrypoint.mvdata import main_mvdata
-from sssekai.entrypoint.moc3paths import main_moc3paths
+def main_apidecrypt(*args, **kwargs):
+    from sssekai.entrypoint.apidecrypt import main_apidecrypt
+    return main_apidecrypt(*args, **kwargs)
+
+def main_abdecrypt(*args, **kwargs):
+    from sssekai.entrypoint.abdecrypt import main_abdecrypt
+    return main_abdecrypt(*args, **kwargs)
+
+def main_rla2json(*args, **kwargs):
+    from sssekai.entrypoint.rla2json import main_rla2json
+    return main_rla2json(*args, **kwargs)
+
+def main_usmdemux(*args, **kwargs):
+    from sssekai.entrypoint.usmdemux import main_usmdemux
+    return main_usmdemux(*args, **kwargs)
+
+def main_abcache(*args, **kwargs):
+    from sssekai.entrypoint.abcache import main_abcache
+    return main_abcache(*args, **kwargs)
+
+def main_abserve(*args, **kwargs):
+    from sssekai.entrypoint.abserve import main_abserve
+    return main_abserve(*args, **kwargs)
+
+def main_live2dextract(*args, **kwargs):
+    from sssekai.entrypoint.live2dextract import main_live2dextract
+    return main_live2dextract(*args, **kwargs)
+
+def main_spineextract(*args, **kwargs):
+    from sssekai.entrypoint.spineextract import main_spineextract
+    return main_spineextract(*args, **kwargs)
+
+def main_apphash(*args, **kwargs):
+    from sssekai.entrypoint.apphash import main_apphash
+    return main_apphash(*args, **kwargs)
+
+def main_il2cpp(*args, **kwargs):
+    from sssekai.entrypoint.il2cpp import main_il2cpp
+    return main_il2cpp(*args, **kwargs)
+
+def main_mvdata(*args, **kwargs):
+    from sssekai.entrypoint.mvdata import main_mvdata
+    return main_mvdata(*args, **kwargs)
+
+def main_moc3paths(*args, **kwargs):
+    from sssekai.entrypoint.moc3paths import main_moc3paths
+    return main_moc3paths(*args, **kwargs)
+
+# endregion
 
 from sssekai.unity import sssekai_get_unity_version, sssekai_set_unity_version
 from sssekai.fmt.rla import RLA_VERSIONS

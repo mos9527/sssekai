@@ -34,6 +34,7 @@ jobs:
         python -m pip install --upgrade pip
         python -m pip install --upgrade setuptools wheel build twine packaging
         python -m pip install --upgrade Pyinstaller
+        python -m pip install -e .[il2cpp]
         python -m pip install -e .
         python setup.py install
     - name: Build package (PyPI)
