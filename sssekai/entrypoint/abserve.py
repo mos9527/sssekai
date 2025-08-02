@@ -1,14 +1,16 @@
-import os, logging, datetime, time, sys
+import os, logging, datetime, time, sys, math
 from shutil import copyfileobj
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from sssekai import __version__
 from sssekai.abcache.fs import AbCacheFilesystem
-from rich import filesize
 
 logger = logging.getLogger("abserve")
 fs: AbCacheFilesystem = None
 
-
+def filesize(size):
+    suffixes = ["B", "KB", "MB", "GB", "TB"]
+    exp = int(math.floor(math.log(size, 1 << 10)))
+    return f"{size / (1 << (10 * exp)):.2f} {suffixes[exp]}"
 class AbServeHTTPRequestHandler(BaseHTTPRequestHandler):
     ENCODING = "utf-8"
 
@@ -32,7 +34,7 @@ class AbServeHTTPRequestHandler(BaseHTTPRequestHandler):
             f"<body><h1>{title}</h1>"
             f"<i>children: {len(fs.ls(path))},</i>"
             f"<i>total number of files: {fs.info(path)['file_count']},</i>"
-            f"<i>total size: {filesize.decimal(fs.info(path)['total_size'])}</i><br>"
+            f"<i>total size: {filesize(fs.info(path)['total_size'])}</i><br>"
             f'<hr><ul><li><a href="..">..</a></li>'
         )
         for entry in sorted(
@@ -48,7 +50,7 @@ class AbServeHTTPRequestHandler(BaseHTTPRequestHandler):
             if fs.isdir(name):
                 linkname += "/"
             else:
-                displayname += f" ({filesize.decimal(entry['size'])})"
+                displayname += f" ({filesize(entry['size'])})"
             r += f'<li><a {extra_tags} href="{linkname}">{displayname}</a></li>'
         r += "</ul><hr>"
         r += f"<i>sssekai v{__version__} running on Python {sys.version}</i><br>"

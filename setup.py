@@ -21,17 +21,13 @@ setuptools.setup(
         "License :: OSI Approved :: Apache Software License",
         "Operating System :: OS Independent",
     ],
-    install_requires=[
+    install_requires=[        
         "msgpack",
-        "pycryptodome",
-        "unitypy >= 1.22.0",
-        "astc-encoder-py >= 0.1.11",  # https://github.com/mos9527/sssekai_blender_io/issues/11
-        "wannacri",
-        "python-json-logger",
-        "tqdm",
-        "rich",
-        "coloredlogs",
         "requests",
+        "pycryptodome",        
+        "unitypy >= 1.23.0",
+        "tqdm",
+        "coloredlogs",
     ],
     extras_require={"gui": ["GooeyEx>=0.0.8"], "il2cpp": ["lief"]},
     entry_points={

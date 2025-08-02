@@ -5,9 +5,6 @@ from concurrent.futures import ThreadPoolExecutor
 from requests import Session
 from tqdm import tqdm
 
-DEFAULT_CACHE_DB_FILE = "~/.sssekai/abcache.db"
-
-
 class AbCacheDownloader(ThreadPoolExecutor):
     session: Session
     progress: tqdm = None

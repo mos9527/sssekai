@@ -1,6 +1,5 @@
 from sssekai.unity.AssetBundle import load_assetbundle
 from UnityPy.enums import ClassIDType
-from wannacri.usm import Usm
 from os import path, remove, makedirs
 from logging import getLogger
 
@@ -18,17 +17,13 @@ def main_usmdemux(args):
         movieInfo = datas.get("MovieBundleBuildData", None)
         assert movieInfo, "Invalid AssetBundle. No MovieBundleBuildData found!"
         # movieInfo = movieInfo.read_typetree()
-        usm_name = movieInfo["movieBundleDatas"][0]["usmFileName"][: -len(".bytes")]
-        logger.info("USM: %s" % usm_name)
-        usm_folder = path.join(args.outdir, usm_name)
-        makedirs(usm_folder, exist_ok=True)
-        usm_temp = path.join(usm_folder, usm_name + ".tmp")
-        with open(usm_temp, "wb") as usmstream:
-            for data in movieInfo["movieBundleDatas"]:
-                usm = data["usmFileName"][: -len(".bytes")]
+        usm_name = movieInfo.movieBundleDatas[0].usmFileName[: -len(".bytes")]
+        logger.info("USM: %s" % usm_name)        
+        usm_out = path.abspath(args.outfile)
+        makedirs(path.dirname(usm_out), exist_ok=True)        
+        with open(usm_out, "wb") as usmstream:
+            for data in movieInfo.movieBundleDatas:
+                usm = data.usmFileName[: -len(".bytes")]
                 usm = datas[usm]
                 usmstream.write(usm.m_Script.encode("utf-8", "surrogateescape"))
-        usm = Usm.open(usm_temp, encoding="shift-jis")
-        usm.demux(path.join(args.outdir, usm_name), usm_name)
-        remove(usm_temp)
-        logger.info("Saved to %s/" % usm_folder)
+        logger.info("Saved raw USM file to %s" % usm_out)

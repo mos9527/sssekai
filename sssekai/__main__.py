@@ -1,10 +1,11 @@
 import argparse, sys, logging, traceback
 
+
 from sssekai.entrypoint.apidecrypt import main_apidecrypt
 from sssekai.entrypoint.abdecrypt import main_abdecrypt
 from sssekai.entrypoint.rla2json import main_rla2json
 from sssekai.entrypoint.usmdemux import main_usmdemux
-from sssekai.entrypoint.abcache import main_abcache, DEFAULT_CACHE_DB_FILE
+from sssekai.entrypoint.abcache import main_abcache
 from sssekai.entrypoint.abserve import main_abserve
 from sssekai.entrypoint.live2dextract import main_live2dextract
 from sssekai.entrypoint.spineextract import main_spineextract
@@ -12,8 +13,8 @@ from sssekai.entrypoint.apphash import main_apphash
 from sssekai.entrypoint.il2cpp import main_il2cpp
 from sssekai.entrypoint.mvdata import main_mvdata
 from sssekai.entrypoint.moc3paths import main_moc3paths
-from sssekai.unity import sssekai_get_unity_version, sssekai_set_unity_version
 
+from sssekai.unity import sssekai_get_unity_version, sssekai_set_unity_version
 from sssekai.fmt.rla import RLA_VERSIONS
 
 logger = logging.getLogger(__name__)
@@ -98,7 +99,7 @@ This crypto applies to:
         "infile", type=str, help="input file", **gooey_only(widget="FileChooser")
     )
     usmdemux_parser.add_argument(
-        "outdir", type=str, help="output directory", **gooey_only(widget="DirChooser")
+        "outfile", type=str, help="output file where the .USM file will be saved", **gooey_only(widget="FileChooser")
     )
     usmdemux_parser.set_defaults(func=main_usmdemux)
     # abcache
@@ -116,7 +117,7 @@ This crypto applies to:
         "--db",
         type=str,
         help="""cache database file path (default: %(default)s)""",
-        default=DEFAULT_CACHE_DB_FILE,
+        default="~/.sssekai/abcache.db",
         **gooey_only(widget="FileChooser"),
     )
     group.add_argument(
@@ -259,7 +260,7 @@ This crypto applies to:
         "--db",
         type=str,
         help="""cache database file path (default: %(default)s)""",
-        default=DEFAULT_CACHE_DB_FILE,
+        default="~/.sssekai/abcache.db",
         **gooey_only(widget="FileChooser"),
     )
     abserve_parser.add_argument(

@@ -332,8 +332,8 @@
             "module": "sssekai",
             "args": [
                 "usmdemux",
-                "C:\\Users\\mos9527\\.sssekai\\abcache\\title_screen\\anniversary_2nd_bg",
-                "C:\\Users\\mos9527\\Desktop\\Cache"
+                "D:\\Sekai\\assets\\8015",
+                "D:\\Sekai\\assets\\8015.usm",
             ],
             "justMyCode": true
         },
