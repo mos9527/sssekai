@@ -537,7 +537,23 @@ class AbCache(Session):
         """
         self._update_request_headers()
         if data is not None:
-            data = packb(data)
+            # XXX: packb() does not cover all cases.
+            #
+            # Python msgpack implementation doesn't really support variadic float precision within a single pack.
+            # This generally shouldn't be an issue if the upstream unpacking routine is type-agnostic since
+            # the type is described in the packed binary as per the spec.
+            #
+            # However, if the upstream implementation is not type-agnostic, it WILL lead to issues.
+            # While most respect the type opcodes (e.g. msgpack-c, msgpack-python, msgpack in Golang), some implementations (e.g. MessagePack-CSharp) disregards
+            # them altogether when concrete (C#) types are provided. And will raise an exception in such cases when a double is encoded in the place of a float.
+            # See also:
+            #   https://github.com/mos9527/sssekai/issues/47#issuecomment-3150827990
+            #
+            # Thus `use_single_float=True` is used to cover and only cover single precision cases. 
+            # In the *current* API seen in the game binary, this is fine. And in AbCache's case floats are not at all used.
+            # But this may change in the future, in which case consult the following issues:
+            #   https://github.com/msgpack/msgpack-python/issues/326
+            data = packb(data, use_single_float=True)
             data = encrypt(data, SEKAI_APIMANAGER_KEYSETS[self.config.app_region])
         resp = self.request(method=method, url=url, data=data, **kwargs)
         if 400 <= resp.status_code < 600:
