@@ -158,9 +158,11 @@
                 "--app-region",
                 "en",
                 "--app-version",
-                "3.2.0",
+                "3.8.0",
                 "--app-appHash",
-                "1380836d-de9e-49a8-afe5-c52ba589c8c9"
+                "3272b0b0-f161-448e-8416-1f8bd2c443b3",
+                "--app-platform",
+                "ios"
             ],
             "justMyCode": true
         },

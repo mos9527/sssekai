@@ -375,15 +375,18 @@ class AbCache(Session):
             raise NotImplementedError
 
     def _update_request_headers(self):
+        app_platform_names = {
+            'ios':'iOS', 'android':'Android'
+        }
         self.headers.update(
             {
                 "Accept": "application/octet-stream",
                 "Content-Type": "application/octet-stream",
                 "Accept-Encoding": "deflate, gzip",
                 "User-Agent": "UnityPlayer/%s" % sssekai_get_unity_version(),
-                "X-Platform": self.config.app_platform.capitalize(),
+                "X-Platform": app_platform_names.get(self.config.app_platform,self.config.app_platform),
                 "X-DeviceModel": "sssekai/%s" % __version__,
-                "X-OperatingSystem": self.config.app_platform.capitalize(),
+                "X-OperatingSystem": app_platform_names.get(self.config.app_platform,self.config.app_platform),
                 "X-Unity-Version": sssekai_get_unity_version(),
                 "X-App-Version": self.SEKAI_APP_VERSION,
                 "X-App-Hash": self.SEKAI_APP_HASH,
