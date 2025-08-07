@@ -175,10 +175,13 @@ def main_apphash(args):
         if reader.type == UnityPy.enums.ClassIDType.MonoBehaviour:
             mono = reader.read(check_read=False)
             clazz = None
+            platform = None
             if "_android" in mono.m_Name:
                 clazz = AndroidPlayerSettingConfig
+                platform = "android"
             elif "_ios" in mono.m_Name:
                 clazz = IOSPlayerSettingConfig
+                platform = "ios"
             if clazz:
                 # Works with post 3.4 (JP 3rd Anniversary) builds and downstream regional builds
                 try:
@@ -212,6 +215,7 @@ def main_apphash(args):
                     f"Found {config.productName} at {config.m_Name}",
                     f"  Memo: {config.memo}",
                     f"  Package: {config.bundleIdentifier} (actually assumed as {package_heur})",
+                    f"  Platform: {platform}",
                     f"  AppHash (app_hash):     {config.clientAppHash}",
                     f"  Region  (app_region):   {region} (determined by {package_heur})",
                     f"  Version (app_version):  {app_version}",
@@ -224,14 +228,6 @@ def main_apphash(args):
                     sep="\n",
                     file=sys.stderr,
                 )
-                res[config.m_Name] = {
-                    "package": config.bundleIdentifier,
-                    "reported_package": package_heur,
-                    "app_hash": app_hash,
-                    "app_region": region,
-                    "app_version": app_version,
-                    "ab_version": ab_version,
-                }
                 app_package = app_package or "Unknown Package (Failed APK Heuristic)"
                 # fmt: off
                 match args.format:
@@ -242,6 +238,7 @@ def main_apphash(args):
                             "app_hash": app_hash,
                             "app_region": region,
                             "app_version": app_version,
+                            "app_platform": platform,
                             "ab_version": ab_version,
                         }
                     case "markdown":
@@ -255,7 +252,7 @@ Reported Package: {config.bundleIdentifier}
 
 - CLI Usage:
 
-        sssekai abcache --app-platform android --app-region {region} --app-version {app_version} --app-appHash {app_hash} --app-abVersion {ab_version}
+        sssekai abcache --app-platform {platform} --app-region {region} --app-version {app_version} --app-appHash {app_hash} --app-abVersion {ab_version}
 
 - Python Usage:
 
@@ -266,7 +263,7 @@ Reported Package: {config.bundleIdentifier}
             app_version="{app_version}",
             ab_version="{ab_version}",
             app_hash="{app_hash}",
-            app_platform="android"
+            app_platform="{platform}"
         )
 """
     print("###### RESULTS ######", file=sys.stderr)
