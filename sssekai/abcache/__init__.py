@@ -284,7 +284,7 @@ class AbCache(Session):
                     return "https://%s" % url
                 return "https://production-game-api.sekai.colorfulpalette.org"
             case "en":
-                return "https://n-production-game-api.sekai-en.com"
+                return f"https://n-{self.SEKAI_API_PROFILE}-game-api.sekai-en.com"
             case "tw":
                 return "https://mk-zian-obt-cdn.bytedgame.com"
             case "kr":
