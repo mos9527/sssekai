@@ -112,6 +112,20 @@ def main_abcache(args):
 
     config = cache.config
 
+    if not args.no_update:
+        if config.app_region != args.app_region:
+            logger.warning("Region differs. (%s->%s) Resetting database." % (config.app_region, args.app_region))
+            config.app_region = args.app_region
+            cache.database.reset()
+        config.app_version = args.app_version
+        config.app_platform = args.app_platform        
+        config.app_hash = args.app_appHash
+        config.row_ab_version = args.app_abVersion
+        config.asset_hash = args.app_asset_hash
+        config.asset_host = args.app_asset_host
+        config.asset_version = args.app_asset_version
+        config.auth_credential = args.auth_credential
+
     if args.proxy:
         logger.info("Overriding proxy: %s", args.proxy)
         cache.proxies = {"http": args.proxy, "https": args.proxy}
@@ -148,16 +162,6 @@ def main_abcache(args):
             logger.error("Failed to authenticate: %s", e)
             return False
 
-    if not args.no_update:
-        config.app_region = args.app_region
-        config.app_version = args.app_version
-        config.app_platform = args.app_platform
-        config.app_hash = args.app_appHash
-        config.row_ab_version = args.app_abVersion
-        config.asset_hash = args.app_asset_hash
-        config.asset_host = args.app_asset_host
-        config.asset_version = args.app_asset_version
-        config.auth_credential = args.auth_credential
 
     if config.app_region in {"jp"}:
         cache.update_signatures()

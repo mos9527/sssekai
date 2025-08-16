@@ -256,6 +256,13 @@ class SSSekaiDatabase:
     sekai_system_data: SekaiSystemData = None
     sekai_gameversion_data: SekaiGameVersionData = None
 
+    def reset(self):
+        self.sekai_user_data = None
+        self.sekai_user_auth_data = None
+        self.sekai_abcache_index = None
+        self.sekai_system_data = None
+        self.sekai_gameversion_data = None
+
 
 class AbCacheBundleNotFoundError(Exception):
     bundleName: str
