@@ -716,6 +716,7 @@ class AbCache(Session):
     def save(self, f: BinaryIO):
         self._update_request_headers()
         self.database.cached_headers = self.headers
+        self.database.config.version = __version_tuple__
         logger.info("Saving cache: %s" % self)
         dump(self.database, f)
 
