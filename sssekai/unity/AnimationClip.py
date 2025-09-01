@@ -1,7 +1,7 @@
 import struct
 from collections import defaultdict
 from typing import Dict, List, Generator
-from bisect import bisect_left
+from bisect import bisect_right
 from dataclasses import dataclass, field
 from UnityPy.enums import ClassIDType
 from UnityPy.classes import (
@@ -244,8 +244,10 @@ class KeyframeHelper:
         t, lhs: "KeyframeHelper", rhs: "KeyframeHelper", unit_t: bool = False
     ) -> float | Vector3 | Quaternion:
         EPS = 1e-8
+        if not rhs:
+            return lhs.value
         dx = rhs.time - lhs.time        
-        if not rhs or dx <= EPS:
+        if dx < EPS:
             return lhs.value
         if not unit_t:
             t -= lhs.time
@@ -343,10 +345,11 @@ class CurveHelper:
     Data: List[KeyframeHelper] = field(default_factory=list)
 
     def evaluate(self, t: float) -> float | Vector3 | Quaternion:  # O(log n)
-        lhs = bisect_left(self.Data, t, key=lambda x: x.time)
-        lhs = min(max(lhs, 0), len(self.Data) - 1)
-        rhs = min(lhs + 1, len(self.Data) - 1)
-        return KeyframeHelper.interpolate(t, self.Data[lhs], self.Data[rhs])
+        lhs = bisect_right(self.Data, t, key=lambda x: x.time) - 1
+        lhs = max(lhs, 0)
+        lhs = self.Data[lhs]
+        rhs = lhs.next
+        return KeyframeHelper.interpolate(t, lhs, rhs)
 
     def resample_dense(self, times: List[float]) -> "CurveHelper": # O(n)
         """Resamples the curve at given times **as a Dense curve**, losing all tangent information.
@@ -360,14 +363,13 @@ class CurveHelper:
         Returns:
             CurveHelper: A new CurveHelper with the sampled values
         """
-        lhs = 0
+        j = 0
         data = [None] * len(times)
         for i, t in enumerate(times):
-            while lhs + 1 < len(self.Data) and self.Data[lhs + 1].time < t:
-                lhs += 1            
-            lhs = min(max(lhs - 1, 0), len(self.Data) - 1)
-            rhs = min(lhs + 1, len(self.Data) - 1)
-            data[i] = KeyframeHelper.interpolate(t, self.Data[lhs], self.Data[rhs])
+            while j + 1 < len(self.Data) and self.Data[j].time <= t:
+                j += 1            
+            lhs = max(j - 1, 0)            
+            data[i] = KeyframeHelper.interpolate(t, self.Data[lhs], self.Data[lhs].next)
         slope = from_floats(*([0] * num_floats(data[0])))
         data = [KeyframeHelper(t, self.Binding.typeID, value, isDense=True, inSlope=slope, outSlope=slope) for t, value in zip(times, data)]
         for i in range(1, len(data)):
