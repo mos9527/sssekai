@@ -498,7 +498,7 @@ class AbCache(Session):
         return f"{self.SEKAI_API_ENDPOINT}/api/suite/user/{self.SEKAI_USERID}"
 
     @property
-    def SEKAI_API_MASTER_SUITE_URLS(self):
+    def SEKAI_API_MASTER_SUITE_URLS(self) -> List[str]:
         match self.config.app_region:
             case "jp":
                 self.raise_for_auth()
@@ -514,7 +514,7 @@ class AbCache(Session):
                 ]
         if self.config.app_region in REGION_ROW:
             self.raise_for_auth()
-            return f"{self.SEKAI_AB_ROW_CDN}/{self.SEKAI_AB_ROW_PATH}/master-data-{self.database.sekai_user_auth_data.cdnVersion}.info"
+            return [f"{self.SEKAI_AB_ROW_CDN}/{self.SEKAI_AB_ROW_PATH}/master-data-{self.database.sekai_user_auth_data.cdnVersion}.info"]
         else:
             raise NotImplementedError
 
