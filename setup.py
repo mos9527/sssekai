@@ -24,7 +24,15 @@ setuptools.setup(
     install_requires=[        
         "msgpack",
         "requests",
-        "pycryptodome",        
+        "pycryptodome",     
+        # Kolbe hasn't made an updated release yet, which is to be expected to resolve
+        # the following issues.
+        # - https://github.com/K0lb3/UnityPy/issues/341
+        # - https://github.com/K0lb3/UnityPy/pull/342
+        # - https://github.com/K0lb3/UnityPy/pull/338
+        # - https://github.com/K0lb3/UnityPy/pull/334
+        # And no - these shouldn't affect you if you don't use https://github.com/mos9527/sssekai_blender_io
+        # or anything Mesh/Texture2D related.
         "unitypy >= 1.23.0",
         "tqdm",
         "coloredlogs",
