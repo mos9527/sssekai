@@ -165,6 +165,13 @@ This crypto applies to:
         action="store_true",
         help="skip all metadata updates and use cached ones as is. this supercedes 'game version options' and 'authentication options'",
     )
+    group.add_argument(
+        "--dump",
+        type=str,
+        help="dump the AssetBundle index to the specified JSON file and exit",
+        default=None,
+        **gooey_only(widget="FileSaver"),
+    )
     group = abcache_parser.add_argument_group(
         "game version options",
         "NOTE: these options are used to *update* the cache database. Use --no-update to skip updating. Also, you may want to read the Wiki to know how to get these values.",

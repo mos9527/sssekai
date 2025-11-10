@@ -194,19 +194,33 @@ def main_abcache(args):
         )
         return
 
-    if not args.no_update:
-        if config.need_client_header_update:
-            if config.app_region in REGION_JP_EN:
-                assert (
-                    try_auth()
-                ), "Cannot update client headers without auth info. NOTE: You can fill in the EN/JP override fields (`--app-asset-...`) to bypass auth."
-            cache.update_client_headers()
-        cache.update_abcache_index()
-        if os.path.dirname(db_path):
-            os.makedirs(os.path.dirname(db_path), exist_ok=True)
-        with open(db_path, "wb") as f:
-            cache.save(f)
+    try:
+        if not args.no_update:
+            if config.need_client_header_update:
+                if config.app_region in REGION_JP_EN:
+                    assert (
+                        try_auth()
+                    ), "Cannot update client headers without auth info. NOTE: You can fill in the EN/JP override fields (`--app-asset-...`) to bypass auth."
+                cache.update_client_headers()
+            cache.update_abcache_index()
+            if os.path.dirname(db_path):
+                os.makedirs(os.path.dirname(db_path), exist_ok=True)
+            with open(db_path, "wb") as f:
+                cache.save(f)
+    except Exception as e:
+        logger.warning("Cache update failure: %s", e)        
+        logger.warning("Continuing with possibly stale cache. To explicitly do this, use --no-update.")
 
+    if args.dump:
+        dump_path = os.path.expanduser(args.dump)
+        dump_path_dir = os.path.dirname(dump_path)
+        if dump_path_dir and not os.path.exists(dump_path_dir):
+            os.makedirs(dump_path_dir, exist_ok=True)
+        logger.info("Dumping AssetBundle index to %s", dump_path)
+        from dataclasses import asdict
+        with open(dump_path, "w", encoding="utf-8") as f:
+            json.dump(asdict(cache.abcache_index), f, indent=4, ensure_ascii=False)
+        
     if args.download_dir:
         download_dir = os.path.expanduser(args.download_dir)
         bundles = set()

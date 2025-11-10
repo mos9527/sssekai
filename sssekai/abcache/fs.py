@@ -148,7 +148,7 @@ class AbCacheFile(AbstractBufferedFile):
         return __innner()
 
     def _fetch_range(self, start, end):
-        assert start - self.fetch_loc == 0, "can only fetch sequentially"
+        assert start - self.fetch_loc == 0, f"can only fetch sequentially. {start=} {self.fetch_loc=}"
         self.fetch_loc = end
         return next(self.__fetch, b"")
 
