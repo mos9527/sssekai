@@ -230,6 +230,11 @@ This crypto applies to:
     )
     group = abcache_parser.add_argument_group("download options")
     group.add_argument(
+        "--download-no-overwrite",
+        action="store_true",
+        help="skip downloading AssetBundles that are already present in the download directory",        
+    )
+    group.add_argument(
         "--download-filter",
         type=str,
         help="filter AssetBundles (by bundle names) with this regex pattern",

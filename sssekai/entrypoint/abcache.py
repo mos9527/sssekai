@@ -26,12 +26,13 @@ class AbCacheDownloader(ThreadPoolExecutor):
         src, dest = args
         src: AbCacheFile
         dest: str
+        tmp_dest = dest + ".tmp"
         for _ in range(0, RETRIES):
             n_written = 0
             try:
                 if os.path.dirname(dest):
-                    os.makedirs(os.path.dirname(dest), exist_ok=True)
-                with open(dest, "wb") as f:
+                    os.makedirs(os.path.dirname(dest), exist_ok=True)                
+                with open(tmp_dest, "wb") as f:
                     while block := src.read(65536):
                         n_block = f.write(block)
                         self.progress.update(n_block)
@@ -39,11 +40,13 @@ class AbCacheDownloader(ThreadPoolExecutor):
                         if self._shutdown:
                             self.progress.update(-n_written)
                             return
-                    return
+                os.replace(tmp_dest, dest)
+                return
             except Exception as e:
                 logger.error("While downloading %s : %s. Retrying" % (src.path, e))
                 self.progress.update(-n_written)
-                time.sleep(1)
+                os.remove(tmp_dest) if os.path.exists(tmp_dest) else None
+                time.sleep(1)                
 
         if _ == RETRIES - 1:
             logger.critical("Did not download %s" % src.path)
@@ -280,9 +283,13 @@ def main_abcache(args):
         with AbCacheDownloader(fs, max_workers=args.download_workers) as downloader:
             logger.info("Downloading %d bundles to %s" % (len(bundles), download_dir))
             for bundleName in bundles:
-                downloader.add_link(
-                    fs.open(bundleName), os.path.join(download_dir, bundleName)
-                )
+                dst = os.path.join(download_dir, bundleName)                
+                if args.download_no_overwrite and os.path.exists(dst):
+                    logger.info("Skipping existing bundle %s", bundleName)
+                else:
+                    downloader.add_link(
+                        fs.open(bundleName), os.path.join(download_dir, bundleName)
+                    )
             try:
                 downloader.run_until_complete()
             except KeyboardInterrupt:
