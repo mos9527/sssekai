@@ -14,11 +14,13 @@ def main_abdecrypt(args):
     assert args.indir != args.outdir, "Input and output directories must be different"
     for root, dirs, files in tree:
         for fname in files:
-            file = os.path.join(root, fname)
-            if os.path.isfile(file):
-                logger.info("Decrypting %s", file)
+            file = Path(root) / fname
+            if file.is_file():                
                 with open(file, "rb") as src:
                     next_bytes = lambda nbytes: src.read(nbytes)
-                    with open(os.path.join(args.outdir, fname), "wb") as dest:
+                    out_path = args.outdir / file.relative_to(args.indir)
+                    out_path.parent.mkdir(parents=True, exist_ok=True)
+                    logger.info("Decrypting %s -> %s", file.as_posix(), out_path.as_posix())
+                    with open(out_path, "wb") as dest:
                         for block in decrypt_iter(next_bytes):
                             dest.write(block)
