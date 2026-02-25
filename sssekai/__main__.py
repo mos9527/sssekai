@@ -494,16 +494,8 @@ def __main__():
     parser = create_parser(argparse.ArgumentParser)
     args = parser.parse_args()
     # set logging level
-    import coloredlogs
     from logging import basicConfig
 
-    coloredlogs.install(
-        level=args.log_level,
-        format="%(asctime)s | %(levelname).1s | %(name)s %(message)s",
-        datefmt="%H:%M:%S",
-        isatty=True,
-        stream=TqdmMutexStream,
-    )
     basicConfig(
         level=args.log_level,
         format="%(asctime)s | %(levelname).1s | %(name)s %(message)s",
@@ -525,4 +517,13 @@ def __main__():
 
 
 if __name__ == "__main__":
+    import coloredlogs
+
+    coloredlogs.install(
+        level=args.log_level,
+        format="%(asctime)s | %(levelname).1s | %(name)s %(message)s",
+        datefmt="%H:%M:%S",
+        isatty=True,
+        stream=TqdmMutexStream,
+    )    
     sys.exit(__main__() or 0)

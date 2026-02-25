@@ -25,19 +25,11 @@ setuptools.setup(
         "msgpack",
         "requests",
         "pycryptodome",     
-        # Kolbe hasn't made an updated release yet, which is to be expected to resolve
-        # the following issues.
-        # - https://github.com/K0lb3/UnityPy/issues/341
-        # - https://github.com/K0lb3/UnityPy/pull/342
-        # - https://github.com/K0lb3/UnityPy/pull/338
-        # - https://github.com/K0lb3/UnityPy/pull/334
-        # And no - these shouldn't affect you if you don't use https://github.com/mos9527/sssekai_blender_io
-        # or anything Mesh/Texture2D related.
-        "unitypy >= 1.23.0",
+        "unitypy >= 1.25.0, < 2.0.0",
         "tqdm",
         "coloredlogs",
     ],
-    extras_require={"gui": ["GooeyEx>=0.0.8"], "il2cpp": ["lief"], "criware": ["PyCriCodecsEx"]},
+    extras_require={"gui": ["GooeyEx>=0.1.1"], "il2cpp": ["lief"], "criware": ["PyCriCodecsEx"]},
     entry_points={
         "console_scripts": [
             "sssekai = sssekai.__main__:__main__",
